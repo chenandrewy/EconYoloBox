@@ -8,6 +8,7 @@ ARG CLAUDE_CODE_VERSION=latest
 ARG CODEX_CLI_VERSION=latest
 ARG PANDOC_VERSION=3.9.0.2
 ARG PANDOC_CROSSREF_VERSION=v0.3.23a
+ARG LYX_VERSION=2.4.3-1~bpo12+1
 
 # Install core system tools and build prerequisites.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -144,9 +145,17 @@ RUN Rscript -e " \
 # Allow non-root user to install R packages at runtime.
 RUN chmod -R a+w /usr/local/lib/R/site-library
 
-# Keep a small late convenience layer for non-TeX workflow tweaks.
+# Pin LyX to the Debian 12 backports build so export/import behavior stays
+# stable even if the base `node:20` tag changes over time.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates \
   rsync \
+  && echo "deb http://deb.debian.org/debian bookworm-backports main" > /etc/apt/sources.list.d/bookworm-backports.list \
+  && apt-get update \
+  && apt-get install -y --no-install-recommends \
+  lyx=${LYX_VERSION} \
+  lyx-common=${LYX_VERSION} \
+  && apt-mark hold lyx lyx-common \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ARG GIT_DELTA_VERSION=0.18.2

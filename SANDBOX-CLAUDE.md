@@ -18,3 +18,13 @@ nolink "false"
 
 \end_inset
 ```
+
+## Journaling
+
+Journaling refers to taking messy notes. 
+
+- Journal notes should be in `dev/journal/` folders within the appropriate project folder.
+- Use the filename format `[MMDD]T[HH]-[max-three-word-description]`, e.g. `0423T13-sandbox-structure.md` for April 23, 1 pm.
+
+## Time Zones
+- Use New York time for all timestamps

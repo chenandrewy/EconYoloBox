@@ -4,5 +4,5 @@ __pycache__/
 *.py[cod]
 
 # Project folders
-Ref-JF
-Singularity
+Ref-JF/
+Singularity/

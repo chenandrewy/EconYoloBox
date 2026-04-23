@@ -20,6 +20,7 @@ _spec.loader.exec_module(_mod)
 get_all_credentials = _mod.get_all_credentials
 
 ENV_FILE = "/tmp/devcontainer-credentials.env"
+DELETE_AFTER_SECONDS = 1200
 
 
 def main() -> int:
@@ -45,12 +46,12 @@ def main() -> int:
     print(f"Credentials written to {ENV_FILE}: {', '.join(found.keys())}")
 
     subprocess.Popen(
-        ["bash", "-c", f"sleep 600 && rm -f {ENV_FILE}"],
+        ["bash", "-c", f"sleep {DELETE_AFTER_SECONDS} && rm -f {ENV_FILE}"],
         start_new_session=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
-    print(f"Scheduled auto-delete of {ENV_FILE} in 600 seconds")
+    print(f"Scheduled auto-delete of {ENV_FILE} in {DELETE_AFTER_SECONDS} seconds")
 
     return 0
 
