@@ -39,6 +39,7 @@ Keys are credential store entry names; values are the env var names scripts will
 - `Dockerfile` — container image definition.
 - `init-firewall.sh` — network firewall rules applied post-create.
 - `aliases.sh` — shell aliases for the container environment.
+- `seed-agent-guidelines.sh` — seeds user-level Claude and Codex guidance files inside the container when those files are missing.
 
 ### Persistent auth state
 
@@ -49,6 +50,20 @@ The template mounts persistent volumes for:
 - `/home/node/.config/gh` — GitHub CLI auth and config
 
 This keeps interactive login state across container rebuilds and restarts.
+
+### Sandbox Guidance Seeding
+
+The repo keeps the canonical sandbox guidance in:
+
+- `SANDBOX-CLAUDE.md`
+- `SANDBOX-AGENTS.md`
+
+On container start, `.devcontainer/seed-agent-guidelines.sh` copies those files into the persistent user config volumes if the targets are missing or empty:
+
+- `/home/node/.claude/CLAUDE.md`
+- `/home/node/.codex/AGENTS.md`
+
+This avoids overwriting container-local edits on every start while still giving fresh containers a sensible default.
 
 ### Dockerfile ordering
 

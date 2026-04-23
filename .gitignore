@@ -1,5 +1,7 @@
 # sync items
 .DS_Store
+__pycache__/
+*.py[cod]
 
 # Project folders
 Ref-JF
