@@ -34,7 +34,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ripgrep \
   fd-find \
   bat \
+  shellcheck \
   poppler-utils \
+  build-essential \
+  zlib1g-dev \
+  # Some R packages use native builds that expect cmake/pkg-config toolchains.
+  cmake \
+  pkg-config \
+  xz-utils \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Pin Git to the host workflow version so worktree behavior matches outside the container.
@@ -57,12 +64,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libxml2-dev \
   libpq-dev \
   libsecret-1-dev \
+  libfreetype6-dev \
+  libharfbuzz-dev \
+  libfribidi-dev \
   libuv1-dev \
-  texlive-latex-recommended \
-  texlive-latex-extra \
-  texlive-fonts-recommended \
-  texlive-bibtex-extra \
-  cm-super \
+  texlive-full \
   biber \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -71,7 +77,9 @@ RUN mkdir -p /usr/local/share/npm-global && \
   chown -R node:node /usr/local/share
 
 # Git defaults
-RUN git config --system merge.ff false
+RUN git config --system merge.ff false && \
+  git config --system pager.branch cat && \
+  git config --system core.editor nano
 
 ARG USERNAME=node
 
@@ -108,22 +116,44 @@ RUN pip install --no-cache-dir \
   pyfixest
 RUN chown -R node:node /opt/venv
 
-# Keep libuv headers available so future R packages such as fs compile without extra debugging.
-# Install core R data and WRDS tooling.
+# Install R packages in stable chunks so small later edits do not force
+# reinstalling the entire data-analysis stack.
 RUN Rscript -e "install.packages(c('DBI','RPostgres','dplyr','data.table','keyring'), repos='https://cloud.r-project.org')"
+RUN Rscript -e "install.packages(c('tidyverse','lubridate','readxl','writexl'), repos='https://cloud.r-project.org')"
+# pryr is archived on CRAN, so install its current build deps first and then
+# pin pryr from the archive explicitly.
+RUN Rscript -e "install.packages(c('lobstr','Rcpp'), repos='https://cloud.r-project.org'); install.packages('https://cran.r-project.org/src/contrib/Archive/pryr/pryr_0.1.6.tar.gz', repos=NULL, type='source')"
+RUN Rscript -e "install.packages(c('ggrepel','gridExtra','xtable'), repos='https://cloud.r-project.org')"
+RUN Rscript -e "install.packages(c('doParallel','foreach','fst'), repos='https://cloud.r-project.org')"
+RUN Rscript -e "install.packages(c('lme4','ccaPP','zoo'), repos='https://cloud.r-project.org')"
+RUN Rscript -e "install.packages(c('fs','getPass','googledrive','here','tictoc','tm'), repos='https://cloud.r-project.org')"
+RUN Rscript -e "install.packages('languageserver', repos='https://cloud.r-project.org')"
+
+RUN Rscript -e " \
+  pkgs <- c('DBI','RPostgres','dplyr','data.table','keyring', \
+            'tidyverse','lubridate','readxl','writexl', \
+            'lobstr','Rcpp','pryr', \
+            'ggrepel','gridExtra','xtable', \
+            'doParallel','foreach','fst', \
+            'lme4','ccaPP','zoo', \
+            'fs','getPass','googledrive','here','tictoc','tm', \
+            'languageserver'); \
+  missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly=TRUE)]; \
+  if (length(missing)) { cat('MISSING:', paste(missing, collapse=', '), '\n'); q(status=1) }"
 
 # Allow non-root user to install R packages at runtime.
 RUN chmod -R a+w /usr/local/lib/R/site-library
+
+# Keep a small late convenience layer for non-TeX workflow tweaks.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  rsync \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ARG GIT_DELTA_VERSION=0.18.2
 RUN ARCH=$(dpkg --print-architecture) && \
   wget "https://github.com/dandavison/delta/releases/download/${GIT_DELTA_VERSION}/git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   sudo dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
-
-# Install lmodern explicitly so kpsewhich resolves lmodern.sty in the container.
-RUN apt-get update && apt-get install -y --no-install-recommends lmodern \
-  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create node-owned workspace and config directories before switching users.
 # Pre-creating the gh config path avoids Docker creating it as root during volume mount.
@@ -166,10 +196,7 @@ RUN npm install -g \
   @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
   @openai/codex@${CODEX_CLI_VERSION}
 
-# xz-utils is needed to extract the pandoc-crossref .tar.xz archive.
 USER root
-RUN apt-get update && apt-get install -y --no-install-recommends xz-utils \
-  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install matching upstream pandoc and pandoc-crossref binaries.
 RUN ARCH=$(dpkg --print-architecture) && \

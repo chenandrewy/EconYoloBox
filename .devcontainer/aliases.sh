@@ -2,6 +2,12 @@
 
 alias cchat-yolo='claude --dangerously-skip-permissions'
 alias gptchat-yolo="codex --sandbox danger-full-access"
+alias hostname-local='echo "$LOCAL_HOSTNAME"'
+alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'
+
+vscode-local-cmd() {
+    printf 'code -n %q\n' "$LOCAL_CONTAINER_FOLDER"
+}
 
 claude-yolo() {
     local fmt="${CLAUDE_OUTPUT:-text}"

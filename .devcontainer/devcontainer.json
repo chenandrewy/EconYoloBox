@@ -4,16 +4,18 @@
     "dockerfile": "Dockerfile",
     "args": {
       "TZ": "${localEnv:TZ:America/New_York}",
+      "GIT_VERSION": "2.49.0",
       "CLAUDE_CODE_VERSION": "latest",
       "CODEX_CLI_VERSION": "latest",
       "GIT_DELTA_VERSION": "0.18.2",
       "ZSH_IN_DOCKER_VERSION": "1.2.0"
     }
   },
-  "initializeCommand": "bash -c 'source .devcontainer/find-python.sh && $PYTHON .devcontainer/inject-credentials.py'",
+  "initializeCommand": "bash -c 'bash .devcontainer/write-local-env.sh && source .devcontainer/find-python.sh && $PYTHON .devcontainer/inject-credentials.py'",
   "runArgs": [
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
+    "--env-file=/tmp/devcontainer-local.env",
     "--env-file=/tmp/devcontainer-credentials.env"
   ],
   "customizations": {
@@ -27,7 +29,8 @@
         "eamodio.gitlens",
         "tomoki1207.pdf",
         "james-yu.latex-workshop",
-        "donjayamanne.githistory"
+        "donjayamanne.githistory",
+        "ikuyadeu.r-pack"
       ],
       "settings": {
         "editor.formatOnSave": true,
@@ -38,7 +41,7 @@
         "editor.codeActionsOnSave": {
           "source.fixAll.eslint": "explicit"
         },
-        "window.title": "[${localWorkspaceFolderBasename}]${separator}${dirty}${activeEditorShort}",
+        "window.title": "<${localWorkspaceFolderBasename}>${separator}${dirty}${activeEditorShort}",
         "terminal.integrated.defaultProfile.linux": "zsh",
         "terminal.integrated.profiles.linux": {
           "bash": {
