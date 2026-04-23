@@ -41,7 +41,7 @@
         "editor.codeActionsOnSave": {
           "source.fixAll.eslint": "explicit"
         },
-        "window.title": "<${localWorkspaceFolderBasename}>${separator}${dirty}${activeEditorShort}",
+        "window.title": "<${rootName}>${separator}${dirty}${activeEditorShort}",
         "terminal.integrated.defaultProfile.linux": "zsh",
         "terminal.integrated.profiles.linux": {
           "bash": {
