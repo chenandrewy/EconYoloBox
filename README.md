@@ -17,6 +17,7 @@ Root-level dot folders:
 - `.credentials/`: local credential and environment support
 - `.devcontainer/`: shared root devcontainer for the sandbox environment
 - `.git/`: repository metadata
+- `.tools/`: local utility scripts for workspace maintenance and document processing
 
 Other root-level support files:
 
