@@ -38,7 +38,7 @@ Keys are credential store entry names; values are the env var names scripts will
 - `devcontainer.json` — container configuration.
 - `Dockerfile` — container image definition.
 - `init-firewall.sh` — network firewall rules applied post-create.
-- `aliases.sh` — shell aliases for the container environment.
+- `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
 - `seed-agent-guidelines.sh` — seeds user-level Claude and Codex guidance files inside the container when those files are missing.
 
 ### Persistent auth state

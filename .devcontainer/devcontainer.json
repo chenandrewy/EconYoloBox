@@ -11,6 +11,7 @@
       "ZSH_IN_DOCKER_VERSION": "1.2.0"
     }
   },
+  "userEnvProbe": "none",
   "initializeCommand": "bash -c 'bash .devcontainer/write-local-env.sh && source .devcontainer/find-python.sh && $PYTHON .devcontainer/inject-credentials.py'",
   "runArgs": [
     "--cap-add=NET_ADMIN",

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+export PATH="/workspace/.tools:$PATH"
+
 alias cchat-yolo='claude --dangerously-skip-permissions'
 alias gptchat-yolo="codex --sandbox danger-full-access"
 alias hostname-local='echo "$LOCAL_HOSTNAME"'

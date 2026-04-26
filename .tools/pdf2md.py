@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # Inputs:
 #   - Path to a source PDF file (positional argument).
 #   - Destination markdown path (positional argument).
