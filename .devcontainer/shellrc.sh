@@ -3,11 +3,18 @@
 export PATH="/workspace/.tools:$PATH"
 
 alias cchat-yolo='claude --dangerously-skip-permissions'
-alias gptchat-yolo="codex --sandbox danger-full-access"
 alias hostname-local='echo "$LOCAL_HOSTNAME"'
 alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'
 
-vscode-local-cmd() {
+gptchat-yolo() {
+    codex --dangerously-bypass-approvals-and-sandbox "$@"
+}
+
+gptmini-yolo() {
+    codex --model gpt-5.4-mini --dangerously-bypass-approvals-and-sandbox "$@"
+}
+
+loccode() {
     printf 'code -n %q\n' "$LOCAL_CONTAINER_FOLDER"
 }
 

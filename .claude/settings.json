@@ -1,7 +1,7 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "bash .claude/statusline-command.sh"
+    "command": "bash /workspace/.claude/statusline-command.sh"
   },
   "gitAttribution": false,
   "includeCoAuthoredBy": false  

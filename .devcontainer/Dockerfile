@@ -114,7 +114,10 @@ RUN pip install --no-cache-dir \
   beautifulsoup4 \
   lxml \
   pyarrow \
-  pyfixest
+  pyfixest \
+  PyMuPDF \
+  pikepdf \
+  openai
 RUN chown -R node:node /opt/venv
 
 # Install R packages in stable chunks so small later edits do not force
@@ -221,6 +224,23 @@ RUN ARCH=$(dpkg --print-architecture) && \
   tar -C /tmp -xJf /tmp/pandoc-crossref.tar.xz && \
   install -m 0755 /tmp/pandoc-crossref /usr/local/bin/pandoc-crossref && \
   rm -rf /tmp/pandoc.tar.gz /tmp/pandoc-crossref.tar.xz /tmp/pandoc-${PANDOC_VERSION} /tmp/pandoc-crossref
+
+# latexindent is installed by TeX Live, but --no-install-recommends can omit
+# Perl modules it needs at runtime.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  libyaml-tiny-perl \
+  libfile-homedir-perl \
+  liblog-log4perl-perl \
+  liblog-dispatch-perl \
+  libunicode-linebreak-perl \
+  librsvg2-bin \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Extra Python deps added in late layers so future bumps don't invalidate
+# the heavy R / LyX / pandoc layers above.
+RUN pip install --no-cache-dir \
+  requests \
+  && chown -R node:node /opt/venv
 
 # Copy and set up firewall script
 COPY init-firewall.sh /usr/local/bin/

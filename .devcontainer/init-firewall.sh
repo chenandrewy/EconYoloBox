@@ -78,13 +78,13 @@ for domain in \
     "api.githubcopilot.com" \
     "auth.openai.com" \
     "api.openai.com" \
+    "api.openalex.org" \
+    "openrouter.ai" \
     "chatgpt.com" \
     "ab.chatgpt.com" \
     "chat.openai.com" \
     "api.anthropic.com" \
     "sentry.io" \
-    "statsig.anthropic.com" \
-    "statsig.com" \
     "wrds-pgdata.wharton.upenn.edu" \
     "ssrn.com" \
     "www.ssrn.com" \
@@ -98,14 +98,11 @@ for domain in \
     "files.pythonhosted.org" \
     "api.stlouisfed.org" \
     "fred.stlouisfed.org" \
-    "api.worldbank.org" \
-    "data.worldbank.org" \
-    "dataservices.imf.org" \
     "mba.tuck.dartmouth.edu" \
     "global-q.org" \
     "www.agr.com"; do
     echo "Resolving $domain..."
-    ips=$(dig +short A "$domain" | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$')
+    ips=$(dig +short A "$domain" | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || true)
     if [ -z "$ips" ]; then
         echo "ERROR: Failed to resolve $domain"
         exit 1

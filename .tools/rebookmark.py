@@ -17,15 +17,16 @@ Examples:
 PDF Rebookmarker with LLM Section Detection
 
 Removes existing bookmarks from a PDF and rebuilds them using:
-    - Gemini Flash (via OpenRouter) for main section headings.
-    - Gemini Flash (via OpenRouter) for figure captions.
+    - The configured OpenRouter model for main section headings.
+    - The configured OpenRouter model for figure captions.
     - Local heuristics for references, appendices, and table captions.
 
 Dependencies:
-    pip install pikepdf PyMuPDF openai python-dotenv
+    pip install pikepdf PyMuPDF openai
 
 Environment:
-    OPENROUTER_API_KEY - Your OpenRouter API key (or use .env file)
+    OPENROUTER_API_KEY - Your OpenRouter API key
+    OPENROUTER_MODEL - Optional model override (defaults to google/gemini-2.5-flash)
 """
 
 import json
@@ -37,17 +38,13 @@ from typing import Dict, List, Optional, Tuple
 
 import fitz  # PyMuPDF
 import pikepdf
-from dotenv import load_dotenv
 from openai import OpenAI
 
-# Load environment variables
-load_dotenv()
-
 # Configuration
-MODEL_NAME = "google/gemini-2.0-flash-001"
+MODEL_NAME = os.getenv("OPENROUTER_MODEL", "google/gemini-2.5-flash")
 
 FIGURE_PATTERN = re.compile(
-    r"^(?:figure|fig\.?|figura)\s*(?:[A-Z]*\d+(?:[.\-]\d+)*|[IVXLC]+)\b.*",
+    r"^(?:figure|fig\.?|figura)\s*(?:[A-Z]*[-\s]?\d+(?:[.\-]\d+)*|[IVXLC]+)\b.*",
     re.IGNORECASE,
 )
 
@@ -84,7 +81,7 @@ ADDITIONAL_SECTION_RULES = [
 
 
 class SectionDetector:
-    """Uses Gemini Flash via OpenRouter to detect main section headers in PDF text."""
+    """Uses an OpenRouter model to detect main section headers in PDF text."""
 
     def __init__(self, api_key: str):
         self.client = OpenAI(
@@ -116,10 +113,9 @@ class SectionDetector:
 - 3 Results / Findings
 - 4 Discussion
 - 5 Conclusion
-- 6 References / Bibliography
 
 Preserve the section numbers in the title (e.g. "1. Introduction")
-Ignore subsections (e.g. "1.1 Sample Splitting"), numbered lists, and paragraphs that refer to sections. 
+Ignore subsections (e.g. "1.1 Sample Splitting"), numbered lists, and paragraphs that refer to sections.
 
 Text to analyze:
 {combined_text}
@@ -166,7 +162,7 @@ Return ONLY a JSON array:
 
 
 class FigureDetector:
-    """Uses Gemini Flash via OpenRouter to detect figure captions."""
+    """Uses an OpenRouter model to detect figure captions."""
 
     def __init__(self, api_key: str):
         self.client = OpenAI(
@@ -186,29 +182,11 @@ class FigureDetector:
                 if not FIGURE_PATTERN.match(normalized):
                     continue
 
-                block_lines = [raw_line.strip()]
-                follow_idx = line_idx + 1
-                appended = 0
-                # Captions often wrap to the next line; capture a bit of that context.
-                while follow_idx < len(lines):
-                    next_line = lines[follow_idx].strip()
-                    normalized_next = normalize_heading(next_line)
-                    if not next_line:
-                        follow_idx += 1
-                        break
-                    if FIGURE_PATTERN.match(normalized_next):
-                        break
-                    block_lines.append(next_line)
-                    appended += 1
-                    follow_idx += 1
-                    if appended >= 2:
-                        break
-                candidate_text = " ".join(block_lines)
                 prev_line = lines[line_idx - 1].strip() if line_idx > 0 else ""
-                next_line = lines[follow_idx].strip() if follow_idx < len(lines) else ""
+                next_line = lines[line_idx + 1].strip() if line_idx + 1 < len(lines) else ""
                 candidates.append({
                     "page": page_idx,
-                    "text": candidate_text,
+                    "text": normalized,
                     "previous": prev_line,
                     "next": next_line
                 })
@@ -262,10 +240,14 @@ Candidates:
                 model=MODEL_NAME,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=800
+                max_tokens=2000
             )
 
             response_text = response.choices[0].message.content.strip()
+
+            fence_match = re.match(r"^```(?:json)?\s*\n?(.*?)\n?```\s*$", response_text, re.DOTALL)
+            if fence_match:
+                response_text = fence_match.group(1).strip()
 
             json_match = re.search(r'\[.*\]', response_text, re.DOTALL)
             if not json_match:
@@ -376,7 +358,6 @@ def detect_additional_sections(page_texts: List[Tuple[int, str]], existing_secti
         for section in existing_sections
     }
     additional_sections: List[Dict] = []
-    table_counter = 0
 
     for rule in ADDITIONAL_SECTION_RULES:
         matches = find_rule_matches(page_texts, rule)
@@ -397,8 +378,12 @@ def detect_additional_sections(page_texts: List[Tuple[int, str]], existing_secti
         else:
             for page_idx, matched_title in matches:
                 if rule["key"] == "table_caption":
-                    table_counter += 1
-                    title = f"Tab {table_counter}"
+                    num_match = re.search(
+                        r"(?:table|tab\.?|tbl\.?)\s*([A-Z]*\d+(?:[.\-]\d+)*|[IVXLC]+)",
+                        matched_title,
+                        re.IGNORECASE,
+                    )
+                    title = f"Tab {num_match.group(1).rstrip(':. ')}" if num_match else matched_title
                 else:
                     title = rule.get("canonical_title") or matched_title
                 normalized_title = title.strip()
@@ -423,7 +408,7 @@ def simplify_figure_titles(figure_sections: List[Dict]) -> List[Dict]:
         if match:
             label = match.group(0)
             number_match = re.search(
-                r"(?:figure|fig\.?|figura)\s*([A-Z]*\d+(?:[.\-]\d+)*|[IVXLC]+)",
+                r"(?:figure|fig\.?|figura)\s*([A-Z]*[-\s]?\d+(?:[.\-]\d+)*|[IVXLC]+)",
                 label,
                 re.IGNORECASE,
             )
@@ -524,7 +509,7 @@ def main():
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         print("Error: OPENROUTER_API_KEY environment variable not set")
-        print("Create a .env file with: OPENROUTER_API_KEY=your_key_here")
+        print("Run `python .credentials/setup.py` on your host to save it.")
         sys.exit(1)
     
     print(f"Processing {input_file}...")

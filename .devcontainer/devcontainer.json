@@ -31,7 +31,8 @@
         "tomoki1207.pdf",
         "james-yu.latex-workshop",
         "donjayamanne.githistory",
-        "ikuyadeu.r-pack"
+        "ikuyadeu.r-pack",
+        "reditorsupport.r"
       ],
       "settings": {
         "editor.formatOnSave": true,

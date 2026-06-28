@@ -2,11 +2,6 @@
 
 This repository root is a shared sandbox for active projects plus the harness used to build and run agentic tooling around them.
 
-Current active projects:
-
-- `Ref-JF`
-- `Singularity`
-
 The rest of the root-level files and directories are primarily support infrastructure.
 
 Root-level dot folders:

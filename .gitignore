@@ -3,7 +3,25 @@
 __pycache__/
 *.py[cod]
 
-# Project folders
+# Private project folders — NOT for public sharing.
+# Folders use a "Prefix,Name" (or "Prefix-Name") convention; both comma and
+# dash forms are matched so private work is never staged. Add prefixes here.
+Ref,*/
+Disc,*/
+Travel,*/
 Ref-*/
 Disc-*/
+Travel-*/
+Risk-vs-Writing/
+WA-Claude/
+goners/
 Singularity/
+
+# messy templates
+template/
+
+# for codex autocomplete convenience
+.git/
+
+# local-only Claude Code permissions
+.claude/settings.local.json
