@@ -1,20 +1,18 @@
 #!/bin/bash
-# ABOUTME: Seeds persistent user-level Claude and Codex guidance from the
-# ABOUTME: sandbox's canonical markdown files when the targets are missing.
+# ABOUTME: Links persistent user-level Claude and Codex guidance to the
+# ABOUTME: sandbox's canonical markdown files so edits apply without a rebuild.
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SANDBOX_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
 
-seed_if_missing() {
+link_guidelines() {
     local src=$1
     local dst=$2
 
     mkdir -p "$(dirname "$dst")"
-    if [ ! -s "$dst" ]; then
-        cp "$src" "$dst"
-    fi
+    ln -sfn "$src" "$dst"
 }
 
-seed_if_missing "$SANDBOX_ROOT/SANDBOX-CLAUDE.md" "$HOME/.claude/CLAUDE.md"
-seed_if_missing "$SANDBOX_ROOT/SANDBOX-AGENTS.md" "$HOME/.codex/AGENTS.md"
+link_guidelines "$SANDBOX_ROOT/SANDBOX-CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+link_guidelines "$SANDBOX_ROOT/SANDBOX-AGENTS.md" "$HOME/.codex/AGENTS.md"
