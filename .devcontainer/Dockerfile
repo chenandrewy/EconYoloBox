@@ -56,6 +56,7 @@ RUN wget -O /tmp/git.tar.gz "https://mirrors.edge.kernel.org/pub/software/scm/gi
 # force a Git rebuild.
 RUN apt-get update && apt-get install -y --no-install-recommends \
   python3 \
+  python3-dev \
   python3-pip \
   python3-venv \
   r-base \
