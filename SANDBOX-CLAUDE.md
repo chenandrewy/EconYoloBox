@@ -54,7 +54,12 @@ The user will ask for code reviews from using Codex or Claude.
 
 ## Custom Tools
 
-There are various custom tools in  `/workspace/.tools/`. Check this folder when the user asks for using '.tools'. 
+Custom tools live in `/workspace/.tools/`, organized by topic. Check these folders when the user asks for using '.tools'. All are on `PATH` (set in `.devcontainer/shellrc.sh`), so the filenames are the commands:
+
+- `.tools/pdf/`: `pdf2md.py` (PDF to markdown), `rebookmark.py` (bookmarks PDFs)
+- `.tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
+- `.tools/ai-sesh/`: stage/restore/fork Claude and Codex sessions (`sesh-grab`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork`); see its README
+- `.tools/dev/`: experimental scripts (`cited_by.py`)
 
 ## Paths
 

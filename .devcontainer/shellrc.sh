@@ -1,6 +1,11 @@
 #!/bin/bash
 
-export PATH="/workspace/.tools:$PATH"
+# workspace tools on PATH, organized by topic (see SANDBOX-CLAUDE.md)
+#   pdf:     pdf2md.py, rebookmark.py
+#   latex:   sync-lyx.sh
+#   dev:     experimental scripts (cited_by.py)
+#   ai-sesh: sesh-grab, sesh-push, sesh-wipe, cc-fork, gpt-fork
+export PATH="/workspace/.tools/pdf:/workspace/.tools/latex:/workspace/.tools/dev:/workspace/.tools/ai-sesh:$PATH"
 
 alias cchat-yolo='claude --dangerously-skip-permissions'
 alias hostname-local='echo "$LOCAL_HOSTNAME"'
@@ -30,7 +35,3 @@ claude-yolo() {
 }
 
 alias gitlog="git log --graph --oneline --decorate --pretty=format:'%C(auto)%h %ad %d %s' --date=format:'%Y-%m-%d %H:%M'"
-
-# ai-sesh: cache/restore/fork agent seed sessions
-# provides: sesh-grab, sesh-push, sesh-wipe, cc-fork, gpt-fork
-export PATH="/workspace/.tools/ai-sesh:$PATH"
