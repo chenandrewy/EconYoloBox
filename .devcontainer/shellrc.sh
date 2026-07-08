@@ -1,4 +1,8 @@
-#!/bin/bash
+# Interactive shell setup for the container: PATH, aliases, and functions.
+# Sourced, not executed: the Dockerfile (via zsh-in-docker) appends
+# "source /workspace/.devcontainer/shellrc.sh" to ~/.zshrc, so every
+# interactive shell picks this up. Currently only zsh sources it, but keep
+# the syntax bash/zsh-portable so ~/.bashrc could source it too.
 
 # workspace tools on PATH, organized by topic (see SANDBOX-CLAUDE.md)
 #   pdf:     pdf2md.py, rebookmark.py
