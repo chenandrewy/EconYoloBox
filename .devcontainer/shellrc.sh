@@ -30,3 +30,7 @@ claude-yolo() {
 }
 
 alias gitlog="git log --graph --oneline --decorate --pretty=format:'%C(auto)%h %ad %d %s' --date=format:'%Y-%m-%d %H:%M'"
+
+# ai-sesh: cache/restore/fork agent seed sessions
+# provides: sesh-grab, sesh-push, sesh-wipe, cc-fork, gpt-fork
+export PATH="/workspace/.tools/ai-sesh:$PATH"

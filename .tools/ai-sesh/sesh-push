@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Install every cached session in data/ into the home stores.
+#
+# How to run (from anywhere):
+#   sesh-push
+#
+# Copies data/<project>/claude/*.jsonl into ~/.claude/projects/<key>/ (key
+# derived from the data/ subfolder path) and data/<project>/codex/*.jsonl
+# into ~/.codex/sessions/YYYY/MM/DD/. Typical flow: sesh-grab on one
+# machine, sesh-push after moving/rebuilding, sesh-wipe when done.
+set -euo pipefail
+
+source "$(dirname -- "${BASH_SOURCE[0]}")/_common.sh"
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage:
+  sesh-push
+
+Environment:
+  CLAUDE_PROJECTS_DIR   Override the Claude projects root.
+  CODEX_SESSIONS_DIR    Override the Codex sessions store.
+EOF
+  exit 0
+fi
+
+installed=false
+while IFS= read -r file; do
+  rel="${file#"$data_root"/}"          # <project>/<tool>/<basename>
+  tool_dir="$(dirname "$rel")"
+  tool="$(basename "$tool_dir")"
+  project="$(dirname "$tool_dir")"
+  base="$(basename "$file")"
+  case "$tool" in
+    claude)
+      key="$(claude_key_for_rel "$project")"
+      mkdir -p "$claude_projects_root/$key"
+      install -m 600 "$file" "$claude_projects_root/$key/"
+      printf '%-7s %-30s %s\n' claude "$project" "$base"
+      ;;
+    codex)
+      install_codex_file "$file"
+      printf '%-7s %-30s %s\n' codex "$project" "$base"
+      ;;
+    *) continue ;;
+  esac
+  installed=true
+done < <(find "$data_root" -type f -name '*.jsonl' 2>/dev/null | sort)
+
+if [ "$installed" = false ]; then
+  echo "No cached session files under: $data_root" >&2
+  exit 1
+fi
+echo "Installed into $claude_projects_root/<key> and $codex_store/YYYY/MM/DD."

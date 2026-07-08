@@ -4,18 +4,13 @@ __pycache__/
 *.py[cod]
 
 # Private project folders — NOT for public sharing.
-# Folders use a "Prefix,Name" (or "Prefix-Name") convention; both comma and
+# Folders use a "Prefix,Name" convention; both comma and
 # dash forms are matched so private work is never staged. Add prefixes here.
 Ref,*/
 Disc,*/
 Travel,*/
-Ref-*/
-Disc-*/
-Travel-*/
-Risk-vs-Writing/
-WA-Claude/
-goners/
-Singularity/
+Live,*/
+Other/
 
 # messy templates
 template/
@@ -25,3 +20,6 @@ template/
 
 # local-only Claude Code permissions
 .claude/settings.local.json
+
+# agent session transcripts are a local-only cache, never committed
+.tools/ai-sesh/data/

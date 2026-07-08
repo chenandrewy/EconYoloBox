@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+# Delete all cached sessions in data/, after listing them and confirming.
+#
+# How to run (from anywhere):
+#   sesh-wipe
+#
+# Sessions not currently present in their home store are flagged: those are
+# the only ones deletion actually loses (re-grab from the source machine).
+set -euo pipefail
+
+source "$(dirname -- "${BASH_SOURCE[0]}")/_common.sh"
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage:
+  sesh-wipe
+
+Environment:
+  CLAUDE_PROJECTS_DIR   Override the Claude projects root.
+  CODEX_SESSIONS_DIR    Override the Codex sessions store.
+EOF
+  exit 0
+fi
+
+files=()
+while IFS= read -r f; do
+  files+=("$f")
+done < <(find "$data_root" -type f -name '*.jsonl' 2>/dev/null | sort)
+
+if [ "${#files[@]}" -eq 0 ]; then
+  echo "Nothing cached under: $data_root"
+  exit 0
+fi
+
+echo "Cached sessions:"
+missing=0
+for f in "${files[@]}"; do
+  rel="${f#"$data_root"/}"
+  tool_dir="$(dirname "$rel")"
+  tool="$(basename "$tool_dir")"
+  project="$(dirname "$tool_dir")"
+  base="$(basename "$f")"
+  note=""
+  case "$tool" in
+    claude)
+      key="$(claude_key_for_rel "$project")"
+      if [ ! -f "$claude_projects_root/$key/$base" ]; then
+        note="  <- NOT in home store"
+        missing=$((missing + 1))
+      fi
+      ;;
+    codex)
+      if [ -z "$(find "$codex_store" -type f -name "$base" -print -quit 2>/dev/null)" ]; then
+        note="  <- NOT in home store"
+        missing=$((missing + 1))
+      fi
+      ;;
+  esac
+  printf '  %-7s %-30s %s%s\n' "$tool" "$project" "$base" "$note"
+done
+
+total_size="$(du -ch "${files[@]}" | tail -1 | cut -f1)"
+echo
+echo "${#files[@]} file(s), $total_size total."
+if [ "$missing" -gt 0 ]; then
+  echo "WARNING: $missing file(s) are NOT in their home store — deleting them"
+  echo "loses the only local copy (re-grab from the source machine if needed)."
+fi
+
+printf 'Delete these %d file(s)? [y/N] ' "${#files[@]}"
+read -r answer
+if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
+  echo "Aborted; nothing deleted."
+  exit 1
+fi
+
+rm -f -- "${files[@]}"
+find "$data_root" -mindepth 1 -type d -empty -delete 2>/dev/null || true
+echo "Cleared $data_root."
