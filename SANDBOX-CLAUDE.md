@@ -30,8 +30,8 @@ Don't use raw `\eqref{...}`.
 
 Journaling refers to taking messy notes. 
 
-- Journal notes should be in `dev/journal/` folders within the appropriate project folder.
-- Use the filename format `[MMDD]T[HH]-[max-three-word-description]`, e.g. `0423T13-sandbox-structure.md` for April 23, 1 pm.
+- Journal notes should be in `docs/journal/` folders within the appropriate project folder.
+- Use the filename format `[MMDD][a-z],[max-three-word-description].md`, e.g. `0713a,first-note.md`, `0713b,second-note.md`
 
 ## Time Zones
 - Use New York time for all timestamps
@@ -60,10 +60,3 @@ Custom tools live in `/workspace/.tools/`, organized by topic. Check these folde
 - `.tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
 - `.tools/ai-sesh/`: stage/restore/fork Claude and Codex sessions (`sesh-grab`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork`); see its README
 - `.tools/dev/`: experimental scripts (`cited_by.py`)
-
-## Paths
-
-- Discussions: `Disc-*/`
-- Travel: `Travel-*/`
-- Research projects: No special prefix
-- Templates for reference: `template/`
