@@ -2,6 +2,15 @@
 set -euo pipefail  # Exit on error, undefined vars, and pipeline failures
 IFS=$'\n\t'       # Stricter word splitting
 
+# Fail closed: everything below flushes the rules before rebuilding them, so a
+# mid-script failure would otherwise leave the container wide open (default ACCEPT)
+trap 'status=$?; if [ "$status" -ne 0 ]; then
+    iptables -P INPUT DROP
+    iptables -P FORWARD DROP
+    iptables -P OUTPUT DROP
+    echo "ERROR: firewall setup failed (exit $status) - default policies set to DROP" >&2
+fi' EXIT
+
 # 1. Extract Docker DNS info BEFORE any flushing
 DOCKER_DNS_RULES=$(iptables-save -t nat | grep "127\.0\.0\.11" || true)
 
