@@ -27,6 +27,10 @@ Don't use raw `\eqref{...}`.
 ### R Guidelines
 - When running R scripts non-interactively (`Rscript`), add `pdf(NULL)` near the top to suppress the stray `Rplots.pdf` that R creates whenever a transient graphics device is opened (e.g. by `ggsave()` on a `gridExtra::arrangeGrob` output).
 
+## Research Library
+
+The user's "library" folder is `/workspace/LIBRARY`. It contains reference papers and PDFs organized by topic.
+
 ## Journaling
 
 Journaling refers to taking messy notes. 
