@@ -72,12 +72,26 @@ while read -r cidr; do
     ipset add allowed-domains "$cidr"
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
-# Resolve and add other allowed domains
+# Resolve and add other allowed domains.
+# The *.gallerycdn.vsassets.io entries are the per-publisher VS Code extension
+# download CDN: one entry per publisher in devcontainer.json "extensions".
+# Adding an extension from a new publisher requires a new entry here, or its
+# install will silently fail inside the container.
 for domain in \
     "registry.npmjs.org" \
     "marketplace.visualstudio.com" \
     "open-vsx.org" \
     "ms-vscode.gallery.vsassets.io" \
+    "anthropic.gallerycdn.vsassets.io" \
+    "github.gallerycdn.vsassets.io" \
+    "dbaeumer.gallerycdn.vsassets.io" \
+    "esbenp.gallerycdn.vsassets.io" \
+    "tomoki1207.gallerycdn.vsassets.io" \
+    "james-yu.gallerycdn.vsassets.io" \
+    "donjayamanne.gallerycdn.vsassets.io" \
+    "mhutchie.gallerycdn.vsassets.io" \
+    "ikuyadeu.gallerycdn.vsassets.io" \
+    "reditorsupport.gallerycdn.vsassets.io" \
     "copilot-proxy.githubusercontent.com" \
     "origin-tracker.githubusercontent.com" \
     "copilot-telemetry.githubusercontent.com" \

@@ -21,16 +21,18 @@
   ],
   "customizations": {
     "vscode": {
+      // New publisher here => add its <publisher>.gallerycdn.vsassets.io
+      // entry to init-firewall.sh, or the install silently fails.
       "extensions": [
         "anthropic.claude-code",
         "GitHub.copilot",
         "GitHub.copilot-chat",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
-        "eamodio.gitlens",
         "tomoki1207.pdf",
         "james-yu.latex-workshop",
         "donjayamanne.githistory",
+        "mhutchie.git-graph",
         "ikuyadeu.r-pack",
         "reditorsupport.r"
       ],
