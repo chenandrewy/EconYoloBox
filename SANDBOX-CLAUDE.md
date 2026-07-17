@@ -3,6 +3,7 @@
 ## Coding and Writing Guidelines
 
 - Latex: Build using pdflatex and biber
+- PDF viewer safety: For compilation, validation, and visual inspection, build into a temporary output directory rather than overwriting the project's existing PDF, because replacing an open PDF can confuse the VS Code PDF viewer. Leave the project PDF untouched unless the user explicitly asks to rebuild it. For example, use `pdflatex -output-directory=/tmp/<build-dir> ...` and run biber and subsequent pdflatex passes against that temporary build.
 - Note taking: Use LyX if math is involved. We often do math and the human finds this much easier to work with.
 
 ### LyX Guidelines
