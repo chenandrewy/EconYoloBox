@@ -4,7 +4,7 @@
 # interactive shell picks this up. Currently only zsh sources it, but keep
 # the syntax bash/zsh-portable so ~/.bashrc could source it too.
 
-# workspace tools on PATH, organized by topic (see SANDBOX-CLAUDE.md)
+# workspace tools on PATH, organized by topic (see .devcontainer/agents/SANDBOX-CLAUDE.md)
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
 #   dev:     experimental scripts (cited_by.py)

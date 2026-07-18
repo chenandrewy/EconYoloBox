@@ -39,7 +39,7 @@ Keys are credential store entry names; values are the env var names scripts will
 - `Dockerfile` — container image definition.
 - `init-firewall.sh` — network firewall rules applied post-create.
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
-- `seed-agent-guidelines.sh` — seeds user-level Claude and Codex guidance files inside the container when those files are missing.
+- `agents/` — canonical agent guidance and settings, applied to the container's user-level config on every start (see "Agent Config" below).
 
 ### Persistent auth state
 
@@ -51,19 +51,20 @@ The template mounts persistent volumes for:
 
 This keeps interactive login state across container rebuilds and restarts.
 
-### Sandbox Guidance Seeding
+### Agent Config (`agents/`)
 
-The repo keeps the canonical sandbox guidance in:
+`.devcontainer/agents/` is the single source of truth for user-level agent config inside the container:
 
-- `SANDBOX-CLAUDE.md`
-- `SANDBOX-AGENTS.md`
+- `SANDBOX-CLAUDE.md` — canonical agent guidance
+- `SANDBOX-AGENTS.md` — symlink to `SANDBOX-CLAUDE.md`; kept separate so Codex-specific guidance can diverge later
+- `SANDBOX-claude-settings.json` — canonical user-level Claude Code settings
+- `SANDBOX-claude-statusline.sh` — status line script referenced by the settings
+- `seed-agent-guidelines.sh` — applies all of the above on every container start (`postStartCommand`)
 
-On container start, `.devcontainer/seed-agent-guidelines.sh` copies those files into the persistent user config volumes if the targets are missing or empty:
+The seed script handles guidance and settings differently:
 
-- `/home/node/.claude/CLAUDE.md`
-- `/home/node/.codex/AGENTS.md`
-
-This avoids overwriting container-local edits on every start while still giving fresh containers a sensible default.
+- Guidance is **symlinked** (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`), so edits apply live without a restart.
+- Settings are **copied** to `~/.claude/settings.json`, not symlinked, because Claude Code writes to its settings file (`/config`, `/model`, permission grants). Those writes land in the volume copy and are overwritten by the canonical file on the next container start. To keep a setting permanently, put it in `SANDBOX-claude-settings.json`.
 
 ### Dockerfile ordering
 

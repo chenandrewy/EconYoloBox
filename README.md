@@ -6,17 +6,11 @@ The rest of the root-level files and directories are primarily support infrastru
 
 Root-level dot folders:
 
-- `.agent-guidelines/`: agent operating guidance
-- `.agents/`: agent/plugin configuration
-- `.claude/`: Claude-related local config
 - `.credentials/`: local credential and environment support
 - `.devcontainer/`: shared root devcontainer for the sandbox environment
+- `.devcontainer/agents/`: canonical agent guidance and enforced agent settings (see `.devcontainer/README.md`)
 - `.git/`: repository metadata
 - `.tools/`: local utility scripts for workspace maintenance and document processing
-
-Other root-level support files:
-
-- `SANDBOX-CLAUDE.md` and related files: sandbox-specific operating notes
 
 Project-specific setup can still live inside individual project directories. The root `.devcontainer` is the shared workspace container used for the overall sandbox and build/tooling flow.
 
@@ -48,3 +42,7 @@ In one measured build, BuildKit accounting showed roughly:
 - `852MB` for the global npm AI CLIs
 
 So the large image size is mostly expected from the TeX toolchain, but the recursive `chown` and `chmod` steps also add substantial avoidable weight.
+
+## Plans for eventual public release.
+
+We will **eventually** clean up the git history in a way that allows for public release. But our immediate goal is a quality sandbox for AI powered econ research.

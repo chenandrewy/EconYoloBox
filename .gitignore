@@ -19,7 +19,7 @@ template/
 # for codex autocomplete convenience
 .git/
 
-# local-only Claude Code permissions
+# local-only Claude Code permissions (recreated by Claude when working from ./)
 .claude/settings.local.json
 
 # agent session transcripts are a local-only cache, never committed

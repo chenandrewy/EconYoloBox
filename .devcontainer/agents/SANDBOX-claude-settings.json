@@ -1,0 +1,14 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash /workspace/.devcontainer/agents/SANDBOX-claude-statusline.sh"
+  },
+  "model": "claude-fable-5[1m]",
+  "effortLevel": "high",
+  "tui": "default",
+  "theme": "dark",
+  "skipDangerousModePermissionPrompt": true,
+  "agentPushNotifEnabled": true,
+  "gitAttribution": false,
+  "includeCoAuthoredBy": false
+}
