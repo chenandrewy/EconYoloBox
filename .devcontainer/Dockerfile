@@ -52,6 +52,12 @@ RUN wget -O /tmp/git.tar.gz "https://mirrors.edge.kernel.org/pub/software/scm/gi
   make -C "/tmp/git-${GIT_VERSION}" prefix=/usr/local NO_TCLTK=YesPlease NO_GETTEXT=YesPlease install && \
   rm -rf /tmp/git.tar.gz "/tmp/git-${GIT_VERSION}"
 
+# R is pinned via Posit r-builds below, not apt; R_VERSION and the dated P3M
+# snapshot are the two knobs that fully determine the R stack on every machine.
+# gfortran replaces the compiler r-base-dev used to pull in, for source builds.
+ARG R_VERSION=4.5.3
+ARG CRAN_SNAPSHOT=https://packagemanager.posit.co/cran/__linux__/bookworm/2026-07-15
+
 # Install heavy workflow toolchains after Git so later workflow changes do not
 # force a Git rebuild.
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -59,8 +65,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   python3-dev \
   python3-pip \
   python3-venv \
-  r-base \
-  r-base-dev \
+  gfortran \
   libcurl4-openssl-dev \
   libssl-dev \
   libxml2-dev \
@@ -73,6 +78,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   texlive-full \
   biber \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Pin R itself from Posit r-builds (immutable artifacts, amd64+arm64), installed
+# to /opt/R/<version> outside apt. Debian's frozen r-base (4.2.2) is too old for
+# current CRAN packages.
+RUN ARCH=$(dpkg --print-architecture) && \
+  wget -O /tmp/r.deb "https://cdn.posit.co/r/debian-12/pkgs/r-${R_VERSION}_1_${ARCH}.deb" && \
+  apt-get update && apt-get install -y --no-install-recommends /tmp/r.deb && \
+  ln -sf /opt/R/${R_VERSION}/bin/R /usr/local/bin/R && \
+  ln -sf /opt/R/${R_VERSION}/bin/Rscript /usr/local/bin/Rscript && \
+  rm /tmp/r.deb && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Site-wide defaults for every Rscript below and at runtime: the dated P3M
+# snapshot pins package versions; the R-version-bearing user agent makes P3M
+# serve pre-built bookworm binaries (without it, it silently falls back to
+# source); Ncpus parallelizes across packages for source fallbacks.
+RUN cat >> /opt/R/${R_VERSION}/lib/R/etc/Rprofile.site <<EOF
+options(repos = c(CRAN = "${CRAN_SNAPSHOT}"))
+options(HTTPUserAgent = sprintf("R/%s R (%s)", getRversion(),
+  paste(getRversion(), R.version\$platform, R.version\$arch, R.version\$os)))
+options(Ncpus = 2)
+EOF
 
 # Ensure default node user has access to /usr/local/share
 RUN mkdir -p /usr/local/share/npm-global && \
@@ -123,16 +149,30 @@ RUN chown -R node:node /opt/venv
 
 # Install R packages in stable chunks so small later edits do not force
 # reinstalling the entire data-analysis stack.
-RUN Rscript -e "install.packages(c('DBI','RPostgres','dplyr','data.table','keyring'), repos='https://cloud.r-project.org')"
-RUN Rscript -e "install.packages(c('tidyverse','lubridate','readxl','writexl'), repos='https://cloud.r-project.org')"
+RUN Rscript -e "install.packages(c('DBI','RPostgres','dplyr','data.table','keyring'))"
+RUN Rscript -e "install.packages(c('tidyverse','lubridate','readxl','writexl'))"
 # pryr is archived on CRAN, so install its current build deps first and then
 # pin pryr from the archive explicitly.
-RUN Rscript -e "install.packages(c('lobstr','Rcpp'), repos='https://cloud.r-project.org'); install.packages('https://cran.r-project.org/src/contrib/Archive/pryr/pryr_0.1.6.tar.gz', repos=NULL, type='source')"
-RUN Rscript -e "install.packages(c('ggrepel','gridExtra','xtable'), repos='https://cloud.r-project.org')"
-RUN Rscript -e "install.packages(c('doParallel','foreach','fst'), repos='https://cloud.r-project.org')"
-RUN Rscript -e "install.packages(c('lme4','ccaPP','zoo'), repos='https://cloud.r-project.org')"
-RUN Rscript -e "install.packages(c('fs','getPass','googledrive','here','tictoc','tm'), repos='https://cloud.r-project.org')"
-RUN Rscript -e "install.packages('languageserver', repos='https://cloud.r-project.org')"
+RUN Rscript -e "install.packages(c('lobstr','Rcpp')); install.packages('https://cran.r-project.org/src/contrib/Archive/pryr/pryr_0.1.6.tar.gz', repos=NULL, type='source')"
+RUN Rscript -e "install.packages(c('ggrepel','gridExtra','xtable'))"
+RUN Rscript -e "install.packages(c('doParallel','foreach','fst'))"
+RUN Rscript -e "install.packages(c('lme4','ccaPP','zoo'))"
+RUN Rscript -e "install.packages(c('fs','getPass','googledrive','here','tictoc','tm'))"
+RUN Rscript -e "install.packages('languageserver')"
+
+# Econometrics stack for mp-rep (Live,Risk-vs-Writing/dev/mp-rep):
+#   fixest          - the regressions; blocking
+#   OpenSourceAP.DownloadR - Chen-Zimmermann data download (GitHub-only, pinned)
+#   modelsummary    - fixest models -> LaTeX/markdown/Word tables
+#   sandwich+lmtest - robust/clustered SEs for base lm/glm
+#   kableExtra      - LaTeX table styling on top of knitr
+#   arrow           - parquet/feather I/O, interop with Python pyarrow
+#   car             - regression diagnostics / hypothesis tests
+#   marginaleffects - contrasts/marginal effects, pairs with modelsummary
+RUN Rscript -e "install.packages(c('fixest','remotes'))"
+RUN Rscript -e "remotes::install_github('tomz23/OpenSourceAP.DownloadR@689db7d7350dcf9561e4011808e029a7464adeb4')"
+RUN Rscript -e "install.packages(c('modelsummary','sandwich','lmtest','kableExtra'))"
+RUN Rscript -e "install.packages(c('arrow','car','marginaleffects'))"
 
 RUN Rscript -e " \
   pkgs <- c('DBI','RPostgres','dplyr','data.table','keyring', \
@@ -142,12 +182,15 @@ RUN Rscript -e " \
             'doParallel','foreach','fst', \
             'lme4','ccaPP','zoo', \
             'fs','getPass','googledrive','here','tictoc','tm', \
-            'languageserver'); \
+            'languageserver', \
+            'fixest','remotes','OpenSourceAP.DownloadR', \
+            'modelsummary','sandwich','lmtest','kableExtra', \
+            'arrow','car','marginaleffects'); \
   missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly=TRUE)]; \
   if (length(missing)) { cat('MISSING:', paste(missing, collapse=', '), '\n'); q(status=1) }"
 
 # Allow non-root user to install R packages at runtime.
-RUN chmod -R a+w /usr/local/lib/R/site-library
+RUN chmod -R a+w /opt/R/${R_VERSION}/lib/R/library
 
 # Pin LyX to the Debian 12 backports build so export/import behavior stays
 # stable even if the base `node:20` tag changes over time.

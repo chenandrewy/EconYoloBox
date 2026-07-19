@@ -119,6 +119,7 @@ for domain in \
     "api.mistral.ai" \
     "pypi.org" \
     "files.pythonhosted.org" \
+    "packagemanager.posit.co" \
     "api.stlouisfed.org" \
     "fred.stlouisfed.org" \
     "mba.tuck.dartmouth.edu" \
