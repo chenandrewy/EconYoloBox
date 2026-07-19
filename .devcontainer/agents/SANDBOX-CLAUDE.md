@@ -65,3 +65,13 @@ Custom tools live in `/workspace/.tools/`, organized by topic. Check these folde
 - `.tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
 - `.tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork`); see its README
 - `.tools/dev/`: experimental scripts (`cited_by.py`)
+
+## USER PERMISSION REQUIRED
+
+The actions below are forbidden unless the user explicitly asks for them in the
+current conversation. If one seems necessary, STOP work, describe the problem,
+and ask. The default fix is for the user to update the environment.
+
+- Do NOT install packages or other software into the running environment.
+- Do NOT hand-roll replacements for missing libraries or tools.
+- Do NOT work around environment problems (Dropbox locks, auth, firewall, or similar).
