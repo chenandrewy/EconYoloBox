@@ -47,9 +47,10 @@ The template mounts persistent volumes for:
 
 - `/home/node/.claude` — Claude auth and config
 - `/home/node/.codex` — Codex auth and config
-- `/home/node/.config/gh` — GitHub CLI auth and config
 
 This keeps interactive login state across container rebuilds and restarts.
+GitHub auth is deliberately not persisted: the container has no GitHub
+credentials, so the user reviews anything before it goes public.
 
 ### Agent Config (`agents/`)
 

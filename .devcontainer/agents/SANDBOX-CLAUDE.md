@@ -73,5 +73,8 @@ current conversation. If one seems necessary, STOP work, describe the problem,
 and ask. The default fix is for the user to update the environment.
 
 - Do NOT install packages or other software into the running environment.
+- Do NOT authenticate to GitHub or push/publish anything. The container has no
+  GitHub credentials by design: the user reviews everything before it goes
+  public. Prepare commits locally and hand off.
 - Do NOT hand-roll replacements for missing libraries or tools.
 - Do NOT work around environment problems (Dropbox locks, auth, firewall, or similar).

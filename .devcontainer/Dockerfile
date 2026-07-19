@@ -212,8 +212,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
 # Create node-owned workspace and config directories before switching users.
-# Pre-creating the gh config path avoids Docker creating it as root during volume mount.
-RUN mkdir -p /workspace /home/node/.claude /home/node/.codex /home/node/.config/gh && \
+RUN mkdir -p /workspace /home/node/.claude /home/node/.codex /home/node/.config && \
   chown -R node:node /workspace /home/node/.claude /home/node/.codex /home/node/.config
 
 # Set up non-root user

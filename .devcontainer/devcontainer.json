@@ -63,8 +63,7 @@
   "mounts": [
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     "source=${localWorkspaceFolderBasename}-claude-config,target=/home/node/.claude,type=volume",
-    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/node/.codex,type=volume",
-    "source=${localWorkspaceFolderBasename}-gh-config,target=/home/node/.config/gh,type=volume"
+    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/node/.codex,type=volume"
   ],
   "containerEnv": {
     "TZ": "${localEnv:TZ:America/New_York}",
