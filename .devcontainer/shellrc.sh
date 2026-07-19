@@ -8,8 +8,12 @@
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
 #   dev:     experimental scripts (cited_by.py)
-#   ai-sesh: sesh-grab, sesh-push, sesh-wipe, cc-fork, gpt-fork
+#   ai-sesh: sesh-init, sesh-push, sesh-wipe, cc-fork, gpt-fork
 export PATH="/workspace/.tools/pdf:/workspace/.tools/latex:/workspace/.tools/dev:/workspace/.tools/ai-sesh:$PATH"
+
+# ai-sesh: keep the home session stores symlinked into the Dropbox-synced
+# tree (idempotent; silent once the links exist — see .tools/ai-sesh/README.md)
+sesh-init || true
 
 alias cchat-yolo='claude --dangerously-skip-permissions'
 alias hostname-local='echo "$LOCAL_HOSTNAME"'

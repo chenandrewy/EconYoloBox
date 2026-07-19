@@ -1,75 +1,77 @@
 # ai-sesh
 
-Staging area for moving Claude Code and Codex sessions between machines and
-across container rebuilds, plus fork helpers for reusing seed sessions. The
-home stores (`~/.claude/projects/`, `~/.codex/sessions/`) are the source of
-truth; `data/` here is a disposable cache — grab, install, clear, repeat.
-This replaces the per-project `agent-sessions/` folders (e.g. in
-`Live,goners` and the ABFR discussion).
+Machine-to-machine session sync for Claude Code and Codex, built on the
+Dropbox-synced `/workspace`. Each machine's live home stores are symlinks
+into a per-machine folder here, so this machine's sessions sync passively;
+`sesh-push` installs the *other* machines' sessions when you switch desks.
+Design notes: `docs/journal/0708T08-ai-sesh-redesign.md`.
+
+## Mechanism
+
+`sesh-init` (auto-run by `.devcontainer/shellrc.sh` on every shell) keeps
+these links in place:
+
+- `~/.claude/projects` -> `data/<machine>/claude`
+- `~/.codex/sessions` -> `data/<machine>/codex`
+- `~/.claude/todos` -> `data/<machine>/todos`
+
+Claude and Codex therefore write real bytes into the synced tree; the data
+survives container rebuilds because it lives in the `/workspace` mount. The
+machine id derives from the host name the devcontainer injects
+(`write-local-env.sh` -> `LOCAL_HOSTNAME`, e.g. `Mac-Studio.local` ->
+`mac-studio`); set `AI_SESH_MACHINE` to override. Credentials, caches, and
+`history.jsonl` stay machine-local. History beyond ~30 days is not a goal:
+the agents' own purges self-trim each store.
+
+## Layout
+
+```
+data/
+└── <machine>/
+    ├── claude/<project-key>/<uuid>.jsonl   # <- ~/.claude/projects
+    ├── codex/YYYY/MM/DD/rollout-*.jsonl    # <- ~/.codex/sessions
+    └── todos/                              # <- ~/.claude/todos
+```
+
+`data/` is git-ignored — Dropbox is the transport, not git.
 
 ## Commands
 
 This directory is on `PATH` (via `/workspace/.devcontainer/shellrc.sh`), so
 the filenames are the commands:
 
-- `sesh-grab`: save a live session into `data/` (run from the project dir).
-- `sesh-push`: install **all** of `data/` into the home stores (run from
-  anywhere).
-- `sesh-wipe`: delete **all** of `data/`, after listing the sessions and
-  confirming; flags any session not present in its home store, since those
-  are the only ones deletion actually loses.
-- `cc-fork`: list the current project's cached Claude seeds and fork one.
-- `gpt-fork`: same for Codex.
+- `sesh-init`: idempotent symlink setup/migration; auto-run per shell. It
+  defers migrating a store that a live session has open — exit sessions and
+  rerun if it says so.
+- `sesh-push`: install every other machine's sessions into the home stores.
+- `cc-fork`: list other machines' Claude seeds for the current project
+  (run from the project dir) and fork one.
+- `gpt-fork`: same for Codex (global, newest first).
+- `sesh-wipe`: manual reset — list stores, delete quarantined `*.divergent-*`
+  copies, or delete a whole machine's store (typed confirmation; the
+  deletion propagates to that machine via Dropbox).
 
-Typical flow:
+Own-machine sessions never need installing: resume with `claude --resume` /
+`codex resume`, fork with `claude --resume ID --fork-session` /
+`codex fork ID`.
 
-```bash
-cd /workspace/Live,goners
-sesh-grab 019f1b21          # stage a session
-# ... move machines / rebuild container ...
-sesh-push                   # push everything back into the home stores
-sesh-wipe                   # empty the staging area
-```
+## Install ladder
 
-## Layout
+Every cross-machine install (`sesh-push` and the forks) decides per file,
+never as a blind copy and never from mtime:
 
-- `data/<project>/claude/*.jsonl`: Claude transcripts (filename = session id).
-  `<project>` is the project's path relative to `/workspace`.
-- `data/<project>/codex/*.jsonl`: Codex rollouts (keep original filenames —
-  the date in the name drives the restore location).
-- `data/` is git-ignored (`.tools/ai-sesh/data/` in the workspace
-  `.gitignore`): transcripts are bulky, possibly sensitive, and disposable.
-- `_common.sh`: shared helpers sourced by the commands.
+1. Same id + same size -> skip.
+2. One file a byte-prefix of the other -> take the longer (fast-forward;
+   this is what normal sequential resume produces).
+3. Neither a prefix -> true divergence: keep both — the incoming copy is
+   quarantined as `<name>.jsonl.divergent-<machine>` (ignored by the agents'
+   session scans) — and warn. Never silently discard.
 
-There is no per-project configuration: `sesh-grab` and the fork commands
-derive the project from `pwd` (run them from the directory where you run
-`claude`/`codex`), and `sesh-push` derives each project from its `data/`
-subfolder path.
+## Operating rule
 
-## Forking
-
-```bash
-cc-fork --list              # numbered seeds with first-prompt summaries
-cc-fork 1                   # fork by number (installs into home store first)
-cc-fork d066efc8            # or by id prefix
-gpt-fork 1 "continue from this context"
-```
-
-Both fork commands pass extra arguments through to `claude` / `codex`. They
-default to permissive local modes (`--dangerously-skip-permissions` /
-`--dangerously-bypass-approvals-and-sandbox`); set the flag variable to
-empty to omit:
-
-```bash
-CLAUDE_FORK_PERMISSION_FLAG="" cc-fork
-CODEX_FORK_PERMISSION_FLAG="" gpt-fork
-```
-
-## Notes
-
-- Claude sessions are stored per project under
-  `~/.claude/projects/<path-with-slashes-and-commas-as-dashes>`; the
-  commands compute that key at runtime, so a moved/renamed project just
-  means its cached seeds install under the new key.
-- Codex sessions are global (`~/.codex/sessions/YYYY/MM/DD`), so only the
-  rollout filename matters.
+Switching desks: **exit sessions on the machine you're leaving -> let
+Dropbox settle -> `sesh-push` and resume on the other.** Never run the same
+session live on both machines at once. Claude appends to the jsonl live,
+not just on exit, so exiting first stops the file moving under Dropbox.
+Divergence only arises from breaking this rule (concurrent use, or resuming
+before Dropbox pulled the latest); the prefix check is the safety net.

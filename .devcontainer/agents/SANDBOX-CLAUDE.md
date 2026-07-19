@@ -63,5 +63,5 @@ Custom tools live in `/workspace/.tools/`, organized by topic. Check these folde
 
 - `.tools/pdf/`: `pdf2md.py` (PDF to markdown), `rebookmark.py` (bookmarks PDFs)
 - `.tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
-- `.tools/ai-sesh/`: stage/restore/fork Claude and Codex sessions (`sesh-grab`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork`); see its README
+- `.tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork`); see its README
 - `.tools/dev/`: experimental scripts (`cited_by.py`)

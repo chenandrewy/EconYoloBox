@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Link this machine's home session stores into the Dropbox-synced tree:
+#
+#   ~/.claude/projects -> data/<machine>/claude
+#   ~/.codex/sessions  -> data/<machine>/codex
+#   ~/.claude/todos    -> data/<machine>/todos
+#
+# Idempotent and silent when the links are already right; shellrc.sh runs it
+# on every interactive shell. A store that still holds real files is migrated
+# (contents moved into the synced tree), but only when it looks quiet: a live
+# session appending mid-move could lose bytes (open fd on a moved inode) or
+# recreate a file in the old directory. The agents open the transcript per
+# append rather than holding it, so "quiet" checks both open fds and recent
+# mtimes; moves are no-clobber and the old directory is only removed once
+# verifiably empty. Deferred migrations retry on the next shell.
+set -euo pipefail
+
+source "$(dirname -- "${BASH_SOURCE[0]}")/_common.sh"
+resolve_machine
+
+# Does any process hold a file open under $1, or was anything written in the
+# last two minutes?
+busy() {
+  find /proc/[0-9]*/fd -lname "$1/*" -print -quit 2>/dev/null | grep -q . && return 0
+  find "$1" -type f -mmin -2 -print -quit 2>/dev/null | grep -q .
+}
+
+link_store() {
+  local src="$1" target="$2"
+  mkdir -p "$target"
+  if [ -L "$src" ]; then
+    [ "$(readlink -f "$src")" = "$(readlink -f "$target")" ] && return 0
+    ln -sfn "$target" "$src"
+    echo "ai-sesh: relinked $src -> $target"
+    return 0
+  fi
+  if [ -d "$src" ]; then
+    if busy "$src"; then
+      echo "ai-sesh: $src looks in use; deferring migration (exit live sessions, retry in a couple minutes)" >&2
+      return 0
+    fi
+    find "$src" -mindepth 1 -maxdepth 1 -exec mv -n -t "$target" -- {} +
+    if [ -n "$(ls -A "$src")" ]; then
+      echo "ai-sesh: $src not fully migrated (files appeared or collided during the" >&2
+      echo "ai-sesh: move); reconcile leftovers against $target by hand, then rerun sesh-init" >&2
+      return 0
+    fi
+    rmdir "$src"
+  fi
+  mkdir -p "$(dirname "$src")"
+  ln -s "$target" "$src"
+  echo "ai-sesh: linked $src -> $target"
+}
+
+link_store "$claude_projects_root" "$self_root/claude"
+link_store "$codex_store" "$self_root/codex"
+link_store "$todos_store" "$self_root/todos"

@@ -6,13 +6,40 @@ data_root="$tools_dir/data"
 
 claude_projects_root="${CLAUDE_PROJECTS_DIR:-$HOME/.claude/projects}"
 codex_store="${CODEX_SESSIONS_DIR:-$HOME/.codex/sessions}"
+todos_store="${CLAUDE_TODOS_DIR:-$HOME/.claude/todos}"
+
+# Machine id: AI_SESH_MACHINE override, else derived from the host name the
+# devcontainer injects (write-local-env.sh -> LOCAL_HOSTNAME), e.g.
+# "Mac-Studio.local" -> "mac-studio". Sets machine_id and self_root.
+resolve_machine() {
+  machine_id="${AI_SESH_MACHINE:-}"
+  if [ -z "$machine_id" ] && [ -n "${LOCAL_HOSTNAME:-}" ]; then
+    machine_id="$(printf '%s' "$LOCAL_HOSTNAME" \
+      | sed 's/\.local$//' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g')"
+  fi
+  if [ -z "$machine_id" ]; then
+    echo "ai-sesh: no machine id (need LOCAL_HOSTNAME or AI_SESH_MACHINE)" >&2
+    return 1
+  fi
+  self_root="$data_root/$machine_id"
+}
+
+# Machines other than self that have a store under data/.
+other_machines() {
+  local d
+  for d in "$data_root"/*/; do
+    [ -d "$d" ] || continue
+    d="$(basename "$d")"
+    [ "$d" = "$machine_id" ] || printf '%s\n' "$d"
+  done
+}
 
 # Claude stores sessions under the launch dir's path with / and , mapped to -.
 claude_key_for_rel() {
   printf '%s' "$workspace_root/$1" | sed 's#[/,]#-#g'
 }
 
-# For commands that operate on "the current project" (grab, fork): derive
+# For commands that operate on "the current project" (the forks): derive
 # everything from pwd. Run them from the directory where you run claude/codex.
 require_project_cwd() {
   project_dir="$(pwd)"
@@ -25,65 +52,37 @@ require_project_cwd() {
   esac
   project_rel="${project_dir#"$workspace_root"/}"
   claude_store="${CLAUDE_PROJECT_DIR:-$claude_projects_root/$(claude_key_for_rel "$project_rel")}"
-  data_dir="$data_root/$project_rel"
-  claude_cache="$data_dir/claude"
-  codex_cache="$data_dir/codex"
 }
 
-# Print YYYY MM DD for a codex rollout file (from its name, else its content).
-codex_date_parts() {
-  local file="$1" base
-  base="$(basename "$file")"
-  if [[ "$base" =~ ^rollout-([0-9]{4})-([0-9]{2})-([0-9]{2})T.*\.jsonl$ ]]; then
-    echo "${BASH_REMATCH[1]} ${BASH_REMATCH[2]} ${BASH_REMATCH[3]}"
+# sync_file SRC DEST SRC_MACHINE
+# Install an append-only session log from another machine's store, using the
+# size/prefix ladder (mtime is deliberately never consulted). Prints one of:
+#   install       dest didn't exist; copied
+#   skip          same size; assumed identical
+#   fast-forward  dest was a byte-prefix of src; replaced with src
+#   ahead         src is a byte-prefix of dest; dest already newer
+#   DIVERGED      neither is a prefix; src quarantined next to dest
+sync_file() {
+  local src="$1" dest="$2" src_machine="$3" src_size dest_size
+  if [ ! -f "$dest" ]; then
+    mkdir -p "$(dirname "$dest")"
+    install -m 600 "$src" "$dest"
+    echo install
     return 0
   fi
-  python3 - "$file" <<'PY'
-import json, sys
-with open(sys.argv[1], encoding="utf-8") as f:
-    for line in f:
-        try:
-            obj = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        payload = obj.get("payload") or {}
-        timestamp = payload.get("timestamp") or obj.get("timestamp")
-        if timestamp:
-            print(*timestamp[:10].split("-"))
-            break
-PY
-}
-
-# Install one cached codex rollout into the dated home store.
-install_codex_file() {
-  local file="$1" year="" month="" day=""
-  # || true: under set -e, read failing on empty output would exit before
-  # the diagnostic below can print.
-  read -r year month day < <(codex_date_parts "$file") || true
-  if [ -z "${year:-}" ] || [ -z "${month:-}" ] || [ -z "${day:-}" ]; then
-    echo "Could not determine Codex session date for: $file" >&2
-    exit 1
+  src_size="$(stat -c%s "$src")"
+  dest_size="$(stat -c%s "$dest")"
+  if [ "$src_size" -eq "$dest_size" ]; then
+    echo skip
+  elif [ "$src_size" -gt "$dest_size" ] && cmp -s -n "$dest_size" "$src" "$dest"; then
+    install -m 600 "$src" "$dest"
+    echo fast-forward
+  elif [ "$src_size" -lt "$dest_size" ] && cmp -s -n "$src_size" "$src" "$dest"; then
+    echo ahead
+  else
+    # True divergence: keep both. The quarantine name doesn't end in .jsonl,
+    # so the agents' session scans ignore it; resolve by hand.
+    cp -f "$src" "$dest.divergent-$src_machine"
+    echo DIVERGED
   fi
-  mkdir -p "$codex_store/$year/$month/$day"
-  install -m 600 "$file" "$codex_store/$year/$month/$day/"
-}
-
-# Install the current project's cached sessions into the home stores.
-# Requires require_project_cwd. Used by the fork commands before resuming.
-install_cached_sessions() {
-  local installed=false file
-  if compgen -G "$claude_cache/*.jsonl" > /dev/null; then
-    mkdir -p "$claude_store"
-    install -m 600 "$claude_cache"/*.jsonl "$claude_store"/
-    installed=true
-    echo "Installed Claude seeds -> $claude_store"
-  fi
-  if compgen -G "$codex_cache/*.jsonl" > /dev/null; then
-    for file in "$codex_cache"/*.jsonl; do
-      install_codex_file "$file"
-    done
-    installed=true
-    echo "Installed Codex seeds  -> $codex_store/YYYY/MM/DD"
-  fi
-  [ "$installed" = true ]
 }

@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
-# List the current project's cached Codex seed sessions and fork one.
+# List other machines' Codex sessions (newest first) and fork one.
+# (Codex sessions are global, not per-project; own sessions are already in
+# the home store — fork those with codex fork directly.)
 #
-# How to run (from the project directory):
+# How to run:
 #   gpt-fork --list
 #   gpt-fork               # prompts
 #   gpt-fork 1 [prompt]    # by number
 #   gpt-fork SESSION_ID [prompt]
 #
-# Installs the selected rollout into ~/.codex/sessions/YYYY/MM/DD first,
-# then runs codex fork SESSION_ID.
+# Installs the selected rollout into ~/.codex/sessions/YYYY/MM/DD first
+# (size/prefix ladder), then runs codex fork SESSION_ID.
 set -euo pipefail
 
 source "$(dirname -- "${BASH_SOURCE[0]}")/_common.sh"
-require_project_cwd
+resolve_machine
 
 # ${VAR-default} (no colon) so an explicitly empty value disables the flag.
 yolo_flag="${CODEX_FORK_PERMISSION_FLAG---dangerously-bypass-approvals-and-sandbox}"
@@ -25,6 +27,7 @@ Usage:
   gpt-fork SESSION_ID_OR_NUMBER [prompt]
 
 Environment:
+  AI_SESH_MACHINE              Override this machine's id.
   CODEX_SESSIONS_DIR           Override the Codex sessions store.
   CODEX_FORK_PERMISSION_FLAG   Override permission flag; set empty to omit.
 EOF
@@ -35,22 +38,27 @@ if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   exit 0
 fi
 
-if ! compgen -G "$codex_cache/*.jsonl" > /dev/null; then
-  echo "No cached Codex sessions for this project in $codex_cache" >&2
-  echo "Cache one with: sesh-grab SESSION_ID" >&2
+machines=()
+while IFS= read -r m; do
+  machines+=("$m")
+done < <(other_machines)
+
+if [ "${#machines[@]}" -eq 0 ]; then
+  echo "No other machine stores under $data_root" >&2
   exit 1
 fi
 
 tmp_sessions="$(mktemp)"
 trap 'rm -f "$tmp_sessions"' EXIT
 
-# One line per cached rollout: id, short description, file path.
-python3 - "$codex_cache" > "$tmp_sessions" <<'PY'
+# One line per rollout, newest first: id, short description, machine, path.
+python3 - "$data_root" "${machines[@]}" > "$tmp_sessions" <<'PY'
 import json
 import sys
 from pathlib import Path
 
-source_dir = Path(sys.argv[1])
+data_root = Path(sys.argv[1])
+machines = sys.argv[2:]
 
 def clean(text):
     return " ".join(str(text).split())
@@ -59,45 +67,53 @@ def shorten(text, n=72):
     text = clean(text)
     return text if len(text) <= n else text[: n - 3] + "..."
 
-for path in sorted(source_dir.glob("*.jsonl")):
-    session_id = None
-    first_prompt = None
+for machine in machines:
+    # Dated YYYY/MM/DD dirs sort lexically, so reverse path order is
+    # newest-first.
+    for path in sorted((data_root / machine / "codex").rglob("*.jsonl"), reverse=True):
+        session_id = None
+        first_prompt = None
 
-    with path.open(encoding="utf-8") as f:
-        for line in f:
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError:
-                continue
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
 
-            payload = obj.get("payload") or {}
-            if obj.get("type") == "session_meta":
-                session_id = payload.get("id") or session_id
+                payload = obj.get("payload") or {}
+                if obj.get("type") == "session_meta":
+                    session_id = payload.get("id") or session_id
 
-            if first_prompt is None and obj.get("type") == "event_msg":
-                if payload.get("type") == "user_message" and payload.get("message"):
-                    first_prompt = clean(payload["message"])
+                if first_prompt is None and obj.get("type") == "event_msg":
+                    if payload.get("type") == "user_message" and payload.get("message"):
+                        first_prompt = clean(payload["message"])
 
-            if first_prompt is None and obj.get("type") == "response_item":
-                if payload.get("type") == "message" and payload.get("role") == "user":
-                    parts = payload.get("content") or []
-                    texts = [
-                        part.get("text", "")
-                        for part in parts
-                        if isinstance(part, dict) and part.get("type") == "input_text"
-                    ]
-                    content = clean(" ".join(texts))
-                    if content and not content.startswith("# AGENTS.md instructions"):
-                        first_prompt = content
+                if first_prompt is None and obj.get("type") == "response_item":
+                    if payload.get("type") == "message" and payload.get("role") == "user":
+                        parts = payload.get("content") or []
+                        texts = [
+                            part.get("text", "")
+                            for part in parts
+                            if isinstance(part, dict) and part.get("type") == "input_text"
+                        ]
+                        content = clean(" ".join(texts))
+                        if content and not content.startswith("# AGENTS.md instructions"):
+                            first_prompt = content
 
-    if session_id is None:
-        session_id = "-".join(path.stem.rsplit("-", 5)[-5:])
-    description = first_prompt or "(no prompt found)"
-    print("\t".join([str(session_id), shorten(description), str(path)]))
+        if session_id is None:
+            session_id = "-".join(path.stem.rsplit("-", 5)[-5:])
+        description = first_prompt or "(no prompt found)"
+        print("\t".join([str(session_id), shorten(description), machine, str(path)]))
 PY
 
+if [ ! -s "$tmp_sessions" ]; then
+  echo "No Codex sessions in other machines' stores (data/<machine>/codex/)" >&2
+  exit 1
+fi
+
 print_sessions() {
-  awk -F '\t' '{ printf "%2d  %s  %s\n", NR, $1, $2 }' "$tmp_sessions"
+  awk -F '\t' '{ printf "%2d  %-12s %s  %s\n", NR, $3, $1, $2 }' "$tmp_sessions"
 }
 
 if [ "${1:-}" = "--list" ] || [ "${1:-}" = "-l" ]; then
@@ -122,12 +138,20 @@ else
 fi
 
 if [ -z "$selected_row" ]; then
-  echo "No cached Codex session matches: $selection" >&2
+  echo "No session matches: $selection" >&2
   exit 1
 fi
 
-IFS=$'\t' read -r session_id _description file <<< "$selected_row"
-install_codex_file "$file"
+IFS=$'\t' read -r session_id _description src_machine file <<< "$selected_row"
+
+rel="${file#"$data_root/$src_machine"/codex/}"
+action="$(sync_file "$file" "$codex_store/$rel" "$src_machine")"
+if [ "$action" = "DIVERGED" ]; then
+  echo "Local copy of $session_id has DIVERGED from $src_machine's version;" >&2
+  echo "kept both (see *.divergent-$src_machine in $codex_store). Resolve" >&2
+  echo "by hand before forking." >&2
+  exit 1
+fi
 
 cmd=(codex fork)
 if [ -n "$yolo_flag" ]; then
