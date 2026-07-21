@@ -1,5 +1,35 @@
 # User level agent guidelines for Sandbox
 
+## The Environment
+
+You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
+
+- The repo is bind-mounted at `/workspace`, so edits are live on the host.
+- **Python: use bare `python3`/`pip`.** They resolve to the venv at `/opt/venv`,
+  which is already active via `PATH` (so `VIRTUAL_ENV` is unset — that's
+  expected).
+  - Preinstalled: numpy, pandas, polars, pyarrow, scipy, statsmodels,linearmodels, pyfixest, scikit-learn, matplotlib, openpyxl, wrds, PyMuPDF,
+  pikepdf, beautifulsoup4, lxml, requests, openai, mistralai.
+- R 4.5.3 with packages pinned to a dated P3M snapshot, so `install.packages()`
+  resolves against that snapshot, not live CRAN.
+- Latex with `texlive-full` and `biber`.
+- **Network is deny-by-default**, via an IP allowlist built at container start by
+  `init-firewall.sh`. A blocked host hangs until timeout rather than failing
+  cleanly, so suspect the firewall before the code. Allowed:
+  - **Packages**: npm, PyPI (`pypi.org`, `files.pythonhosted.org`), Posit P3M,
+    VS Code marketplace (per-publisher `*.gallerycdn.vsassets.io` — a new
+    extension publisher needs a new entry or its install silently fails).
+  - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
+  - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
+  - **Research**: arXiv, SSRN, Google Scholar, OpenAlex.
+  - **Data**: WRDS, FRED, Ken French's data library
+    (`mba.tuck.dartmouth.edu`), `global-q.org`, `www.agr.com`.
+  - There is no general web access — anything not above is blocked, including
+    the rest of Google. Assume a fetch of an arbitrary URL will fail.
+- Missing packages are an environment change, not your call — see
+  `USER PERMISSION REQUIRED`.
+- If you think having access to a blocked resource would be helpful: **ASK THE USER TO ADD IT**
+
 ## Coding and Writing Guidelines
 
 - Latex: Build using pdflatex and biber
@@ -43,19 +73,17 @@ Journaling refers to taking messy notes.
 
 ## Codex and Claude Code Reviews
 The user will ask for code reviews from using Codex or Claude.
-1. Check if you are in the container
-2. Launch with or without yolo mode, depending
-    - a. If in the container, use yolo mode: 
-        `codex exec --dangerously-bypass-approvals-and-sandbox "your prompt"`
-        or
-        `claude -p --dangerously-skip-permissions "your prompt"`
-    - b. If not in the container, use normal mode:
-        `codex exec "your prompt"`
-        or
-        `claude -p "your prompt"`
-3. Do not necessarily use all of the feedback
-    - a. Codex tends to overemphasize edge cases
-    - b. Claude tends to be too positive
+
+Use yolo mode:
+    `codex exec --dangerously-bypass-approvals-and-sandbox "your prompt"`
+    or
+    `claude -p --dangerously-skip-permissions "your prompt"`
+
+Do not necessarily use all of the feedback
+- a. Codex tends to overemphasize edge cases
+- b. Claude tends to be too positive
+
+Be patient. Code reviews can take up to 20 minutes.
 
 ## Custom Tools
 
