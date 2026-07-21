@@ -37,9 +37,9 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
 - Note taking: Use LyX if math is involved. We often do math and the human finds this much easier to work with.
 
 ### LyX Guidelines
-- For key equations, use numbered `equation` environments with `\label{...}` instead of display math with manual `\tag{...}` labels.
+- Use numbered `equation` environments with `\label{...}`. Don't use `\tag{...}`.
 - Use `\text{...}` for operators. Don't use `\operatorname{...}`
-- Equation references: Use the full pattern below, including the closing `\end_inset`, because an unterminated inset breaks the `.lyx` file:
+- Equation references: Use the full pattern below, including the closing `\end_inset`
 ```text
 \begin_inset CommandInset ref
 LatexCommand eqref
@@ -53,6 +53,14 @@ nolink "false"
 ```
 Don't use raw `\eqref{...}`. 
 - In displaymath, put each equation on its own line.
+- Put a space in the text around an inline math inset or font change (trailing before, leading after):
+```text
+the 
+\emph on
+optimal
+\emph default
+ test
+```
 
 ### R Guidelines
 - When running R scripts non-interactively (`Rscript`), add `pdf(NULL)` near the top to suppress the stray `Rplots.pdf` that R creates whenever a transient graphics device is opened (e.g. by `ggsave()` on a `gridExtra::arrangeGrob` output).
