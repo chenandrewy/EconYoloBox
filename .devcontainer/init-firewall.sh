@@ -90,6 +90,7 @@ for domain in \
     "james-yu.gallerycdn.vsassets.io" \
     "donjayamanne.gallerycdn.vsassets.io" \
     "mhutchie.gallerycdn.vsassets.io" \
+    "ms-python.gallerycdn.vsassets.io" \
     "ikuyadeu.gallerycdn.vsassets.io" \
     "reditorsupport.gallerycdn.vsassets.io" \
     "copilot-proxy.githubusercontent.com" \
@@ -163,6 +164,10 @@ iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 # Then allow only specific outbound traffic to allowed domains
 iptables -A OUTPUT -m set --match-set allowed-domains dst -j ACCEPT
+
+# Reject everything else explicitly so blocked calls fail immediately instead
+# of hanging until their network timeout under the default DROP policy.
+iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
 
 echo "Firewall configuration complete"
 echo "Verifying firewall rules..."

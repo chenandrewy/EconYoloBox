@@ -33,6 +33,8 @@
         "james-yu.latex-workshop",
         "donjayamanne.githistory",
         "mhutchie.git-graph",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
         "ikuyadeu.r-pack",
         "reditorsupport.r"
       ],
@@ -42,6 +44,10 @@
         "[markdown]": {
           "editor.formatOnSave": false
         },
+        "[python]": {
+          "editor.formatOnSave": false
+        },
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
         "editor.codeActionsOnSave": {
           "source.fixAll.eslint": "explicit"
         },
