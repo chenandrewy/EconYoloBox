@@ -14,34 +14,13 @@ Root-level dot folders:
 
 Project-specific setup can still live inside individual project directories. The root `.devcontainer` is the shared workspace container used for the overall sandbox and build/tooling flow.
 
-## Devcontainer Image Size Notes
+## Devcontainer build cache
 
-The shared workspace devcontainer is built locally from `.devcontainer/Dockerfile`, which starts from the official `node:20` image. When VS Code or the Dev Containers tooling builds it, Docker tags the resulting image with an auto-generated local name like `vsc-sandbox-<hash>:latest`.
-
-Docker may report different sizes for the same image depending on which command is used:
-
-- `docker image inspect` reported about `7.08GB`
-- `docker system df -v` reported about `21.6GB`
-- `docker history` underreported some large steps
-- `docker buildx du --verbose` best explained the larger `21.6GB` figure because it showed the unpacked BuildKit snapshot sizes for the build steps
-
-The image is genuinely very large. The main contributors are:
-
-- the large `apt-get install ... texlive-full ...` layer in `.devcontainer/Dockerfile`
-- the Python environment and `pip install` layer
-- recursive metadata-changing layers such as `chown -R node:node /opt/venv`
-- recursive metadata-changing layers such as `chmod -R a+w /usr/local/lib/R/site-library`
-- the global AI CLI installs, plus LyX, Pandoc, and related tooling
-
-In one measured build, BuildKit accounting showed roughly:
-
-- `13.09GB` for the `apt-get install` layer that includes `texlive-full`
-- `1.33GB` for the Python `pip install` layer
-- `1.37GB` for `chown -R node:node /opt/venv`
-- `762MB` for `chmod -R a+w /usr/local/lib/R/site-library`
-- `852MB` for the global npm AI CLIs
-
-So the large image size is mostly expected from the TeX toolchain, but the recursive `chown` and `chmod` steps also add substantial avoidable weight.
+Set Docker's BuildKit garbage-collection budget to `35GB` on each host. The
+default `20GB` budget is smaller than this devcontainer's build cache and causes
+expensive layers to be evicted between rebuilds. See
+[Devcontainer image size and build cache](docs/image-size.md) for setup and
+diagnostic details.
 
 ## Plans for eventual public release.
 
