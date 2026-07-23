@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'; img-src 'none'; script-src 'nonce-{{nonce}}'; style-src-elem {{cspSource}} 'nonce-{{nonce}}'; style-src-attr 'unsafe-inline'; font-src {{cspSource}}">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MathPanel</title>
+<link rel="stylesheet" href="{{katexCss}}">
+<style nonce="{{nonce}}">
+  body {
+    font-family: var(--vscode-font-family, sans-serif);
+    font-size: var(--vscode-font-size, 13px);
+    color: var(--vscode-editor-foreground);
+    background: var(--vscode-editor-background);
+    margin: 0;
+    padding: 0.5em 1em 2em;
+  }
+  #status, #notice {
+    font-style: italic;
+    opacity: 0.8;
+    padding: 0.3em 0;
+  }
+  #status:empty, #notice:empty { display: none; }
+  #notice { color: var(--vscode-editorWarning-foreground, #c90); }
+  article {
+    margin: 0.8em 0;
+    padding: 0.2em 0 0.2em 0.8em;
+    border-left: 2px solid var(--vscode-panel-border, #888);
+  }
+  article.user {
+    border-left-color: var(--vscode-charts-blue, #47f);
+    opacity: 0.85;
+  }
+  article header {
+    font-size: 0.85em;
+    opacity: 0.65;
+    margin-bottom: 0.25em;
+  }
+  .txt { white-space: pre-wrap; overflow-wrap: break-word; }
+  .math.display { margin: 0.4em 0; overflow-x: auto; }
+  .katex { font-size: 1.1em; }
+</style>
+</head>
+<body>
+<div id="status"></div>
+<div id="notice"></div>
+<main id="log"></main>
+<script nonce="{{nonce}}" src="{{katexJs}}"></script>
+<script nonce="{{nonce}}">
+(function () {
+  'use strict';
+  var vscodeApi = acquireVsCodeApi();
+  var log = document.getElementById('log');
+  var statusEl = document.getElementById('status');
+  var noticeEl = document.getElementById('notice');
+
+  function validSpan(s) {
+    if (!s || typeof s !== 'object' || typeof s.s !== 'string') return false;
+    if (s.t === 'text') return true;
+    if (s.t === 'math') return s.m === 'inline' || s.m === 'display';
+    return false;
+  }
+  function validEntry(e) {
+    return !!e && typeof e === 'object'
+      && (e.role === 'assistant' || e.role === 'user')
+      && typeof e.tsDisplay === 'string'
+      && Array.isArray(e.spans) && e.spans.every(validSpan);
+  }
+
+  // Text goes to the DOM only via textContent; only math source reaches KaTeX.
+  function render(msg) {
+    statusEl.textContent = typeof msg.status === 'string' ? msg.status : '';
+    noticeEl.textContent = typeof msg.notice === 'string' ? msg.notice : '';
+    var atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 40;
+    log.replaceChildren();
+    var entries = Array.isArray(msg.entries) ? msg.entries : [];
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      if (!validEntry(e)) continue;
+      var art = document.createElement('article');
+      art.className = e.role;
+      var head = document.createElement('header');
+      head.textContent = (e.role === 'user' ? 'You' : 'Claude') + (e.tsDisplay ? ' · ' + e.tsDisplay : '');
+      art.appendChild(head);
+      var body = document.createElement('div');
+      for (var j = 0; j < e.spans.length; j++) {
+        var sp = e.spans[j];
+        var el;
+        if (sp.t === 'text') {
+          el = document.createElement('span');
+          el.className = 'txt';
+          el.textContent = sp.s;
+        } else {
+          el = document.createElement(sp.m === 'display' ? 'div' : 'span');
+          el.className = 'math ' + sp.m;
+          try {
+            katex.render(sp.s, el, {
+              displayMode: sp.m === 'display',
+              throwOnError: false,
+              trust: false,
+              maxExpand: 1000,
+              maxSize: 20
+            });
+          } catch (err) {
+            el.textContent = sp.s;
+          }
+        }
+        body.appendChild(el);
+      }
+      art.appendChild(body);
+      log.appendChild(art);
+    }
+    if (atBottom) window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  window.addEventListener('message', function (ev) {
+    var m = ev.data;
+    if (m && m.type === 'replaceHistory') render(m);
+  });
+  vscodeApi.postMessage({ type: 'ready' });
+})();
+</script>
+</body>
+</html>

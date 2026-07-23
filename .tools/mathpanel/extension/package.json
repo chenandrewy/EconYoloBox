@@ -1,0 +1,26 @@
+{
+  "name": "mathpanel",
+  "displayName": "MathPanel",
+  "description": "Render Claude Code session math live from the session transcript (read-only, no network).",
+  "version": "0.1.0",
+  "publisher": "local",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "main": "./extension.js",
+  "extensionKind": [
+    "workspace"
+  ],
+  "activationEvents": [
+    "onCommand:mathpanel.show"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "mathpanel.show",
+        "title": "MathPanel: Show"
+      }
+    ]
+  }
+}
