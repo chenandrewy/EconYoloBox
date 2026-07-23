@@ -1,7 +1,7 @@
-// MathPanel: VS Code glue. Discovers the active Claude Code session transcript
-// for this workspace, follows it read-only via fs.watchFile, and mirrors the
-// parsed history into a singleton webview. No network, no writes under
-// ~/.claude/, no files of our own.
+// MathPanel: VS Code glue. Discovers the active Claude Code or Codex CLI session
+// transcript for this workspace, follows it read-only via fs.watchFile, and
+// mirrors the parsed history into a singleton webview. No network, no transcript
+// writes, no files of our own.
 'use strict';
 
 const vscode = require('vscode');
@@ -9,12 +9,24 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
-const { LIMITS, mungePath, LineBuffer, parseLine } = require('./transcript');
+const {
+  LIMITS,
+  mungePath,
+  LineBuffer,
+  parseLine: parseClaudeLine,
+} = require('./transcript');
+const {
+  recentSessionDateParts,
+  cachedSessionMeta,
+  parseLine: parseCodexLine,
+} = require('./codex');
 
 const INCLUDE_USER = true; // interleave real user prompts with assistant text
 const DISCOVERY_MS = 1000;
 const WATCH_MS = 750;
-const NO_SESSION = 'No Claude session found for this workspace.';
+const CODEX_DAYS = 7;
+const FIRST_LINE_CHUNK = 64 * 1024;
+const NO_SESSION = 'No Claude Code or Codex CLI session found for this workspace.';
 
 let panel; // singleton WebviewPanel
 let webviewReady = false;
@@ -84,8 +96,8 @@ function startFollower() {
     follower = { messages: [], status: 'MathPanel supports exactly one local workspace folder.' };
     return;
   }
-  // Claude munges the realpath of its cwd; match that. The ~/.claude/projects
-  // path itself stays logical — the kernel resolves any symlink on each access.
+  // Match both vendors against the workspace realpath. Their transcript roots
+  // stay logical — the kernel resolves any symlink again on every access.
   let real;
   try {
     real = fs.realpathSync(folders[0].uri.fsPath);
@@ -93,8 +105,13 @@ function startFollower() {
     real = folders[0].uri.fsPath;
   }
   follower = {
-    projDir: path.join(os.homedir(), '.claude', 'projects', mungePath(real)),
+    workspaceReal: real,
+    claudeProjDir: path.join(os.homedir(), '.claude', 'projects', mungePath(real)),
+    codexRoot: path.join(os.homedir(), '.codex', 'sessions'),
+    codexMetaCache: new Map(), // positive path+inode; negative path+inode+size
     file: undefined,
+    source: undefined,
+    sessionTimestamp: '',
     lastIno: -1,
     lastSize: 0,
     lineBuf: new LineBuffer(),
@@ -113,21 +130,24 @@ function stopFollower() {
   follower = undefined;
 }
 
-// Every ~1s: stat the direct-child *.jsonl files of the munge dir and follow
-// the non-empty one with the newest mtime (ties broken by filename).
-function discover() {
-  if (!follower || !follower.projDir) return;
+function newer(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  if (b.mtimeMs !== a.mtimeMs) return b.mtimeMs > a.mtimeMs ? b : a;
+  return b.path > a.path ? b : a;
+}
+
+function discoverClaude() {
   let names;
   try {
-    names = fs.readdirSync(follower.projDir);
+    names = fs.readdirSync(follower.claudeProjDir);
   } catch {
-    selectFile(undefined);
-    return;
+    return undefined;
   }
   let best;
   for (const name of names) {
     if (!name.endsWith('.jsonl')) continue;
-    const p = path.join(follower.projDir, name);
+    const p = path.join(follower.claudeProjDir, name);
     let st;
     try {
       st = fs.statSync(p);
@@ -135,21 +155,111 @@ function discover() {
       continue;
     }
     if (!st.isFile() || st.size === 0) continue;
-    if (!best || st.mtimeMs > best.mtimeMs || (st.mtimeMs === best.mtimeMs && name > best.name)) {
-      best = { name, mtimeMs: st.mtimeMs, path: p };
-    }
+    best = newer(best, { path: p, source: 'claude', mtimeMs: st.mtimeMs });
   }
-  selectFile(best && best.path);
+  return best;
 }
 
-function selectFile(p) {
+function recentCodexDirs() {
+  return recentSessionDateParts(Date.now(), CODEX_DAYS).map((parts) =>
+    path.join(follower.codexRoot, ...parts),
+  );
+}
+
+// Read only the first line, capped by the same guard as normal transcript lines.
+// Most metadata lines fit in the initial 64 KiB; grow only when necessary.
+function readFirstLine(p) {
+  let fd;
+  try {
+    fd = fs.openSync(p, 'r');
+    const maxBytes = LIMITS.MAX_LINE + 1;
+    let buf = Buffer.alloc(Math.min(FIRST_LINE_CHUNK, maxBytes));
+    let read = 0;
+    for (;;) {
+      if (read === buf.length) {
+        if (buf.length === maxBytes) return undefined; // no newline within cap
+        const grown = Buffer.alloc(Math.min(buf.length * 2, maxBytes));
+        buf.copy(grown, 0, 0, read);
+        buf = grown;
+      }
+      const n = fs.readSync(fd, buf, read, buf.length - read, read);
+      if (n <= 0) return undefined;
+      const newline = buf.subarray(read, read + n).indexOf(0x0a);
+      if (newline >= 0) return buf.toString('utf8', 0, read + newline);
+      read += n;
+    }
+  } catch {
+    return undefined;
+  } finally {
+    if (fd !== undefined) {
+      try {
+        fs.closeSync(fd);
+      } catch {}
+    }
+  }
+}
+
+function discoverCodex() {
+  let best;
+  for (const dir of recentCodexDirs()) {
+    let names;
+    try {
+      names = fs.readdirSync(dir);
+    } catch {
+      continue;
+    }
+    for (const name of names) {
+      if (!/^rollout-.*\.jsonl$/.test(name)) continue;
+      const p = path.join(dir, name);
+      let st;
+      try {
+        st = fs.statSync(p);
+      } catch {
+        continue;
+      }
+      if (!st.isFile() || st.size === 0) continue;
+      const meta = cachedSessionMeta(
+        follower.codexMetaCache,
+        p,
+        st.ino,
+        st.size,
+        () => readFirstLine(p),
+      );
+      if (!meta) continue;
+      if (meta.cwd !== follower.workspaceReal) continue;
+      best = newer(best, {
+        path: p,
+        source: 'codex',
+        mtimeMs: st.mtimeMs,
+        sessionTimestamp: meta.timestamp,
+      });
+    }
+  }
+  return best;
+}
+
+// Every ~1s: union the Claude project candidates with cwd-matched Codex
+// rollouts from the last seven date directories plus tomorrow's timezone guard,
+// then follow the newest mtime.
+function discover() {
+  if (!follower || !follower.claudeProjDir) return;
+  selectFile(newer(discoverClaude(), discoverCodex()));
+}
+
+function selectFile(candidate) {
   if (!follower) return;
-  if (p === follower.file) {
-    if (p) poll();
+  const p = candidate && candidate.path;
+  if (p === follower.file && (!candidate || candidate.source === follower.source)) {
+    if (candidate) {
+      follower.sessionTimestamp = candidate.sessionTimestamp || '';
+      poll();
+    }
     return;
   }
   if (follower.file) fs.unwatchFile(follower.file);
   follower.file = p;
+  follower.source = candidate && candidate.source;
+  follower.sessionTimestamp = (candidate && candidate.sessionTimestamp) || '';
   follower.lastIno = -1;
   follower.lastSize = 0;
   follower.lineBuf.reset();
@@ -222,7 +332,14 @@ function readRange(fd, from, to) {
   }
   const lines = follower.lineBuf.push(read === len ? buf : buf.subarray(0, read));
   for (const line of lines) {
-    const r = parseLine(line, { includeUser: INCLUDE_USER });
+    const opts = {
+      includeUser: INCLUDE_USER,
+      sessionTimestamp: follower.sessionTimestamp,
+    };
+    const r =
+      follower.source === 'codex'
+        ? parseCodexLine(line, opts)
+        : parseClaudeLine(line, opts);
     if (r.unexpected) follower.unexpected = true;
     for (const m of r.messages) follower.messages.push(m);
   }
@@ -259,7 +376,9 @@ function sendHistory() {
     status: f ? f.status : '',
     notice:
       f && f.unexpected
-        ? 'Some records were skipped — Claude Code transcript format may have changed.'
+        ? `Some records were skipped — ${
+            f.source === 'codex' ? 'Codex CLI' : 'Claude Code'
+          } transcript format may have changed.`
         : '',
   });
 }
