@@ -16,11 +16,13 @@ motivation in `0721a,MathRender-Risks.md`).
   session starts or you `--resume` an old one).
 - Shows assistant text and real user prompts, newest 50 messages. Thinking
   blocks, tool calls/results, and harness bookkeeping are skipped.
-- Renders `$$…$$`, `\[…\]` (display) and `\(…\)` (inline) via a vendored,
-  pinned KaTeX (`extension/media/katex/VENDOR.md`). Everything else — including
-  code blocks — is inert plain text (`textContent`; no markdown, no HTML).
-- Single-`$…$` is deliberately not treated as math (currency/`$VAR` false
-  positives).
+- Renders `$$…$$`, `\[…\]` (display) and `\(…\)`, `$…$` (inline) via a
+  vendored, pinned KaTeX (`extension/media/katex/VENDOR.md`). Everything else —
+  including code blocks — is inert plain text (`textContent`; no markdown, no
+  HTML).
+- Single-`$…$` uses Pandoc-style guards against currency/`$VAR` false
+  positives: both `$` on one line, no whitespace just inside the delimiters, no
+  digit right after the closing `$`, escaped `\$` ignored.
 
 ## Security posture (summary)
 

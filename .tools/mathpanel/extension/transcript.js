@@ -83,7 +83,24 @@ const DELIMS = [
   { open: '$$', close: '$$', kind: 'math', mode: 'display', sameLine: false },
   { open: '\\[', close: '\\]', kind: 'math', mode: 'display', sameLine: false },
   { open: '\\(', close: '\\)', kind: 'math', mode: 'inline', sameLine: false },
+  { open: '$', close: '$', kind: 'math', mode: 'inline', singleDollar: true },
 ];
+
+// Pandoc-style closer search for single-$ inline math: same line, closing $
+// not escaped, not preceded by whitespace, not immediately followed by a digit
+// (kills "between $20,000 and $30,000"). Returns -1 if no valid closer.
+function findDollarClose(text, from) {
+  const nl = text.indexOf('\n', from);
+  const limit = nl === -1 ? text.length : nl;
+  for (let j = text.indexOf('$', from); j !== -1 && j < limit; j = text.indexOf('$', j + 1)) {
+    const before = text[j - 1];
+    const after = j + 1 < text.length ? text[j + 1] : '';
+    if (before === '\\' || /\s/.test(before)) continue;
+    if (after >= '0' && after <= '9') continue;
+    return j;
+  }
+  return -1;
+}
 
 // Segments one text block into ordered spans: {t:'text',s} | {t:'math',m,s}.
 // Concatenating text spans plus delimited math reconstructs the input.
@@ -110,6 +127,22 @@ function segment(text) {
     const { d, idx } = best;
     textBuf += text.slice(i, idx);
     const bodyStart = idx + d.open.length;
+    if (d.singleDollar) {
+      // Opener must not be escaped and must have a non-space right after it.
+      const prev = idx > 0 ? text[idx - 1] : '';
+      const next = text[bodyStart];
+      const closeIdx =
+        prev !== '\\' && next && !/\s/.test(next) ? findDollarClose(text, bodyStart) : -1;
+      if (closeIdx === -1) {
+        textBuf += d.open; // currency, $VAR, lone $: literal text
+        i = bodyStart;
+        continue;
+      }
+      flush();
+      spans.push({ t: 'math', m: 'inline', s: text.slice(bodyStart, closeIdx).trim() });
+      i = closeIdx + 1;
+      continue;
+    }
     let closeIdx = text.indexOf(d.close, bodyStart);
     if (closeIdx !== -1 && d.sameLine) {
       const nl = text.indexOf('\n', bodyStart);

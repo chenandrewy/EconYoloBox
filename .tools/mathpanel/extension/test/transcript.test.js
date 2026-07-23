@@ -137,9 +137,49 @@ test('segment: unclosed delimiters are literal text', () => {
   assert.deepEqual(segment('x\n```\n$$y$$'), [{ t: 'text', s: 'x\n```\n$$y$$' }]);
 });
 
-test('segment: empty math dropped, single-$ never scanned', () => {
+test('segment: empty math dropped', () => {
   assert.deepEqual(segment('a $$$$ b'), [{ t: 'text', s: 'a ' }, { t: 'text', s: ' b' }]);
+});
+
+test('segment: single-$ inline math', () => {
+  assert.deepEqual(segment('a $x$ b'), [
+    { t: 'text', s: 'a ' },
+    { t: 'math', m: 'inline', s: 'x' },
+    { t: 'text', s: ' b' },
+  ]);
+  assert.deepEqual(segment('$E=mc^2$'), [{ t: 'math', m: 'inline', s: 'E=mc^2' }]);
+  assert.deepEqual(segment('$a$ and $b_i$'), [
+    { t: 'math', m: 'inline', s: 'a' },
+    { t: 'text', s: ' and ' },
+    { t: 'math', m: 'inline', s: 'b_i' },
+  ]);
+  // $$ keeps priority over single-$
+  assert.deepEqual(segment('$$x$$ and $y$'), [
+    { t: 'math', m: 'display', s: 'x' },
+    { t: 'text', s: ' and ' },
+    { t: 'math', m: 'inline', s: 'y' },
+  ]);
+});
+
+test('segment: single-$ currency and shell-var guards', () => {
+  // space before would-be closer
+  assert.deepEqual(segment('between $20,000 and $30,000'), [
+    { t: 'text', s: 'between $20,000 and $30,000' },
+  ]);
+  // digit right after would-be closer
+  assert.deepEqual(segment('$5-$6 range'), [{ t: 'text', s: '$5-$6 range' }]);
+  // no closer at all
+  assert.deepEqual(segment('costs $5.'), [{ t: 'text', s: 'costs $5.' }]);
   assert.deepEqual(segment('price $5 and $VAR'), [{ t: 'text', s: 'price $5 and $VAR' }]);
+  // whitespace immediately inside the delimiters
+  assert.deepEqual(segment('a $ x$ b'), [{ t: 'text', s: 'a $ x$ b' }]);
+  assert.deepEqual(segment('a $x $ b'), [{ t: 'text', s: 'a $x $ b' }]);
+  // escaped \$ never opens or closes
+  assert.deepEqual(segment('pay \\$5 or \\$6'), [{ t: 'text', s: 'pay \\$5 or \\$6' }]);
+  // both delimiters must sit on the same line
+  assert.deepEqual(segment('a $x\ny$ b'), [{ t: 'text', s: 'a $x\ny$ b' }]);
+  // inline code still protects dollar math
+  assert.deepEqual(segment('use `$PATH$` here'), [{ t: 'text', s: 'use `$PATH$` here' }]);
 });
 
 // ---------------------------------------------------------------- limits
@@ -214,7 +254,7 @@ test('fixture: synthetic session parses to the expected conversation', () => {
   assert.equal(unexpected, false);
   assert.deepEqual(
     messages.map((m) => m.role),
-    ['user', 'assistant', 'assistant'],
+    ['user', 'assistant', 'assistant', 'assistant'],
   );
   assert.deepEqual(messages[1].spans, [
     { t: 'text', s: 'By conservation, ' },
@@ -224,4 +264,9 @@ test('fixture: synthetic session parses to the expected conversation', () => {
   ]);
   assert.equal(messages[2].spans.length, 1);
   assert.equal(messages[2].spans[0].t, 'text');
+  assert.deepEqual(messages[3].spans, [
+    { t: 'text', s: 'Thus ' },
+    { t: 'math', m: 'inline', s: 'p_1=p_2' },
+    { t: 'text', s: ' costs $5 to check.' },
+  ]);
 });
