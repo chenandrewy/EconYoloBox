@@ -16,6 +16,10 @@ LIBRARY/
 # messy templates
 template/
 
+# scratch/superseded work, incl. nested repos. Leading slash is required:
+# a bare "dev/" would also swallow .tools/dev/.
+/dev/
+
 # for codex autocomplete convenience
 .git/
 
