@@ -72,7 +72,10 @@
     "source=${localWorkspaceFolderBasename}-codex-config,target=/home/node/.codex,type=volume"
   ],
   "containerEnv": {
-    "TZ": "${localEnv:TZ:America/New_York}",
+    // TZ is intentionally absent: write-local-env.sh detects the host zone into
+    // /tmp/devcontainer-local.env. containerEnv becomes `docker run --env`, which
+    // outranks --env-file, so setting it here would clobber the detected value.
+    // Fallback if detection finds nothing: the Dockerfile's baked-in ARG TZ.
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "CLAUDE_CONFIG_DIR": "/home/node/.claude",
     "AI_SESH_MACHINE": "${localEnv:AI_SESH_MACHINE}",

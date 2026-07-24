@@ -79,10 +79,19 @@ In practice, large system installs, source builds, and language package installs
 
 ### Timezone
 
-The container defaults to `America/New_York`. To override, set the `TZ` environment variable on your host before building:
+The container matches your host's timezone automatically. `write-local-env.sh`
+detects it at `initializeCommand` time — `$TZ` if exported, else `timedatectl`,
+else the target of the `/etc/localtime` symlink (which is how macOS and desktop
+Linux actually record it) — and passes it in via `--env-file`.
+
+To force a specific zone instead, export it on the host before the container
+starts:
 
 ```bash
 export TZ=America/Chicago
 ```
 
-The container picks up `TZ` from your host via `${localEnv:TZ}` and falls back to `America/New_York` if unset.
+If detection finds nothing, the fallback is the Dockerfile's `ARG TZ`, which
+defaults to `America/New_York`. Note that `TZ` is deliberately **not** set in
+`containerEnv`: that becomes `docker run --env`, which outranks `--env-file` and
+would override the detected value.
