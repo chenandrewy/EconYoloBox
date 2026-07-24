@@ -351,8 +351,9 @@ function readRange(fd, from, to) {
 
 // ---------------------------------------------------------------- webview out
 
+// Host zone, matching the clock the session was written by. In this devcontainer
+// that is whatever .devcontainer/write-local-env.sh detected from the host.
 const TS_FMT = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'America/New_York',
   month: 'short',
   day: 'numeric',
   hour: 'numeric',

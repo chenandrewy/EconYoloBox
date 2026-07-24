@@ -13,10 +13,11 @@ motivation in `0721a,MathRender-Risks.md`).
 ## What it does
 
 - Watches `~/.claude/projects/<munge-of-workspace-cwd>/` plus cwd-matched
-  rollouts in the last seven New York date directories, plus tomorrow as a
-  cross-time-zone guard, under `~/.codex/sessions/`. It follows the
-  most-recently-modified session across both sources and switches automatically
-  when either tool writes.
+  rollouts in the last seven date directories under `~/.codex/sessions/`, plus
+  tomorrow as a cross-time-zone guard. Those directories are named for the
+  *local* date of whichever machine wrote them, so the scan follows the host
+  zone. It follows the most-recently-modified session across both sources and
+  switches automatically when either tool writes.
 - Shows assistant text and real user prompts, newest 50 messages. Thinking
   blocks, tool calls/results, and harness bookkeeping are skipped.
 - Renders `$$…$$`, `\[…\]` (display) and `\(…\)`, `$…$` (inline) via a

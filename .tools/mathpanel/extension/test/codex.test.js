@@ -19,9 +19,11 @@ function line(type, payload, timestamp) {
   return JSON.stringify(rec);
 }
 
-test('discovery dates: New York calendar window is stable at UTC and DST boundaries', () => {
+test('discovery dates: local calendar window is stable at UTC and DST boundaries', () => {
+  // 21:30 the previous day in New York: the window must follow the local date,
+  // not the UTC one, because that is how Codex names the directories.
   assert.deepEqual(
-    recentSessionDateParts(Date.parse('2026-07-24T01:30:00.000Z'), 3),
+    recentSessionDateParts(Date.parse('2026-07-24T01:30:00.000Z'), 3, 'America/New_York'),
     [
       ['2026', '07', '24'],
       ['2026', '07', '23'],
@@ -29,8 +31,10 @@ test('discovery dates: New York calendar window is stable at UTC and DST boundar
       ['2026', '07', '21'],
     ],
   );
+  // Spring-forward: 2026-03-08 is a 23-hour day in New York, so fixed 24-hour
+  // subtraction would skip a date.
   assert.deepEqual(
-    recentSessionDateParts(Date.parse('2026-03-09T00:30:00.000Z'), 3),
+    recentSessionDateParts(Date.parse('2026-03-09T00:30:00.000Z'), 3, 'America/New_York'),
     [
       ['2026', '03', '09'],
       ['2026', '03', '08'],
@@ -38,6 +42,23 @@ test('discovery dates: New York calendar window is stable at UTC and DST boundar
       ['2026', '03', '06'],
     ],
   );
+});
+
+test('discovery dates: the window is anchored to the given zone, not to New York', () => {
+  // Same instant, two zones on opposite sides of the date line: Tokyo is
+  // already on the 24th while New York is still on the 23rd. Hardcoding New
+  // York would make a Tokyo user's live session directory invisible.
+  const at = Date.parse('2026-07-24T01:30:00.000Z');
+  assert.deepEqual(recentSessionDateParts(at, 1, 'Asia/Tokyo'), [
+    ['2026', '07', '25'],
+    ['2026', '07', '24'],
+  ]);
+  assert.deepEqual(recentSessionDateParts(at, 1, 'America/New_York'), [
+    ['2026', '07', '24'],
+    ['2026', '07', '23'],
+  ]);
+  // Omitting the zone uses the host's, whatever the test machine is set to.
+  assert.equal(recentSessionDateParts(at, 1).length, 2);
 });
 
 test('metadata cache: negative result is reused until the file size changes', () => {
@@ -81,6 +102,21 @@ test('metadata cache: malformed first line is negatively cached by size', () => 
   assert.equal(cachedSessionMeta(cache, '/logical/bad.jsonl', 8, 20, read), undefined);
   assert.equal(cachedSessionMeta(cache, '/logical/bad.jsonl', 8, 20, read), undefined);
   assert.equal(reads, 1);
+});
+
+test('metadata cache: a growing unparseable file holds one entry, not one per size', () => {
+  const cache = new Map();
+  let reads = 0;
+  const read = () => {
+    reads += 1;
+    return line('future_meta_type', { cwd: '/workspace/project' });
+  };
+  // A file appended to on every discovery tick that never yields session_meta.
+  for (let size = 1; size <= 50; size += 1) {
+    assert.equal(cachedSessionMeta(cache, '/logical/growing.jsonl', 9, size, read), undefined);
+  }
+  assert.equal(reads, 50); // each new size is retried exactly once
+  assert.equal(cache.size, 1); // and the entry is replaced, never accumulated
 });
 
 test('session metadata: extracts immutable cwd and timestamp from first line', () => {

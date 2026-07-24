@@ -7,21 +7,33 @@ const { blockToSpans } = require('./transcript');
 
 const NONE = { messages: [], unexpected: false };
 const NO_SESSION_META = Symbol('no-session-meta');
-const NY_DATE_FMT = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'America/New_York',
-  year: 'numeric',
-  month: '2-digit',
-  day: '2-digit',
-});
+const dateFmtCache = new Map();
+function dateFmt(timeZone) {
+  let fmt = dateFmtCache.get(timeZone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat('en-US', {
+      timeZone, // undefined = host zone, the same clock Codex wrote the dirs by
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    dateFmtCache.set(timeZone, fmt);
+  }
+  return fmt;
+}
 
-// Anchor the scan to New York calendar dates and include tomorrow as a forward
-// guard for ai-sesh stores written by a machine in a time zone ahead of New
-// York. Do the subtraction as calendar arithmetic, not fixed 24-hour jumps
-// across DST. `days` is the number of dates through today, so the returned
-// window has days + 1 entries after adding tomorrow.
-function recentSessionDateParts(nowMs, days) {
+// Codex names its YYYY/MM/DD session directories after the *local* calendar
+// date of the machine that wrote them, not UTC — verified against 111 observed
+// rollouts, 11 of which sit in a directory that disagrees with their own UTC
+// timestamp. So anchor the scan to the host zone; `timeZone` overrides it for
+// tests only. Include tomorrow as a forward guard for ai-sesh stores written by
+// a machine in a zone ahead of this one. Do the subtraction as calendar
+// arithmetic, not fixed 24-hour jumps across DST. `days` is the number of dates
+// through today, so the returned window has days + 1 entries after tomorrow.
+function recentSessionDateParts(nowMs, days, timeZone) {
   const parts = Object.fromEntries(
-    NY_DATE_FMT.formatToParts(new Date(nowMs))
+    dateFmt(timeZone)
+      .formatToParts(new Date(nowMs))
       .filter((part) => part.type !== 'literal')
       .map((part) => [part.type, Number(part.value)]),
   );
@@ -85,23 +97,24 @@ function sessionMetaFromLine(line) {
   };
 }
 
-// Positive metadata is immutable and cached by (logical path, inode). Negative
-// results also include size, so an incomplete new file is retried after growth
-// while a permanently unparseable file is not reopened every discovery tick.
+// Cached by (logical path, inode), one entry per file either way. Positive
+// metadata is immutable, so a hit is final. A negative entry carries the size it
+// failed at and is overwritten in place on each retry: an incomplete file — one
+// still syncing in, say — is reread only after it grows, and a permanently
+// unparseable one is not reopened every discovery tick. Keeping the size in the
+// value rather than the key is what bounds the cache; keying by size would mint
+// a new entry for every append to a file that never parses.
 function cachedSessionMeta(cache, filePath, inode, size, readFirstLine) {
   const fileKey = `${filePath}\0${inode}`;
-  if (cache.has(fileKey)) return cache.get(fileKey);
-
-  const negativeKey = `${fileKey}\0${size}`;
-  if (cache.get(negativeKey) === NO_SESSION_META) return undefined;
+  const cached = cache.get(fileKey);
+  if (cached !== undefined) {
+    if (cached.kind !== NO_SESSION_META) return cached;
+    if (cached.size === size) return undefined;
+  }
 
   const line = readFirstLine();
   const meta = typeof line === 'string' ? sessionMetaFromLine(line) : undefined;
-  if (meta) {
-    cache.set(fileKey, meta);
-  } else {
-    cache.set(negativeKey, NO_SESSION_META);
-  }
+  cache.set(fileKey, meta || { kind: NO_SESSION_META, size });
   return meta;
 }
 
