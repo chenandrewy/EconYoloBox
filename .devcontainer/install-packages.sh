@@ -163,10 +163,39 @@ github_pkgs <- c(
 have <- function(p) requireNamespace(p, quietly = TRUE)
 wanted <- function(p) reinstall || !have(p)
 
+# install.packages() reports download and compile failures as *warnings* and
+# returns normally, so nothing downstream notices. Print the one thing worth
+# reading and say where to look.
+report_failure <- function(failed, context) {
+  cat("\n---\n")
+  cat("FAILED (", context, "): ", paste(failed, collapse = ", "), "\n", sep = "")
+  cat("Look above for the first 'cannot open URL' / 'Couldn't connect' line.\n")
+  cat("If it names a host, that host is almost certainly not in the firewall\n")
+  cat("allowlist - see .devcontainer/init-firewall.sh. Note that CDN-fronted\n")
+  cat("hosts can rotate IPs after the allowlist is pinned at container start.\n")
+}
+
+# Keep going on a failure here so the run still reaches the summary below,
+# instead of halting R on the first error and burying the cause.
+try_install <- function(nm, expr) {
+  tryCatch(expr, error = function(e) {
+    cat("ERROR installing ", nm, ": ", conditionMessage(e), "\n", sep = "")
+  })
+}
+
 todo <- cran_pkgs[vapply(cran_pkgs, wanted, logical(1))]
 if (length(todo)) {
   cat("Installing from P3M snapshot:", paste(todo, collapse = ", "), "\n")
   install.packages(todo)
+
+  # Stop here rather than cascading: pryr needs lobstr/Rcpp/stringr from this
+  # batch, and the GitHub step needs remotes. Continuing past a failed batch
+  # buries one network error under a pile of missing-dependency errors.
+  failed <- todo[!vapply(todo, have, logical(1))]
+  if (length(failed)) {
+    report_failure(failed, sprintf("%d of %d from P3M", length(failed), length(todo)))
+    quit(status = 1)
+  }
 } else {
   cat("CRAN packages already present\n")
 }
@@ -174,14 +203,14 @@ if (length(todo)) {
 for (nm in names(archive_pkgs)) {
   if (wanted(nm)) {
     cat("Installing archived source:", nm, "\n")
-    install.packages(archive_pkgs[[nm]], repos = NULL, type = "source")
+    try_install(nm, install.packages(archive_pkgs[[nm]], repos = NULL, type = "source"))
   }
 }
 
 for (nm in names(github_pkgs)) {
   if (wanted(nm)) {
     cat("Installing from GitHub:", nm, "\n")
-    remotes::install_github(github_pkgs[[nm]])
+    try_install(nm, remotes::install_github(github_pkgs[[nm]]))
   }
 }
 
@@ -189,7 +218,7 @@ for (nm in names(github_pkgs)) {
 all_pkgs <- c(cran_pkgs, names(archive_pkgs), names(github_pkgs))
 missing <- all_pkgs[!vapply(all_pkgs, have, logical(1))]
 if (length(missing)) {
-  cat("MISSING (R):", paste(missing, collapse = ", "), "\n")
+  report_failure(missing, "R stack incomplete")
   quit(status = 1)
 }
 cat(sprintf("R stack OK (%d packages)\n", length(all_pkgs)))
