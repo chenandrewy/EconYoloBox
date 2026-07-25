@@ -28,6 +28,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   ipset \
   iproute2 \
   dnsutils \
+  # dnsmasq-base: resolve-time allowlisting of CDN-fronted hosts (init-firewall.sh)
+  dnsmasq-base \
   aggregate \
   jq \
   nano \
@@ -138,8 +140,14 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN chown -R node:node /opt/venv
 
 # Allow non-root user to install R packages at runtime - this is now the normal
-# path for the whole R stack, not just late additions.
-RUN chmod -R a+w /opt/R/${R_VERSION}/lib/R/library
+# path for the whole R stack, not just late additions. Packages land in
+# site-library (R's default first library whenever the directory exists), which
+# devcontainer.json mounts as a named volume so compiles survive container
+# recreation. The empty volume inherits this directory's node ownership on
+# first mount (Docker copy-on-first-use), so no chown at container setup.
+RUN chmod -R a+w /opt/R/${R_VERSION}/lib/R/library && \
+  mkdir -p /opt/R/${R_VERSION}/lib/R/site-library && \
+  chown node:node /opt/R/${R_VERSION}/lib/R/site-library
 
 # Pin LyX to the Debian 12 backports build so export/import behavior stays
 # stable even if the base `node:20` tag changes over time.

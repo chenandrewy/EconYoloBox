@@ -69,7 +69,16 @@
   "mounts": [
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     "source=${localWorkspaceFolderBasename}-claude-config,target=/home/node/.claude,type=volume",
-    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/node/.codex,type=volume"
+    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/node/.codex,type=volume",
+    // Compiled-package volumes (docs/journal/0725f): installs stay at runtime
+    // so image builds stay fast, but packages survive container recreation.
+    // Names carry the interpreter version so an upgrade starts a fresh volume
+    // instead of serving stale binaries - bump them together with R_VERSION in
+    // the Dockerfile / the base image's python3. The R target must match
+    // R_VERSION too (devcontainer.json cannot read Dockerfile ARGs). R picks
+    // up site-library automatically because the directory exists in the image.
+    "source=${localWorkspaceFolderBasename}-r-site-library-4.5.3,target=/opt/R/4.5.3/lib/R/site-library,type=volume",
+    "source=${localWorkspaceFolderBasename}-venv-py3.11,target=/opt/venv,type=volume"
   ],
   "containerEnv": {
     // TZ is intentionally absent: write-local-env.sh detects the host zone into

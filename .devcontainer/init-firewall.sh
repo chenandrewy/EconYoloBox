@@ -2,6 +2,20 @@
 set -euo pipefail  # Exit on error, undefined vars, and pipeline failures
 IFS=$'\n\t'       # Stricter word splitting
 
+# NOT re-runnable: this script only takes a container from clean (fresh netns,
+# ACCEPT policies) to armed, once per container lifetime. A mid-session re-run
+# inherits the DROP policies of the previous run - iptables -F flushes rules
+# but not policies - so its own bootstrap fetches (GitHub meta, goog.json) get
+# blackholed before any ACCEPT rule exists, and the fail-closed trap then cuts
+# the whole container off. Refuse instead; a restart re-runs this via
+# postStartCommand from a clean state. Exit 0 so launcher chains that hit an
+# already-armed container don't abort.
+if iptables -S OUTPUT | grep -q '^-P OUTPUT DROP'; then
+    echo "Firewall already armed (OUTPUT policy is DROP) - refusing to re-run." >&2
+    echo "To re-arm or apply changes, restart the container." >&2
+    exit 0
+fi
+
 # Fail closed: everything below flushes the rules before rebuilding them, so a
 # mid-script failure would otherwise leave the container wide open (default ACCEPT)
 trap 'status=$?; if [ "$status" -ne 0 ]; then
@@ -22,6 +36,17 @@ iptables -t nat -X
 iptables -t mangle -F
 iptables -t mangle -X
 ipset destroy allowed-domains 2>/dev/null || true
+
+# dnsmasq (started at the end of this script) owns DNS once set up. Kill any
+# previous instance, and point resolv.conf back at the real upstream so this
+# script's own dig/curl calls still resolve; the stash is written by the
+# dnsmasq block below on first run.
+UPSTREAM_STASH=/etc/dnsmasq-upstream.conf
+pkill -x dnsmasq 2>/dev/null || true
+if [ -s "$UPSTREAM_STASH" ] && grep -q '^nameserver 127\.0\.0\.1$' /etc/resolv.conf; then
+    sed 's/^server=/nameserver /' "$UPSTREAM_STASH" > /etc/resolv.conf
+fi
+ipset destroy allowed-volatile 2>/dev/null || true
 
 # 2. Selectively restore ONLY internal Docker DNS resolution
 if [ -n "$DOCKER_DNS_RULES" ]; then
@@ -48,6 +73,10 @@ iptables -A OUTPUT -o lo -j ACCEPT
 
 # Create ipset with CIDR support
 ipset create allowed-domains hash:net
+
+# Volatile set: populated at resolve time by dnsmasq's ipset= directive, for
+# CDN-fronted hosts whose IPs rotate faster than start-time pinning can track.
+ipset create allowed-volatile hash:ip
 
 # Fetch GitHub meta information and aggregate + add their IP ranges
 echo "Fetching GitHub IP ranges..."
@@ -111,14 +140,26 @@ done < <(echo "$goog_ranges" | jq -r '.prefixes[].ipv4Prefix | select(. != null)
 # Adding an extension from a new publisher requires a new entry here, or its
 # install will silently fail inside the container.
 #
-# Two of these exist only for runtime R installs (install-packages.sh):
-#   rspm-sync.rstudio.com - P3M serves metadata from packagemanager.posit.co but
-#     redirects the actual package payload here. Without it, install.packages()
-#     fails at download. First-party Posit infrastructure, so bounded.
+# Two hosts serve runtime R installs (install-packages.sh):
 #   cran.r-project.org    - archived-source tarballs (pryr), which P3M does not
 #     carry. Only touched by the explicit archive pin.
+#   rspm-sync.rstudio.com - P3M's package payload host - is NOT pinned here: it
+#     is CloudFront and rotates IPs on a minutes timescale, so start-time
+#     pinning cannot hold it (docs/journal/0725e). It goes through dnsmasq's
+#     resolve-time VOLATILE_DOMAINS path at the end of this script instead.
+#   www.apache.org / dlcdn.apache.org / archive.apache.org /
+#   nightlies.apache.org / zlib.net / sourceware.org - arrow's C++ toolchain
+#     fetches (thrift + orc via closer.lua, zlib, bzip2; nightly libarrow
+#     fallback). P3M has no arm64 Debian binaries, so arrow builds from source
+#     on this host. Apache mirrors carry only *current* releases; closer.lua
+#     redirects archived versions to archive.apache.org, so that host - not
+#     dlcdn - is the one actually hit. The full host list comes from
+#     cpp/thirdparty/versions.txt in the arrow source tarball; everything else
+#     there is github.com. All of these are stable (Fastly anycast or single
+#     IP), so pinning holds.
 # Expect more redirect hosts to surface: a redirect chain to an unlisted host is
-# invisible to inspection, so this list is permanently reactive.
+# invisible to inspection, so this list is permanently reactive. A host whose
+# answers rotate belongs in VOLATILE_DOMAINS, not here.
 for domain in \
     "registry.npmjs.org" \
     "marketplace.visualstudio.com" \
@@ -163,8 +204,13 @@ for domain in \
     "pypi.org" \
     "files.pythonhosted.org" \
     "packagemanager.posit.co" \
-    "rspm-sync.rstudio.com" \
     "cran.r-project.org" \
+    "www.apache.org" \
+    "dlcdn.apache.org" \
+    "archive.apache.org" \
+    "nightlies.apache.org" \
+    "zlib.net" \
+    "sourceware.org" \
     "api.stlouisfed.org" \
     "fred.stlouisfed.org" \
     "mba.tuck.dartmouth.edu" \
@@ -207,6 +253,7 @@ iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 # Then allow only specific outbound traffic to allowed domains
 iptables -A OUTPUT -m set --match-set allowed-domains dst -j ACCEPT
+iptables -A OUTPUT -m set --match-set allowed-volatile dst -j ACCEPT
 
 # Reject everything else explicitly so blocked calls fail immediately instead
 # of hanging until their network timeout under the default DROP policy.
@@ -227,4 +274,73 @@ if ! curl --connect-timeout 5 https://api.github.com/zen >/dev/null 2>&1; then
     exit 1
 else
     echo "Firewall verification passed - able to reach https://api.github.com as expected"
+fi
+
+# --- Resolve-time allowlisting via dnsmasq (docs/journal/0725e) ---
+# CDN-fronted hosts rotate IPs faster than the start-time pinning above can
+# track. dnsmasq's ipset= inserts every address it resolves for these names
+# into allowed-volatile BEFORE answering the client, so the connection that
+# follows is allowed by construction.
+#
+# resolv.conf is cut over to 127.0.0.1 only after dnsmasq provably works, so
+# every failure path here leaves the container with working DNS and only the
+# volatile hosts unreachable. None of these failures should trip the EXIT trap
+# into DROP - the firewall itself is fine.
+# apache.jfrog.io: first host arrow's nixlibs.R tries for a prebuilt libarrow.
+# AWS load balancer with a ~73s TTL, so it needs the resolve-time path.
+# jkpfactors-data.s3.amazonaws.com: Amazon S3 endpoint whose answers rotate,
+# so start-time IP pinning becomes stale.
+VOLATILE_DOMAINS=(
+    "rspm-sync.rstudio.com"
+    "apache.jfrog.io"
+    "jkpfactors-data.s3.amazonaws.com"
+)
+
+if ! command -v dnsmasq >/dev/null; then
+    echo "WARNING: dnsmasq not installed (image predates it) - skipping resolver setup." >&2
+    echo "WARNING: R installs from P3M will fail until the container is rebuilt." >&2
+else
+    # Harvest the real upstream once. On re-runs resolv.conf already points at
+    # dnsmasq itself, and forwarding to ourselves would loop; the teardown at
+    # the top restored it, but guard anyway.
+    if ! grep -q '^nameserver 127\.0\.0\.1$' /etc/resolv.conf; then
+        grep '^nameserver' /etc/resolv.conf | sed 's/^nameserver /server=/' > "$UPSTREAM_STASH" || true
+    fi
+    if [ ! -s "$UPSTREAM_STASH" ]; then
+        echo "WARNING: no upstream nameserver found in /etc/resolv.conf - skipping dnsmasq setup." >&2
+    else
+        {
+            echo "no-resolv"
+            cat "$UPSTREAM_STASH"
+            echo "listen-address=127.0.0.1"
+            echo "bind-interfaces"
+            echo "pid-file=/run/dnsmasq-firewall.pid"
+            echo "log-facility=/var/log/dnsmasq-firewall.log"
+            for domain in "${VOLATILE_DOMAINS[@]}"; do
+                echo "ipset=/$domain/allowed-volatile"
+            done
+        } > /etc/dnsmasq-firewall.conf
+
+        dnsmasq_ok=false
+        if dnsmasq --conf-file=/etc/dnsmasq-firewall.conf; then
+            # End-to-end check: a generic name resolves, a volatile name
+            # resolves, and the volatile answer landed in the ipset.
+            rspm_ip=$(dig +short +time=2 @127.0.0.1 A "${VOLATILE_DOMAINS[0]}" \
+                | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' | head -1 || true)
+            if dig +short +time=2 @127.0.0.1 A api.github.com | grep -qE '^[0-9]' \
+                && [ -n "$rspm_ip" ] && ipset test allowed-volatile "$rspm_ip" 2>/dev/null; then
+                dnsmasq_ok=true
+            fi
+        fi
+
+        if [ "$dnsmasq_ok" = true ]; then
+            echo "nameserver 127.0.0.1" > /etc/resolv.conf
+            echo "dnsmasq resolver active - volatile domains: ${VOLATILE_DOMAINS[*]}"
+        else
+            sed 's/^server=/nameserver /' "$UPSTREAM_STASH" > /etc/resolv.conf
+            pkill -x dnsmasq 2>/dev/null || true
+            echo "WARNING: dnsmasq verification failed - resolver left at upstream." >&2
+            echo "WARNING: R installs from P3M will fail; fix and restart the container." >&2
+        fi
+    fi
 fi
