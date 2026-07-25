@@ -122,74 +122,23 @@ ENV DEVCONTAINER=true
 
 WORKDIR /workspace
 
-# Set up Python virtual environment with data analysis packages
+# The Python and R analysis stacks are NOT baked into the image. They live in
+# .devcontainer/install-packages.sh, run on demand inside a started container.
+# Rationale: baked-in layers meant every package change cost a full rebuild, and
+# a broken package was unrecoverable without one. Version reproducibility is
+# unaffected (the dated P3M snapshot still pins R; pip still resolves PyPI) -
+# only *state* becomes opt-in.
+#
+# What stays here is what needs root or the build's open network: the system
+# -dev libraries above, R itself, the venv, and the write permissions below.
+
+# Empty venv, owned by node so the install script can populate it at runtime.
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir \
-  numpy \
-  pandas \
-  matplotlib \
-  statsmodels \
-  scipy \
-  linearmodels \
-  scikit-learn \
-  openpyxl \
-  wrds \
-  mistralai \
-  polars \
-  sas7bdat \
-  beautifulsoup4 \
-  lxml \
-  pyarrow \
-  pyfixest \
-  PyMuPDF \
-  pikepdf \
-  openai
 RUN chown -R node:node /opt/venv
 
-# Install R packages in stable chunks so small later edits do not force
-# reinstalling the entire data-analysis stack.
-RUN Rscript -e "install.packages(c('DBI','RPostgres','dplyr','data.table','keyring'))"
-RUN Rscript -e "install.packages(c('tidyverse','lubridate','readxl','writexl'))"
-# pryr is archived on CRAN, so install its current build deps first and then
-# pin pryr from the archive explicitly.
-RUN Rscript -e "install.packages(c('lobstr','Rcpp')); install.packages('https://cran.r-project.org/src/contrib/Archive/pryr/pryr_0.1.6.tar.gz', repos=NULL, type='source')"
-RUN Rscript -e "install.packages(c('ggrepel','gridExtra','xtable'))"
-RUN Rscript -e "install.packages(c('doParallel','foreach','fst'))"
-RUN Rscript -e "install.packages(c('lme4','ccaPP','zoo'))"
-RUN Rscript -e "install.packages(c('fs','getPass','googledrive','here','tictoc','tm'))"
-RUN Rscript -e "install.packages('languageserver')"
-
-# Econometrics stack for mp-rep (Live,Risk-vs-Writing/dev/mp-rep):
-#   fixest          - the regressions; blocking
-#   OpenSourceAP.DownloadR - Chen-Zimmermann data download (GitHub-only, pinned)
-#   modelsummary    - fixest models -> LaTeX/markdown/Word tables
-#   sandwich+lmtest - robust/clustered SEs for base lm/glm
-#   kableExtra      - LaTeX table styling on top of knitr
-#   arrow           - parquet/feather I/O, interop with Python pyarrow
-#   car             - regression diagnostics / hypothesis tests
-#   marginaleffects - contrasts/marginal effects, pairs with modelsummary
-RUN Rscript -e "install.packages(c('fixest','remotes'))"
-RUN Rscript -e "remotes::install_github('tomz23/OpenSourceAP.DownloadR@689db7d7350dcf9561e4011808e029a7464adeb4')"
-RUN Rscript -e "install.packages(c('modelsummary','sandwich','lmtest','kableExtra'))"
-RUN Rscript -e "install.packages(c('arrow','car','marginaleffects'))"
-
-RUN Rscript -e " \
-  pkgs <- c('DBI','RPostgres','dplyr','data.table','keyring', \
-            'tidyverse','lubridate','readxl','writexl', \
-            'lobstr','Rcpp','pryr', \
-            'ggrepel','gridExtra','xtable', \
-            'doParallel','foreach','fst', \
-            'lme4','ccaPP','zoo', \
-            'fs','getPass','googledrive','here','tictoc','tm', \
-            'languageserver', \
-            'fixest','remotes','OpenSourceAP.DownloadR', \
-            'modelsummary','sandwich','lmtest','kableExtra', \
-            'arrow','car','marginaleffects'); \
-  missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly=TRUE)]; \
-  if (length(missing)) { cat('MISSING:', paste(missing, collapse=', '), '\n'); q(status=1) }"
-
-# Allow non-root user to install R packages at runtime.
+# Allow non-root user to install R packages at runtime - this is now the normal
+# path for the whole R stack, not just late additions.
 RUN chmod -R a+w /opt/R/${R_VERSION}/lib/R/library
 
 # Pin LyX to the Debian 12 backports build so export/import behavior stays
@@ -278,12 +227,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libunicode-linebreak-perl \
   librsvg2-bin \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Extra Python deps added in late layers so future bumps don't invalidate
-# the heavy R / LyX / pandoc layers above.
-RUN pip install --no-cache-dir \
-  requests \
-  && chown -R node:node /opt/venv
 
 # Copy and set up firewall script
 COPY init-firewall.sh /usr/local/bin/

@@ -15,6 +15,15 @@ export PATH="/workspace/.tools/pdf:/workspace/.tools/latex:/workspace/.tools/dev
 # tree (idempotent; silent once the links exist — see .tools/ai-sesh/README.md)
 sesh-init || true
 
+# The Python and R analysis stacks are installed at runtime rather than baked
+# into the image, so a freshly built container starts without them. Say so once
+# per shell instead of letting the first import fail mysteriously.
+# (find, not a glob: an unmatched glob is a hard error under zsh's nomatch.)
+if [ -z "$(find /opt/venv/lib -maxdepth 3 -type d -name pandas -print -quit 2>/dev/null)" ] ||
+    [ -z "$(find /opt/R -maxdepth 5 -type d -name fixest -print -quit 2>/dev/null)" ]; then
+    echo "note: analysis stack not fully installed - run .devcontainer/install-packages.sh"
+fi
+
 alias cchat-yolo='claude --dangerously-skip-permissions'
 alias hostname-local='echo "$LOCAL_HOSTNAME"'
 alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'

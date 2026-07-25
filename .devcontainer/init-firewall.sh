@@ -72,11 +72,53 @@ while read -r cidr; do
     ipset add allowed-domains "$cidr"
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
+# Fetch Google's published first-party IP ranges the same way.
+#
+# goog.json ONLY - never cloud.json. cloud.json is GCP *customer* space
+# (arbitrary rented VMs), i.e. a rent-a-C2 endpoint surface; goog.json is
+# Google's own fleet. That boundary is what keeps this defensible.
+#
+# This is what makes Scholar reachable, and it self-heals across Google's
+# anycast rotations instead of needing hand-patched CIDRs. Knowingly accepted:
+# the fleet is routed by SNI, so allowing Scholar necessarily allows
+# Docs/Drive/Forms - programmable first-party sinks that can relay data out.
+# See docs/journal/0724d,google-firewall-open.md for why that trade is fine here.
+echo "Fetching Google IP ranges..."
+goog_ranges=$(curl -s https://www.gstatic.com/ipranges/goog.json)
+if [ -z "$goog_ranges" ]; then
+    echo "ERROR: Failed to fetch Google IP ranges"
+    exit 1
+fi
+
+if ! echo "$goog_ranges" | jq -e '.prefixes | length > 0' >/dev/null; then
+    echo "ERROR: Google ipranges response missing prefixes"
+    exit 1
+fi
+
+echo "Processing Google IPs..."
+while read -r cidr; do
+    if [[ ! "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
+        echo "ERROR: Invalid CIDR range from goog.json: $cidr"
+        exit 1
+    fi
+    echo "Adding Google range $cidr"
+    ipset add allowed-domains "$cidr" -exist
+done < <(echo "$goog_ranges" | jq -r '.prefixes[].ipv4Prefix | select(. != null)' | aggregate -q)
+
 # Resolve and add other allowed domains.
 # The *.gallerycdn.vsassets.io entries are the per-publisher VS Code extension
 # download CDN: one entry per publisher in devcontainer.json "extensions".
 # Adding an extension from a new publisher requires a new entry here, or its
 # install will silently fail inside the container.
+#
+# Two of these exist only for runtime R installs (install-packages.sh):
+#   rspm-sync.rstudio.com - P3M serves metadata from packagemanager.posit.co but
+#     redirects the actual package payload here. Without it, install.packages()
+#     fails at download. First-party Posit infrastructure, so bounded.
+#   cran.r-project.org    - archived-source tarballs (pryr), which P3M does not
+#     carry. Only touched by the explicit archive pin.
+# Expect more redirect hosts to surface: a redirect chain to an unlisted host is
+# invisible to inspection, so this list is permanently reactive.
 for domain in \
     "registry.npmjs.org" \
     "marketplace.visualstudio.com" \
@@ -121,11 +163,12 @@ for domain in \
     "pypi.org" \
     "files.pythonhosted.org" \
     "packagemanager.posit.co" \
+    "rspm-sync.rstudio.com" \
+    "cran.r-project.org" \
     "api.stlouisfed.org" \
     "fred.stlouisfed.org" \
     "mba.tuck.dartmouth.edu" \
-    "global-q.org" \
-    "www.agr.com"; do
+    "global-q.org"; do
     echo "Resolving $domain..."
     ips=$(dig +short A "$domain" | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || true)
     if [ -z "$ips" ]; then

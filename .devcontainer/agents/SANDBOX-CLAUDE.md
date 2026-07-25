@@ -8,26 +8,36 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
 - **Python: use bare `python3`/`pip`.** They resolve to the venv at `/opt/venv`,
   which is already active via `PATH` (so `VIRTUAL_ENV` is unset — that's
   expected).
-  - Preinstalled: numpy, pandas, polars, pyarrow, scipy, statsmodels,linearmodels, pyfixest, scikit-learn, matplotlib, openpyxl, wrds, PyMuPDF,
-  pikepdf, beautifulsoup4, lxml, requests, openai, mistralai.
+  - Installed: numpy, pandas, polars, pyarrow, scipy, statsmodels, linearmodels,
+    pyfixest, scikit-learn, matplotlib, openpyxl, wrds, PyMuPDF, pikepdf,
+    beautifulsoup4, lxml, requests, openai, mistralai.
 - R 4.5.3 with packages pinned to a dated P3M snapshot, so `install.packages()`
   resolves against that snapshot, not live CRAN.
+- **Neither stack is baked into the image.** Both come from
+  `.devcontainer/install-packages.sh`, which is re-runnable and skips what is
+  already installed. If an import fails right after a rebuild, notify the user.
 - Latex with `texlive-full` and `biber`.
 - **Network is deny-by-default**, via an IP allowlist built at container start by
-  `init-firewall.sh`. A blocked host hangs until timeout rather than failing
-  cleanly, so suspect the firewall before the code. Allowed:
-  - **Packages**: npm, PyPI (`pypi.org`, `files.pythonhosted.org`), Posit P3M,
-    VS Code marketplace (per-publisher `*.gallerycdn.vsassets.io` — a new
-    extension publisher needs a new entry or its install silently fails).
+  `init-firewall.sh`. Blocked hosts are REJECTed, so they fail fast rather than
+  hanging — but suspect the firewall before the code. Allowed:
+  - **Packages**: npm, PyPI (`pypi.org`, `files.pythonhosted.org`), Posit P3M
+    (plus `rspm-sync.rstudio.com`, where P3M redirects the payload) and
+    `cran.r-project.org` for archived sources, VS Code marketplace
+    (per-publisher `*.gallerycdn.vsassets.io` — a new extension publisher needs
+    a new entry or its install silently fails).
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
-  - **Research**: arXiv, SSRN, Google Scholar, OpenAlex.
+  - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
+    (`goog.json`) — which covers Scholar and the rest of Google's first-party
+    fleet. GCP customer ranges (`cloud.json`) are deliberately **not** allowed.
   - **Data**: WRDS, FRED, Ken French's data library
     (`mba.tuck.dartmouth.edu`), `global-q.org`, `www.agr.com`.
-  - There is no general web access — anything not above is blocked, including
-    the rest of Google. Assume a fetch of an arbitrary URL will fail.
-- Missing packages are an environment change, not your call — see
-  `USER PERMISSION REQUIRED`.
+  - There is still no general web access — assume a fetch of an arbitrary URL
+    will fail. A package install that dies on an unlisted **redirect** host is
+    the common surprise; report the host so it can be added.
+- Installing *packages* from the allowlisted sources (pip, `install.packages()`,
+  or `install-packages.sh`) is fine and does not need permission. New **system**
+  libraries (`apt-get`, `-dev` packages) do — see `USER PERMISSION REQUIRED`.
 - If you think having access to a blocked resource would be helpful: **ASK THE USER TO ADD IT**
 
 ## Coding and Writing Guidelines
@@ -108,9 +118,7 @@ The actions below are forbidden unless the user explicitly asks for them in the
 current conversation. If one seems necessary, STOP work, describe the problem,
 and ask. The default fix is for the user to update the environment.
 
-- Do NOT install packages or other software into the running environment.
-- Do NOT authenticate to GitHub or push/publish anything. The container has no
-  GitHub credentials by design: the user reviews everything before it goes
-  public. Prepare commits locally and hand off.
-- Do NOT hand-roll replacements for missing libraries or tools.
-- Do NOT work around environment problems (Dropbox locks, auth, firewall, or similar).
+- Get permission before installing packages or other software into the running environment.
+- Get permission before authenticating to GitHub or pushing/publishing anything. 
+- Get permission before hand-rolling replacements for missing libraries or tools.
+- Get permission before working around environment problems (Dropbox locks, auth, firewall, or similar).
