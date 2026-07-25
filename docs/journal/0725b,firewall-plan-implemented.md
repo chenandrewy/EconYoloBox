@@ -75,7 +75,16 @@ works, and the verification check fails loudly as designed. The same run is the
 regression test after rebuild — it should install `tictoc` and print `R stack
 OK`.
 
-## Open item measured: `rspm-sync` IP stability
+## Open item measured: `rspm-sync` IP stability — **WRONG, see [0725e]**
+
+> **Correction (same day).** The conclusion below is wrong and the measurement
+> that produced it was worthless. `rspm-sync.rstudio.com` has a **15-second
+> TTL**; five queries one second apart all land inside a single TTL window, so
+> that sample could only ever return one answer. Measured properly, the answer
+> flips between `18.160.10.x` and `13.35.107.x` — different `/16`s — within
+> minutes, and differs by resolver. Start-time pinning **cannot work** for this
+> host, and the R stack has never installed as a result. Full analysis and
+> options in [0725e].
 
 [0725a] wanted one `dig`. Result: `rspm-sync.rstudio.com` → **CloudFront**
 (`18.160.10.{29,31,74,78}`), and five queries a second apart returned the
@@ -101,3 +110,4 @@ the system and global configs. Nothing to undo.
 
 [0724e]: 0724e,credential-helper-close.md
 [0725a]: 0725a,firewall-plan-update.md
+[0725e]: 0725e,rspm-cdn-rotation.md
