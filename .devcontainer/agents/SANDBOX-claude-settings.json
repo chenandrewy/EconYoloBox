@@ -3,7 +3,7 @@
     "type": "command",
     "command": "bash /workspace/.devcontainer/agents/SANDBOX-claude-statusline.sh"
   },
-  "model": "claude-fable-5[1m]",
+  "model": "opus",
   "effortLevel": "high",
   "tui": "default",
   "theme": "dark",
