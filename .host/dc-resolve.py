@@ -13,7 +13,7 @@
 #     Output:  prints the vscode-remote://dev-container+... folder URI that
 #              opens <remote-path> in VS Code.
 #
-# Called by _dc_resolve/dccode in host-aliases.zsh; not meant to be run by hand.
+# Called by _dc_resolve/dccode in devcontainer.zsh; not meant to be run by hand.
 
 import json
 import pathlib

@@ -1,9 +1,16 @@
 # Host-side toolkit
 
-Shell functions that run on your **Mac** (not inside the container) to launch
-and manage the 1-SANDBOX dev container and Claude Code sessions. Everything the
-container needs at runtime lives in `.devcontainer/`; this folder is only the
-host-side convenience layer, kept here so the sandbox can be shared standalone.
+Shell functions that run on your **Mac** (not inside the container) to navigate
+the dev containers in this repo. Everything the container needs at runtime lives
+in `.devcontainer/`; this folder is only the host-side convenience layer, kept
+here so the sandbox can be shared standalone.
+
+Scope is deliberately narrow: **navigation only**. These functions take no
+configuration, name no personal paths, and work against any repo with a
+`.devcontainer/devcontainer.json` — not just this one. Launching and managing
+Claude Code sessions (`cc-remote-*`, `ccsessions`, `cckill`) is a personal,
+machine-level concern and lives in the machine-settings repo instead; see
+"Claude Code sessions" below.
 
 ## Install
 
@@ -11,72 +18,59 @@ Add one line to your interactive shell rc (`~/.zshrc`), pointing at wherever you
 cloned this repo:
 
 ```zsh
-source /path/to/1-SANDBOX/.host/host-aliases.zsh
+source /path/to/1-SANDBOX/.host/devcontainer.zsh
 ```
 
 Reload the shell (`exec zsh`) and you have the functions below.
+
+### Layout
+
+| File               | Contents                                                    |
+|--------------------|-------------------------------------------------------------|
+| `devcontainer.zsh` | `dcu`, `dce`, `dccode`, and the shared `_dc_resolve`        |
+| `dc-resolve.py`    | container-path / folder-URI resolution helper               |
+
+Keep these two files flat in `.host/`: `devcontainer.zsh` derives `$_DC_HOST_DIR`
+from its own `$0` and expects `dc-resolve.py` as a sibling. Deriving it that way
+(rather than from a caller) means a second checkout sourced into the same shell
+can never make this one read the other's helper.
 
 ### Requirements
 
 - [Docker](https://www.docker.com/) running
 - the [`devcontainer` CLI](https://github.com/devcontainers/cli)
   (`npm i -g @devcontainer/cli`)
-- macOS **Terminal.app** for the `window` launchers (or override the launcher —
-  see below). `dccode` additionally needs the `code` CLI on PATH.
-
-## Configuration
-
-Paths are plain shell globals (**not** exported — they are only read inside the
-functions, so nothing leaks into child processes). Set any that differ from the
-defaults *before* the `source` line:
-
-| Global             | Default                                              | Used by            |
-|--------------------|------------------------------------------------------|--------------------|
-| `CC_SANDBOX_DIR`   | this repo (auto-derived from the file's location)    | `cc-remote-sandbox`|
-| `CC_OBSIDIAN_VAULT`| `Main`                                               | `cc-remote-obs`    |
-| `CC_OBSIDIAN_DIR`  | `~/Library/Mobile Documents/iCloud~md~obsidian/Documents/$CC_OBSIDIAN_VAULT` | `cc-remote-obs` |
-| `CC_DROPBOX_DIR`   | `~/Library/CloudStorage/Dropbox`                     | `cc-remote-dropbox`|
-
-`CC_SANDBOX_DIR` needs no configuration — it resolves to this repo's checkout, so
-`cc-remote-sandbox` works out of the box. The Obsidian/Dropbox remotes are
-personal targets; point them at your own paths (or ignore them). Use Dropbox's
-real install folder, not a `~/Dropbox` symlink, so resolution never depends on a
-link that may not exist yet.
+- `python3` for `dc-resolve.py`; `dccode` additionally needs the `code` CLI
 
 ## Functions
 
-| Command                | What it does                                                        |
-|------------------------|---------------------------------------------------------------------|
-| `cc-remote-sandbox`    | Bring the sandbox container up, run Claude in it, current terminal. |
-| `cc-remote-obs`        | Same, for the Obsidian vault container.                             |
-| `cc-remote-dropbox`    | Run Claude on the host (not a container), cd'd into Dropbox.        |
-| `ccremotes`            | Launch all three, each in its own new terminal window.              |
-| `ccsessions`           | List every `--remote-control` Claude session across containers.     |
-| `cckill`               | Terminate every `--remote-control` Claude session.                  |
-| `dcu`                  | `devcontainer up` for the current directory.                        |
-| `dce [dir]`            | Open an interactive shell inside the enclosing dev container.       |
-| `dccode [dir]`         | Open the enclosing dev container's folder in VS Code.               |
+| Command        | What it does                                                  |
+|----------------|---------------------------------------------------------------|
+| `dcu`          | `devcontainer up` for the current directory.                  |
+| `dce [dir]`    | Open an interactive shell inside the enclosing dev container, cd'd to the subfolder matching `dir`. |
+| `dccode [dir]` | Open that same subfolder in VS Code inside the container.     |
 
-### Safety note
+Both `dce` and `dccode` walk *up* from `dir` (default: the current directory) to
+the enclosing `.devcontainer/devcontainer.json`, then map the host path to its
+container-side equivalent — so they work from anywhere in the tree, with no
+manual "Reopen in Container" and no navigating after attach.
 
-`--dangerously-skip-permissions` (yolo mode) is passed **only** for
-`target_env=container` launches, where the container is the blast radius.
-`target_env=local` (e.g. `cc-remote-dropbox`) runs unsandboxed against your real
-`$HOME`, so it keeps Claude's default permission prompting. This invariant lives
-in `_cc_remote` — one place, keyed off the target, not duplicated per mode.
+## Claude Code sessions
 
-## Using a different terminal
-
-The `window` launchers call `_cc_open_window <title> <command>`, which defaults
-to Terminal.app. Override it in your own rc *after* the `source` line to drive
-another terminal. Example for [Ghostty](https://ghostty.org/):
+To start Claude on a project folder in this repo:
 
 ```zsh
-_cc_open_window() {
-  local title="$1" cmd="$2"
-  # -n forces a fresh instance (else `open` just focuses the running one and
-  # drops -e); --window-save-state=never stops that instance restoring saved
-  # windows; --title pins the title; `zsh -ic` gives -e the interactive PATH.
-  open -na Ghostty.app --args --title="$title" --window-save-state=never -e zsh -ic "$cmd"
-}
+dce Live,Risk-vs-Writing   # shell in the container, in that folder
+cchat-yolo                 # Claude, remote-controlled, named for the folder
 ```
+
+`cchat-yolo` is defined in `.devcontainer/shellrc.sh`, so it is available in
+every container shell. It always passes `--remote-control` and derives the
+session name from the working directory (`Live,Risk-vs-Writing#1`), numbering
+each session so a second one in the same folder stays distinguishable. Override
+the base name with `CC_SESSION_NAME`.
+
+Host-side launchers that open a container *and* a Claude session in one command
+(`cc-remote-sandbox`, `ccremotes`, plus `ccsessions` / `cckill` for listing and
+terminating sessions) are personal configuration and are not shipped here. On
+this system they live in `MacUser/Shell-rc/cc-remotes.zsh`.

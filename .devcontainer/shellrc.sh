@@ -24,7 +24,38 @@ if [ -z "$(find /opt/venv/lib -maxdepth 3 -type d -name pandas -print -quit 2>/d
     echo "note: analysis stack not fully installed - run .devcontainer/install-packages.sh"
 fi
 
-alias cchat-yolo='claude --dangerously-skip-permissions'
+# cchat-yolo [claude args...]
+# Start Claude in the container, always under --remote-control so the session is
+# visible to `ccsessions` / `cckill` on the host. The name is derived from the
+# working directory rather than asked for, so starting a session is still one
+# word: /workspace/Live,Risk-vs-Writing -> "Live,Risk-vs-Writing#1", and
+# /workspace itself -> the host folder's name. Set CC_SESSION_NAME to override
+# the base. Yolo is unconditional here because the container is the blast
+# radius — host-side launchers that target a container pass the flag themselves.
+_cc_session_name() {
+    local base n=1 running
+    base="${CC_SESSION_NAME:-${PWD#/workspace}}"
+    base="${base#/}"
+    base="${base:-${LOCAL_CONTAINER_FOLDER##*/}}"
+    # Number every session, so a second one in the same folder is still
+    # distinguishable. Snapshot ps ONCE and match in-shell rather than piping to
+    # grep per attempt: a grep in that pipeline carries the pattern in its own
+    # argv, which ps then reports, so every number would look taken and the loop
+    # would never end. The needle is quoted so it matches literally — a folder
+    # name is not a pattern. A prefix hit (#1 against an existing #10) can only
+    # skip a free number, never hand back a taken one. ([[ ]] rather than [ ]:
+    # both bash and zsh have it, and it is the only readable substring test.)
+    running=$(ps -eo args=)
+    while [[ "$running" == *"--remote-control $base#$n"* ]]; do
+        n=$((n + 1))
+    done
+    printf '%s#%s' "$base" "$n"
+}
+
+cchat-yolo() {
+    claude --dangerously-skip-permissions --remote-control "$(_cc_session_name)" "$@"
+}
+
 alias hostname-local='echo "$LOCAL_HOSTNAME"'
 alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'
 
@@ -38,17 +69,6 @@ gptmini-yolo() {
 
 loccode() {
     printf 'code -n %q\n' "$LOCAL_CONTAINER_FOLDER"
-}
-
-claude-yolo() {
-    local fmt="${CLAUDE_OUTPUT:-text}"
-    if [ "$fmt" = "stream-json" ]; then
-        claude -p --verbose --output-format stream-json --dangerously-skip-permissions "$@" | jq -r '.result // .'
-    elif [ "$fmt" = "none" ]; then
-        claude -p --output-format text --dangerously-skip-permissions "$@" > /dev/null
-    else
-        claude -p --output-format "$fmt" --dangerously-skip-permissions "$@"
-    fi
 }
 
 alias gitlog="git log --graph --oneline --decorate --pretty=format:'%C(auto)%h %ad %d %s' --date=format:'%Y-%m-%d %H:%M'"
