@@ -48,18 +48,20 @@ motivation in `0721a,MathRender-Risks.md`).
 
 ## Install (inside the devcontainer)
 
-```sh
-.tools/mathpanel/install-extension.sh
-```
+The devcontainer's `postStartCommand` automatically synchronizes MathPanel into
+the VS Code Server extension directory. If the installed copy is already
+current, the check is a no-op. To synchronize it immediately without restarting
+the container, run `.tools/mathpanel/install-extension.sh`.
 
-Then reload the VS Code window (`Developer: Reload Window`) and run
-**MathPanel: Show** from the Command Palette. The extension runs
-container-side (`"extensionKind": ["workspace"]`).
+After a changed copy is installed, reload the VS Code window
+(`Developer: Reload Window`) if MathPanel does not appear, then run
+**MathPanel: Show** from the Command Palette. The extension runs container-side
+(`"extensionKind": ["workspace"]`).
 
 The install target (`~/.vscode-server/extensions/local.mathpanel-0.2.0`) is
-wiped on container rebuild; rerun the script to restore it. During an upgrade,
-the installer removes the superseded `local.mathpanel-0.1.0` folder after the
-new copy succeeds.
+wiped on container rebuild and restored automatically on the next start. During
+an upgrade, the installer removes the superseded `local.mathpanel-0.1.0` folder
+after the new copy succeeds.
 
 ## Uninstall
 
@@ -67,7 +69,9 @@ new copy succeeds.
 rm -rf ~/.vscode-server/extensions/local.mathpanel-0.2.0
 ```
 
-Reload the window. Nothing else was created anywhere.
+Also remove MathPanel from the devcontainer's `postStartCommand`, or it will be
+restored on the next start. Reload the window. Nothing else was created
+anywhere.
 
 ## Tests
 
