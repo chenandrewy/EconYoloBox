@@ -1,9 +1,20 @@
 # Devcontainer image size and build cache
 
 The shared workspace devcontainer is built locally from
-`.devcontainer/Dockerfile`, starting from the official `node:20` image. It is a
-large image: a measurement on 2026-07-20 found a 24.2GB image and about 25.05GB
-of BuildKit cache use.
+`.devcontainer/Dockerfile`, starting from the official `ubuntu:24.04` image.
+
+Sizing has changed substantially and the older figures below should be read as
+history, not as current numbers. A measurement on 2026-07-20 found a 24.2GB
+image and about 25.05GB of BuildKit cache use. A measurement on 2026-07-26,
+after the Ubuntu base migration (docs/journal/0726a), found a **3.42GB image
+built cold in about 9 minutes** on arm64. Two changes account for the drop, and
+only one of them is the base swap:
+
+- the analysis stacks moved out of the image to runtime installs
+  (docs/journal/0725f), which removed the R and Python package layers entirely;
+- the base migration itself, which mostly moved cost around rather than down —
+  it added a Qt5 toolchain for the LyX source build (about a minute of compile)
+  and TeX Live 2023 at 3.2GB is still the single largest component.
 
 ## BuildKit garbage-collection budget
 
@@ -12,6 +23,12 @@ working set. BuildKit consequently evicts large cached layers, especially the R
 toolchain and package layers. Even a minor devcontainer change can then cause
 those unchanged layers to rebuild, turning a routine rebuild into a roughly
 20-minute operation.
+
+This section was written against the ~24GB working set. At the current ~3.4GB
+the default budget is no longer obviously too small, so treat the `35GB`
+recommendation below as headroom rather than a fix for an active problem — the
+diagnostic at the end of this file is the way to tell whether eviction is
+actually happening to you.
 
 Set the cache budget to `35GB`. In Docker Desktop, open **Settings → Docker
 Engine** and set the `builder.gc` section of `daemon.json` to:
@@ -44,7 +61,9 @@ The main contributors are:
 - the Python environment and installed packages;
 - recursive ownership and permission changes, which create filesystem-layer
   metadata; and
-- globally installed AI CLIs, LyX, Pandoc, and related tooling.
+- globally installed AI CLIs, Pandoc, and related tooling; and
+- LyX, which is compiled from source and keeps its Qt5 `-dev` packages in the
+  image (they carry the Qt runtime it links against).
 
 An older build measurement attributed roughly 13.09GB to the system-package
 layer containing `texlive-full`, 1.33GB to Python packages, 1.37GB to a

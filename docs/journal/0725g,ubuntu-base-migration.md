@@ -2,10 +2,11 @@
 
 Date: 2026-07-25 (NY)
 
-Status: **direction decided, timing deferred.** This is where we ultimately
-go; it does not happen until the current arrow fix ([0725e] postscript 2)
-lands and the stack is verifiably whole. Migration is its own project with
-its own verification tail, not something to fold into today's chain of fixes.
+Status: **superseded — migration carried out on 2026-07-26, see [0726a].**
+Originally filed as "direction decided, timing deferred": this was where we
+ultimately went, held until the arrow fix ([0725e] postscript 2) landed and the
+stack was verifiably whole. Kept as written; [0726a] records what the plan
+below got right and where it was wrong.
 
 ## Why
 
@@ -121,3 +122,4 @@ first-fill speed argument.
 
 [0725e]: 0725e,rspm-cdn-rotation.md
 [0725f]: 0725f,persistent-package-volumes.md
+[0726a]: 0726a,ubuntu-base-migrated.md
