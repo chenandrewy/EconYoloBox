@@ -24,6 +24,16 @@ RUN userdel -r ubuntu && \
   groupadd --gid 1000 ${USERNAME} && \
   useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash ${USERNAME}
 
+# ubuntu:24.04 ships /etc/dpkg/dpkg.cfg.d/excludes, which path-excludes
+# /usr/share/doc/* to slim the image. Debian's fzf package ships its shell
+# integration (key-bindings.zsh, completion.zsh) under that path, so those files
+# never get unpacked and every zsh startup errors on the `source` lines added by
+# zsh-in-docker below. node:20 had no such exclude, hence the regression.
+# dpkg reads dpkg.cfg.d in alphabetical order and last match wins, so this
+# fragment must sort after `excludes` -- and must exist before fzf is unpacked.
+RUN printf 'path-include=/usr/share/doc/fzf/examples/*\n' \
+  > /etc/dpkg/dpkg.cfg.d/zz-keep-fzf-examples
+
 # Install core system tools and build prerequisites.
 # wget/curl/ca-certificates/gnupg2 are explicit here: the old `node:20` base
 # provided them, `ubuntu:24.04` does not, and every download below needs them.
