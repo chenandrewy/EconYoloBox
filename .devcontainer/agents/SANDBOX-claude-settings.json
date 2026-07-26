@@ -4,7 +4,7 @@
     "command": "bash /workspace/.devcontainer/agents/SANDBOX-claude-statusline.sh"
   },
   "model": "opus",
-  "effortLevel": "high",
+  "effortLevel": "medium",
   "tui": "default",
   "theme": "dark",
   "skipDangerousModePermissionPrompt": true,
