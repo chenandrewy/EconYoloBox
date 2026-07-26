@@ -77,6 +77,7 @@ PY_PKGS=(
     PyMuPDF
     pikepdf
     openai
+    openassetpricing
     requests
 )
 
@@ -143,7 +144,7 @@ cran_pkgs <- c(
   "lme4", "ccaPP", "zoo",
   "fs", "getPass", "googledrive", "here", "tictoc", "tm",
   "languageserver",
-  "fixest", "remotes",
+  "fixest", "OpenSourceAP.DownloadR",
   "modelsummary", "sandwich", "lmtest", "kableExtra",
   "arrow", "car", "marginaleffects"
 )
@@ -153,11 +154,6 @@ cran_pkgs <- c(
 # only thing here that talks to cran.r-project.org rather than P3M.
 archive_pkgs <- c(
   pryr = "https://cran.r-project.org/src/contrib/Archive/pryr/pryr_0.1.6.tar.gz"
-)
-
-# Chen-Zimmermann data download; GitHub-only, pinned to a commit.
-github_pkgs <- c(
-  OpenSourceAP.DownloadR = "tomz23/OpenSourceAP.DownloadR@689db7d7350dcf9561e4011808e029a7464adeb4"
 )
 
 have <- function(p) requireNamespace(p, quietly = TRUE)
@@ -189,8 +185,8 @@ if (length(todo)) {
   install.packages(todo)
 
   # Stop here rather than cascading: pryr needs lobstr/Rcpp/stringr from this
-  # batch, and the GitHub step needs remotes. Continuing past a failed batch
-  # buries one network error under a pile of missing-dependency errors.
+  # batch. Continuing past a failed batch buries one network error under a pile
+  # of missing-dependency errors.
   failed <- todo[!vapply(todo, have, logical(1))]
   if (length(failed)) {
     report_failure(failed, sprintf("%d of %d from P3M", length(failed), length(todo)))
@@ -207,15 +203,8 @@ for (nm in names(archive_pkgs)) {
   }
 }
 
-for (nm in names(github_pkgs)) {
-  if (wanted(nm)) {
-    cat("Installing from GitHub:", nm, "\n")
-    try_install(nm, remotes::install_github(github_pkgs[[nm]]))
-  }
-}
-
 # Fail loudly on a partial install rather than leaving a half-built stack.
-all_pkgs <- c(cran_pkgs, names(archive_pkgs), names(github_pkgs))
+all_pkgs <- c(cran_pkgs, names(archive_pkgs))
 missing <- all_pkgs[!vapply(all_pkgs, have, logical(1))]
 if (length(missing)) {
   report_failure(missing, "R stack incomplete")
