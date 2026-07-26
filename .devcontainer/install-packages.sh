@@ -122,7 +122,7 @@ install_r() {
 
     # Plain Rscript, not --vanilla: the site Rprofile is what pins the repo to
     # the dated P3M snapshot and sets the R-version user agent that makes P3M
-    # serve prebuilt bookworm binaries instead of silently falling back to source.
+    # serve prebuilt noble binaries instead of silently falling back to source.
     cat >"$r_script" <<'REOF'
 reinstall <- identical(Sys.getenv("STACK_FORCE"), "1")
 

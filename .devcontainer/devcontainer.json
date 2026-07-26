@@ -5,6 +5,11 @@
     "args": {
       "TZ": "${localEnv:TZ:America/New_York}",
       "GIT_VERSION": "2.49.0",
+      // Node is installed from NodeSource now that the base is ubuntu:24.04
+      // rather than node:20, so its version is pinned here like the rest.
+      // Keep NODE_MAJOR in step with NODE_VERSION: it selects the apt repo.
+      "NODE_MAJOR": "24",
+      "NODE_VERSION": "24.18.0-1nodesource1",
       "CLAUDE_CODE_VERSION": "latest",
       "CODEX_CLI_VERSION": "latest",
       "GIT_DELTA_VERSION": "0.18.2",
@@ -77,8 +82,14 @@
     // the Dockerfile / the base image's python3. The R target must match
     // R_VERSION too (devcontainer.json cannot read Dockerfile ARGs). R picks
     // up site-library automatically because the directory exists in the image.
-    "source=${localWorkspaceFolderBasename}-r-site-library-4.5.3,target=/opt/R/4.5.3/lib/R/site-library,type=volume",
-    "source=${localWorkspaceFolderBasename}-venv-py3.11,target=/opt/venv,type=volume"
+    //
+    // The `noble` token is the distro, and it is load-bearing: these packages
+    // are compiled against the base image's shared libraries, so a volume
+    // filled under bookworm must never be mounted into an Ubuntu container.
+    // Changing the token is what makes the base migration start clean volumes
+    // automatically instead of failing at load time with ABI errors.
+    "source=${localWorkspaceFolderBasename}-r-site-library-noble-4.5.3,target=/opt/R/4.5.3/lib/R/site-library,type=volume",
+    "source=${localWorkspaceFolderBasename}-venv-noble-py3.12,target=/opt/venv,type=volume"
   ],
   "containerEnv": {
     // TZ is intentionally absent: write-local-env.sh detects the host zone into
