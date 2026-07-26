@@ -10,8 +10,8 @@ back to anonymous if unset. Note: OpenAlex uses ?api_key=..., NOT a Bearer
 header — sending Authorization: Bearer hard-fails with 401.
 
 Usage:
-  python .tools/cited_by.py 10.1146/annurev-financial-102620-103311
-  python .tools/cited_by.py https://doi.org/10.1146/annurev-financial-102620-103311 --top 50
+  python .tools/dev/openalex_cited_by.py 10.1146/annurev-financial-102620-103311
+  python .tools/dev/openalex_cited_by.py https://doi.org/10.1146/annurev-financial-102620-103311 --top 50
 
 Looking up working papers / preprints:
 
