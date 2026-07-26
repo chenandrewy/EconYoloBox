@@ -147,16 +147,18 @@ done < <(echo "$goog_ranges" | jq -r '.prefixes[].ipv4Prefix | select(. != null)
 #     is CloudFront and rotates IPs on a minutes timescale, so start-time
 #     pinning cannot hold it (docs/journal/0725e). It goes through dnsmasq's
 #     resolve-time VOLATILE_DOMAINS path at the end of this script instead.
-#   www.apache.org / dlcdn.apache.org / archive.apache.org /
-#   nightlies.apache.org / zlib.net / sourceware.org - arrow's C++ toolchain
-#     fetches (thrift + orc via closer.lua, zlib, bzip2; nightly libarrow
-#     fallback). P3M has no arm64 Debian binaries, so arrow builds from source
-#     on this host. Apache mirrors carry only *current* releases; closer.lua
-#     redirects archived versions to archive.apache.org, so that host - not
-#     dlcdn - is the one actually hit. The full host list comes from
-#     cpp/thirdparty/versions.txt in the arrow source tarball; everything else
-#     there is github.com. All of these are stable (Fastly anycast or single
-#     IP), so pinning holds.
+#
+# Six hosts were removed here at the Ubuntu base migration (0725g):
+# www/dlcdn/archive/nightlies.apache.org, zlib.net, and sourceware.org existed
+# only to feed arrow's C++ source build, and that build happened only because
+# P3M ships no arm64 binaries for Debian. It ships them for noble, so arrow now
+# arrives prebuilt with libarrow already inside, over the ordinary rspm-sync
+# path. If a source build ever resurfaces, rediscover the host list from
+# cpp/thirdparty/versions.txt in the arrow tarball - everything else there is
+# github.com. (apache.jfrog.io stays in VOLATILE_DOMAINS below: it serves a
+# *prebuilt* libarrow, so it is the cheap fallback that avoids the C++ build
+# rather than part of it.)
+#
 # Expect more redirect hosts to surface: a redirect chain to an unlisted host is
 # invisible to inspection, so this list is permanently reactive. A host whose
 # answers rotate belongs in VOLATILE_DOMAINS, not here.
@@ -205,12 +207,6 @@ for domain in \
     "files.pythonhosted.org" \
     "packagemanager.posit.co" \
     "cran.r-project.org" \
-    "www.apache.org" \
-    "dlcdn.apache.org" \
-    "archive.apache.org" \
-    "nightlies.apache.org" \
-    "zlib.net" \
-    "sourceware.org" \
     "api.stlouisfed.org" \
     "fred.stlouisfed.org" \
     "mba.tuck.dartmouth.edu" \
