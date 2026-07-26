@@ -10,5 +10,6 @@
   "skipDangerousModePermissionPrompt": true,
   "agentPushNotifEnabled": true,
   "gitAttribution": false,
-  "includeCoAuthoredBy": false
+  "includeCoAuthoredBy": false,
+  "remoteControlAtStartup": true
 }
