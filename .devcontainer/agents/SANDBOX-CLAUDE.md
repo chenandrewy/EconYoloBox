@@ -84,16 +84,8 @@ The user's "library" folder is `/workspace/LIBRARY`. It contains reference paper
 Journaling refers to taking messy notes. 
 
 - Journal notes should be in `docs/journal/` folders within the appropriate project folder.
-- Use the filename format `[MMDD][a-z],[max-three-word-description].md`, e.g. `0713a,first-note.md`, `0713b,second-note.md`
-
-**Journal entries are disposable.** An entry is a snapshot of what was going on
-when it was written, not a document to maintain.
-
-- Do not update, revise, or correct an existing entry to keep it current. Write
-  a new entry instead.
-- Do not treat an entry as a source of truth about the current state of the
-  code — it may be stale. Verify against the repo.
-- Do not tidy, consolidate, or reorganize old entries.
+- An entry is a snapshot of what was going on when it was written, not a document to maintain.
+  - Do not maintain `docs/journal/` folders as if they are proper documentation.
 
 ## Time Zones
 - Use New York time for all timestamps
@@ -111,6 +103,10 @@ Do not necessarily use all of the feedback
 - b. Claude tends to be too positive
 
 Be patient. Code reviews can take up to 20 minutes.
+
+## Script headers
+
+- At the top of every script, document how to run it, its inputs, and its outputs.
 
 ## Custom Tools
 
