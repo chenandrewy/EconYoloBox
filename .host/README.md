@@ -12,18 +12,7 @@ Claude Code sessions (`cc-remote-*`, `ccsessions`, `cckill`) is a personal,
 machine-level concern and lives in the machine-settings repo instead; see
 "Claude Code sessions" below.
 
-## Install
-
-Add one line to your interactive shell rc (`~/.zshrc`), pointing at wherever you
-cloned this repo:
-
-```zsh
-source /path/to/1-SANDBOX/.host/devcontainer.zsh
-```
-
-Reload the shell (`exec zsh`) and you have the functions below.
-
-### Layout
+## Layout
 
 | File               | Contents                                                    |
 |--------------------|-------------------------------------------------------------|
@@ -34,13 +23,6 @@ Keep these two files flat in `.host/`: `devcontainer.zsh` derives `$_DC_HOST_DIR
 from its own `$0` and expects `dc-resolve.py` as a sibling. Deriving it that way
 (rather than from a caller) means a second checkout sourced into the same shell
 can never make this one read the other's helper.
-
-### Requirements
-
-- [Docker](https://www.docker.com/) running
-- the [`devcontainer` CLI](https://github.com/devcontainers/cli)
-  (`npm i -g @devcontainer/cli`)
-- `python3` for `dc-resolve.py`; `dccode` additionally needs the `code` CLI
 
 ## Functions
 

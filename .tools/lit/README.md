@@ -1,7 +1,7 @@
-# .tools/dev
+# .tools/lit
 
-Experimental scripts. Each one's docstring (`--help`) is the usage reference;
-this file holds the background that would otherwise bloat it.
+Literature tools. Each one's docstring (`--help`) is the usage reference; this
+file holds the background that would otherwise bloat it.
 
 ## Citation lookup
 

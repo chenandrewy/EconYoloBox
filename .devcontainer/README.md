@@ -2,6 +2,8 @@
 
 Both `.devcontainer/` and `.credentials/` are designed to be copied across projects.
 
+This file documents how the pieces work.
+
 ## Credentials (`.credentials/`)
 
 Credentials are resolved in two ways, in order:
@@ -15,7 +17,7 @@ This means scripts work both inside and outside the container without changes.
 
 - `credentials-map.json` — maps credential store keys to env var names. This is the only file that changes per project.
 - `get-credentials.py` — shared module that resolves credentials. Import `get_credential(env_var, keychain_target)` or `get_all_credentials()`.
-- `setup.py` — interactive script to save credentials to the host credential store. Run once per machine: `python .credentials/setup.py`
+- `setup.py` — interactive script to save credentials to the host credential store.
 - `check-wrds.py` — validates WRDS credentials and tests the connection.
 
 ### Adding credentials to a new project
@@ -55,10 +57,7 @@ are distinguishable:
 MacBook25:Live,Risk-vs-Writing#1
 ```
 
-On macOS, the source name is set under **System Settings → General → About →
-Name**. Because it appears in every Claude session name, users may want to
-shorten it there. Recreate the container afterward so `write-local-env.sh`
-captures the new value.
+Because the name appears in every session, a short one is worth setting.
 
 ### Persistent auth state
 
@@ -101,14 +100,8 @@ The seed script handles guidance and settings differently:
 ### Analysis stacks (`install-packages.sh`)
 
 The Python and R packages are **not** in the image. A freshly built container
-has R, an empty venv, and the system `-dev` libraries; the stacks go in with:
-
-```bash
-.devcontainer/install-packages.sh          # both, a few minutes
-.devcontainer/install-packages.sh python   # or one at a time
-.devcontainer/install-packages.sh r
-.devcontainer/install-packages.sh --force  # reinstall even if present
-```
+has R, an empty venv, and the system `-dev` libraries until `install-packages.sh`
+is run.
 
 Re-runs skip what is already installed, and the script fails loudly if anything
 in its list is missing at the end. Interactive shells print a one-line nudge
@@ -149,13 +142,6 @@ The container matches your host's timezone automatically. `write-local-env.sh`
 detects it at `initializeCommand` time — `$TZ` if exported, else `timedatectl`,
 else the target of the `/etc/localtime` symlink (which is how macOS and desktop
 Linux actually record it) — and passes it in via `--env-file`.
-
-To force a specific zone instead, export it on the host before the container
-starts:
-
-```bash
-export TZ=America/Chicago
-```
 
 If detection finds nothing, the fallback is the Dockerfile's `ARG TZ`, which
 defaults to `America/New_York`. Note that `TZ` is deliberately **not** set in

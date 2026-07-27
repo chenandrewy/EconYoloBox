@@ -18,17 +18,16 @@ only one of them is the base swap:
 
 ## BuildKit garbage-collection budget
 
-Docker's `20GB` default garbage-collection budget is smaller than the build's
-working set. BuildKit consequently evicts large cached layers, especially the R
-toolchain and package layers. Even a minor devcontainer change can then cause
-those unchanged layers to rebuild, turning a routine rebuild into a roughly
-20-minute operation.
+Against the old ~24GB working set, Docker's `20GB` default garbage-collection
+budget was too small. BuildKit consequently evicted large cached layers,
+especially the R toolchain and package layers, and even a minor devcontainer
+change could then force those unchanged layers to rebuild — turning a routine
+rebuild into a roughly 20-minute operation.
 
-This section was written against the ~24GB working set. At the current ~3.4GB
-the default budget is no longer obviously too small, so treat the `35GB`
-recommendation below as headroom rather than a fix for an active problem — the
-diagnostic at the end of this file is the way to tell whether eviction is
-actually happening to you.
+At the current ~3.4GB that no longer applies, so treat the `35GB` recommendation
+below as headroom rather than a fix for an active problem. The diagnostic at the
+end of this file is the way to tell whether eviction is actually happening to
+you.
 
 Set the cache budget to `35GB`. In Docker Desktop, open **Settings → Docker
 Engine** and set the `builder.gc` section of `daemon.json` to:
