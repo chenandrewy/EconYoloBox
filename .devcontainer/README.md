@@ -97,6 +97,12 @@ The seed script handles guidance and settings differently:
 - Guidance is **symlinked** (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`), so edits apply live without a restart.
 - Settings are **copied** to `~/.claude/settings.json`, not symlinked, because Claude Code writes to its settings file (`/config`, `/model`, permission grants). Those writes land in the volume copy and are overwritten by the canonical file on the next container start. To keep a setting permanently, put it in `SANDBOX-claude-settings.json`.
 
+Some user-specific agent settings live in the visible root-level `SANDBOX.toml`.
+It contains the research-library location and the timezone agents use for
+human-facing timestamps. Relative paths are resolved from the repository root.
+Because agents read this file directly, edits take effect without rebuilding or
+restarting the container.
+
 ### Analysis stacks (`install-packages.sh`)
 
 The Python and R packages are **not** in the image. A freshly built container

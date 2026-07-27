@@ -40,6 +40,13 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
   libraries (`apt-get`, `-dev` packages) do — see `USER PERMISSION REQUIRED`.
 - If you think having access to a blocked resource would be helpful: **ASK THE USER TO ADD IT**
 
+## Project Configuration
+
+Read `/workspace/SANDBOX.toml` for project-specific settings regarding
+
+- the research library location
+- time zone
+
 ## Coding and Writing Guidelines
 
 - Latex: Build using pdflatex and biber
@@ -75,20 +82,20 @@ optimal
 ### R Guidelines
 - When running R scripts non-interactively (`Rscript`), add `pdf(NULL)` near the top to suppress the stray `Rplots.pdf` that R creates whenever a transient graphics device is opened (e.g. by `ggsave()` on a `gridExtra::arrangeGrob` output).
 
-## Research Library
-
-The user's "library" folder is `/workspace/LIBRARY`. It contains reference papers and PDFs organized by topic.
+## Documentation
 
 ## Journaling
 
-Journaling refers to taking messy notes. 
-
+- Journaling refers to taking messy notes.
 - Journal notes should be in `docs/journal/` folders within the appropriate project folder.
-- An entry is a snapshot of what was going on when it was written, not a document to maintain.
+- A journal entry is a snapshot of what was going on when it was written, not a document to maintain.
   - Do not maintain `docs/journal/` folders as if they are proper documentation.
+- Use `timestamp_timezone` for human-facing timestamps. Its default is
+  `America/New_York`.
 
-## Time Zones
-- Use New York time for all timestamps
+## Script headers
+
+- At the top of every script, document how to run it, its inputs, and its outputs.
 
 ## Codex and Claude Code Reviews
 The user will ask for code reviews from using Codex or Claude.
@@ -104,9 +111,6 @@ Do not necessarily use all of the feedback
 
 Be patient. Code reviews can take up to 20 minutes.
 
-## Script headers
-
-- At the top of every script, document how to run it, its inputs, and its outputs.
 
 ## Custom Tools
 
