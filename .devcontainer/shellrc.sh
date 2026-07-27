@@ -28,15 +28,21 @@ fi
 # Start Claude in the container, always under --remote-control so the session is
 # visible to `ccsessions` / `cckill` on the host. The name is derived from the
 # working directory rather than asked for, so starting a session is still one
-# word: /workspace/Live,Risk-vs-Writing -> "Live,Risk-vs-Writing#1", and
-# /workspace itself -> the host folder's name. Set CC_SESSION_NAME to override
-# the base. Yolo is unconditional here because the container is the blast
-# radius — host-side launchers that target a container pass the flag themselves.
+# word: on host "MacBook.local", /workspace/Live,Risk-vs-Writing becomes
+# "MacBook:Live,Risk-vs-Writing#1". /workspace itself uses the host folder's
+# name. Set CC_SESSION_NAME to override the project portion. Yolo is
+# unconditional here because the container is the blast radius — host-side
+# launchers that target a container pass the flag themselves.
 _cc_session_name() {
-    local base n=1 running
+    local base host n=1 running
     base="${CC_SESSION_NAME:-${PWD#/workspace}}"
     base="${base#/}"
     base="${base:-${LOCAL_CONTAINER_FOLDER##*/}}"
+    host="${LOCAL_HOSTNAME:-}"
+    host="${host%.local}"
+    if [ -n "$host" ]; then
+        base="${host}:${base}"
+    fi
     # Number every session, so a second one in the same folder is still
     # distinguishable. Snapshot ps ONCE and match in-shell rather than piping to
     # grep per attempt: a grep in that pipeline carries the pattern in its own

@@ -43,6 +43,23 @@ Keys are credential store entry names; values are the env var names scripts will
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
 - `agents/` — canonical agent guidance and settings, applied to the container's user-level config on every start (see "Agent Config" below).
 
+### Hostname and Claude session names
+
+`write-local-env.sh` captures the host's name as `LOCAL_HOSTNAME` when the
+container initializes. The `hostname-local` alias prints that value inside the
+container. `cchat-yolo` uses it, without the routine `.local` suffix, to prefix
+Claude Code remote-control session names so sessions from different computers
+are distinguishable:
+
+```text
+MacBook25:Live,Risk-vs-Writing#1
+```
+
+On macOS, the source name is set under **System Settings → General → About →
+Name**. Because it appears in every Claude session name, users may want to
+shorten it there. Recreate the container afterward so `write-local-env.sh`
+captures the new value.
+
 ### Persistent auth state
 
 The template mounts persistent volumes for:
