@@ -66,7 +66,11 @@ different one, export it on the host before the container starts.
 export TZ=America/Chicago
 ```
 
-## Devcontainer build cache
+## Devcontainer storage
+
+Budget roughly **5.5GB per checkout**: a 3.42GB image plus about 2.0GB of
+persistent volumes (the Python venv and R library dominate), with the BuildKit
+build cache on top.
 
 Docker's default `20GB` BuildKit garbage-collection budget was once too small
 for this container and caused expensive layers to be evicted between rebuilds.
@@ -76,8 +80,8 @@ a **3.42GB** image, down from 24.2GB on 2026-07-20.
 
 So raising the budget to `35GB` is headroom now, not a fix — do it if you hit
 slow rebuilds, not by default. See
-[Devcontainer image size and build cache](docs/image-size.md) for the settings
-and for how to tell whether eviction is actually what is happening to you.
+[Devcontainer storage needs](docs/storage-needs.md) for the settings and for how
+to tell whether eviction is actually what is happening to you.
 
 ## Plans for eventual public release.
 
