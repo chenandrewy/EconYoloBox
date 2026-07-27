@@ -11,5 +11,6 @@
   "agentPushNotifEnabled": true,
   "gitAttribution": false,
   "includeCoAuthoredBy": false,
-  "remoteControlAtStartup": true
+  "remoteControlAtStartup": true,
+  "autoMemoryEnabled": false
 }
