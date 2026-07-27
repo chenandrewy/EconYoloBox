@@ -7,16 +7,16 @@ the seed — check the "Seed:" line on stderr, or pass --cluster to pin it.
 
 Usage:
   # seed by search; default window is the past 3 years, ranked by total cites
-  python .tools/dev/cited_by.py "Does Academic Research Destroy Stock Return Predictability"
+  python .tools/lit/cited_by.py "Does Academic Research Destroy Stock Return Predictability"
 
   # add authors to disambiguate a common title
-  python .tools/dev/cited_by.py "Replicating anomalies hou xue zhang"
+  python .tools/lit/cited_by.py "Replicating anomalies hou xue zhang"
 
   # pin the seed by cluster id and skip the search
-  python .tools/dev/cited_by.py --cluster 18219577721106400043 --since 2023
+  python .tools/lit/cited_by.py --cluster 18219577721106400043 --since 2023
 
   # rank by citations per year to surface fast-rising work
-  python .tools/dev/cited_by.py "..." --rank cpy --since 2024 --top 30
+  python .tools/lit/cited_by.py "..." --rank cpy --since 2024 --top 30
 
 --since is a calendar year (earliest publication year to include), default three
 years back. See README.md for source choice, ranking, and blocking notes.

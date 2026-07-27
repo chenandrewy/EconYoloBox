@@ -16,8 +16,8 @@ LIBRARY/
 # messy templates
 template/
 
-# scratch/superseded work, incl. nested repos. Leading slash is required:
-# a bare "dev/" would also swallow .tools/dev/.
+# scratch/superseded work, incl. nested repos. Leading slash is required so
+# this matches only the top-level dev/, not a dev/ anywhere in the tree.
 /dev/
 
 # for codex autocomplete convenience

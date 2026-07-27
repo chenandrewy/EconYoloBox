@@ -7,9 +7,9 @@
 # workspace tools on PATH, organized by topic (see .devcontainer/agents/SANDBOX-CLAUDE.md)
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
-#   dev:     experimental scripts (cited_by.py)
+#   lit:     citation lookup (cited_by.py, openalex_cited_by.py)
 #   ai-sesh: sesh-init, sesh-push, sesh-wipe, cc-fork, gpt-fork
-export PATH="/workspace/.tools/pdf:/workspace/.tools/latex:/workspace/.tools/dev:/workspace/.tools/ai-sesh:$PATH"
+export PATH="/workspace/.tools/pdf:/workspace/.tools/latex:/workspace/.tools/lit:/workspace/.tools/ai-sesh:$PATH"
 
 # ai-sesh: keep the home session stores symlinked into the Dropbox-synced
 # tree (idempotent; silent once the links exist — see .tools/ai-sesh/README.md)
