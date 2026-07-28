@@ -21,9 +21,10 @@ motivation in `0721a,MathRender-Risks.md`).
 - Shows assistant text and real user prompts, newest 50 messages. Thinking
   blocks, tool calls/results, and harness bookkeeping are skipped.
 - Renders `$$…$$`, `\[…\]` (display) and `\(…\)`, `$…$` (inline) via a
-  vendored, pinned KaTeX (`extension/media/katex/VENDOR.md`). Everything else —
-  including code blocks — is inert plain text (`textContent`; no markdown, no
-  HTML).
+  vendored, pinned KaTeX (`extension/media/katex/VENDOR.md`). A small Markdown
+  subset covers headings, bulleted and numbered lists, blockquotes, horizontal
+  rules, bold/italic text, and inline/fenced code. Raw HTML and Markdown links
+  remain inert text.
 - Single-`$…$` uses Pandoc-style guards against currency/`$VAR` false
   positives: both `$` on one line, no whitespace just inside the delimiters, no
   digit right after the closing `$`, escaped `\$` ignored.
@@ -42,9 +43,10 @@ motivation in `0721a,MathRender-Risks.md`).
   vendored and served through VS Code's internal webview channel.
 - **No second copy**: no inbox, no history file — the panel re-reads the
   existing transcript on load.
-- **No XSS surface**: prose reaches the DOM only via `textContent`; only math
-  source text reaches KaTeX (`trust:false`, `throwOnError:false`); strict CSP
-  with nonce'd scripts; fail-soft on any malformed record.
+- **No XSS surface**: the Markdown subset creates only fixed DOM elements and
+  assigns prose through `textContent` or text nodes; raw HTML is never parsed.
+  Only math source reaches KaTeX (`trust:false`, `throwOnError:false`); strict
+  CSP with nonce'd scripts; fail-soft on any malformed record.
 
 ## Install (inside the devcontainer)
 

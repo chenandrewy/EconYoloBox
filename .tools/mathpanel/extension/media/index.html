@@ -41,9 +41,52 @@
     opacity: 0.65;
     margin-bottom: 0.25em;
   }
-  .txt { white-space: pre-wrap; overflow-wrap: break-word; }
+  .message-body { white-space: pre-wrap; overflow-wrap: break-word; }
   .math.display { margin: 0.4em 0; overflow-x: auto; }
   .katex { font-size: 1.1em; }
+  .message-body h1, .message-body h2, .message-body h3,
+  .message-body h4, .message-body h5, .message-body h6 {
+    margin: 0.7em 0 0.35em;
+    line-height: 1.25;
+  }
+  .message-body h1 { font-size: 1.45em; }
+  .message-body h2 { font-size: 1.3em; }
+  .message-body h3 { font-size: 1.18em; }
+  .message-body h4, .message-body h5, .message-body h6 { font-size: 1.08em; }
+  .md-paragraph { margin: 0.4em 0; }
+  .message-body ul, .message-body ol {
+    margin: 0.4em 0;
+    padding-left: 1.8em;
+  }
+  .message-body li { margin: 0.15em 0; }
+  .message-body blockquote {
+    margin: 0.5em 0;
+    padding: 0.1em 0 0.1em 0.8em;
+    border-left: 3px solid var(--vscode-textBlockQuote-border, #888);
+    color: var(--vscode-textBlockQuote-foreground, var(--vscode-foreground));
+    background: var(--vscode-textBlockQuote-background, transparent);
+  }
+  .message-body pre {
+    overflow-x: auto;
+    margin: 0.5em 0;
+    padding: 0.6em 0.8em;
+    border-radius: 3px;
+    background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
+    white-space: pre-wrap;
+  }
+  .message-body code {
+    padding: 0.05em 0.25em;
+    border-radius: 3px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    background: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
+  }
+  .message-body pre code { padding: 0; background: transparent; }
+  .message-body hr {
+    height: 1px;
+    margin: 0.8em 0;
+    border: 0;
+    background: var(--vscode-panel-border, #888);
+  }
   #turn-index {
     position: fixed;
     z-index: 1;
@@ -84,6 +127,7 @@
 <nav id="turn-index" aria-label="User turns"></nav>
 <main id="log"></main>
 <script nonce="{{nonce}}" src="{{katexJs}}"></script>
+<script nonce="{{nonce}}" src="{{markdownJs}}"></script>
 <script nonce="{{nonce}}">
 (function () {
   'use strict';
@@ -106,7 +150,92 @@
       && Array.isArray(e.spans) && e.spans.every(validSpan);
   }
 
-  // Text goes to the DOM only via textContent; only math source reaches KaTeX.
+  function appendInlineText(parent, text) {
+    var pattern = /(`[^`\n]+`|\*\*[^*\n]+\*\*|__[^_\n]+__|\*[^*\n]+\*)/g;
+    var from = 0;
+    var match;
+    while ((match = pattern.exec(text)) !== null) {
+      if (match.index > from) parent.appendChild(document.createTextNode(text.slice(from, match.index)));
+      var source = match[0];
+      var tag = source[0] === '`'
+        ? 'code'
+        : source.slice(0, 2) === '**' || source.slice(0, 2) === '__' ? 'strong' : 'em';
+      var width = tag === 'em' || tag === 'code' ? 1 : 2;
+      var inline = document.createElement(tag);
+      inline.textContent = source.slice(width, -width);
+      parent.appendChild(inline);
+      from = pattern.lastIndex;
+    }
+    if (from < text.length) parent.appendChild(document.createTextNode(text.slice(from)));
+  }
+
+  function appendMath(parent, span) {
+    var el = document.createElement(span.m === 'display' ? 'div' : 'span');
+    el.className = 'math ' + span.m;
+    try {
+      katex.render(span.s, el, {
+        displayMode: span.m === 'display',
+        throwOnError: false,
+        trust: false,
+        maxExpand: 1000,
+        maxSize: 20
+      });
+    } catch (err) {
+      el.textContent = span.s;
+    }
+    parent.appendChild(el);
+  }
+
+  function appendTokens(parent, tokens) {
+    for (var i = 0; i < tokens.length; i++) {
+      var token = tokens[i];
+      if (token.t === 'text') appendInlineText(parent, token.s);
+      else appendMath(parent, token);
+    }
+  }
+
+  function appendLines(parent, lines) {
+    for (var i = 0; i < lines.length; i++) {
+      if (i > 0) parent.appendChild(document.createElement('br'));
+      appendTokens(parent, lines[i]);
+    }
+  }
+
+  function renderMarkdown(parent, spans) {
+    var blocks = MathPanelMarkdown.parse(spans);
+    for (var i = 0; i < blocks.length; i++) {
+      var block = blocks[i];
+      var el;
+      if (block.type === 'heading') {
+        el = document.createElement('h' + block.level);
+        appendTokens(el, block.content);
+      } else if (block.type === 'list') {
+        el = document.createElement(block.ordered ? 'ol' : 'ul');
+        for (var j = 0; j < block.items.length; j++) {
+          var item = document.createElement('li');
+          appendTokens(item, block.items[j]);
+          el.appendChild(item);
+        }
+      } else if (block.type === 'blockquote') {
+        el = document.createElement('blockquote');
+        appendLines(el, block.lines);
+      } else if (block.type === 'code') {
+        el = document.createElement('pre');
+        var code = document.createElement('code');
+        code.textContent = block.text;
+        el.appendChild(code);
+      } else if (block.type === 'rule') {
+        el = document.createElement('hr');
+      } else {
+        el = document.createElement('div');
+        el.className = 'md-paragraph';
+        appendLines(el, block.lines);
+      }
+      parent.appendChild(el);
+    }
+  }
+
+  // Prose is assigned with textContent or text nodes; only math source reaches KaTeX.
   function render(msg) {
     statusEl.textContent = typeof msg.status === 'string' ? msg.status : '';
     noticeEl.textContent = typeof msg.notice === 'string' ? msg.notice : '';
@@ -135,30 +264,8 @@
       head.textContent = (e.role === 'user' ? '==== You ====' : '==== Agent Response ====') + (e.tsDisplay ? ' · ' + e.tsDisplay : '');
       art.appendChild(head);
       var body = document.createElement('div');
-      for (var j = 0; j < e.spans.length; j++) {
-        var sp = e.spans[j];
-        var el;
-        if (sp.t === 'text') {
-          el = document.createElement('span');
-          el.className = 'txt';
-          el.textContent = sp.s;
-        } else {
-          el = document.createElement(sp.m === 'display' ? 'div' : 'span');
-          el.className = 'math ' + sp.m;
-          try {
-            katex.render(sp.s, el, {
-              displayMode: sp.m === 'display',
-              throwOnError: false,
-              trust: false,
-              maxExpand: 1000,
-              maxSize: 20
-            });
-          } catch (err) {
-            el.textContent = sp.s;
-          }
-        }
-        body.appendChild(el);
-      }
+      body.className = 'message-body';
+      renderMarkdown(body, e.spans);
       art.appendChild(body);
       log.appendChild(art);
     }
