@@ -179,6 +179,7 @@ function buildHtml(context, webview) {
     .replaceAll('{{nonce}}', nonce)
     .replaceAll('{{katexCss}}', mediaUri('katex', 'katex.min.css'))
     .replaceAll('{{katexJs}}', mediaUri('katex', 'katex.min.js'))
+    .replaceAll('{{copyTexJs}}', mediaUri('katex', 'copy-tex.min.js'))
     .replaceAll('{{markdownJs}}', mediaUri('markdown.js'));
 }
 

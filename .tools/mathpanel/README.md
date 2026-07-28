@@ -30,6 +30,9 @@ motivation in `0721a,MathRender-Risks.md`).
   subset covers headings, bulleted and numbered lists, blockquotes, horizontal
   rules, bold/italic text, and inline/fenced code. Raw HTML and Markdown links
   remain inert text.
+- Copies rendered equations as their original LaTeX source, including when a
+  selection mixes prose and formulas, using KaTeX's pinned `copy-tex`
+  extension.
 - Single-`$…$` uses Pandoc-style guards against currency/`$VAR` false
   positives: both `$` on one line, no whitespace just inside the delimiters, no
   digit right after the closing `$`, escaped `\$` ignored.

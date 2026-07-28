@@ -12,6 +12,9 @@
 - **Files copied from the tarball:**
   - `package/dist/katex.min.js` → `katex.min.js`
   - `package/dist/katex.min.css` → `katex.min.css`
+  - `package/dist/contrib/copy-tex.min.js` → `copy-tex.min.js`
+    (upstream payload SHA-256, before the repository's final newline:
+    `c571c49b520cb8e9040287338286b21783e39b476660b8b56d9e1c037eeaeaff`)
   - `package/LICENSE` → `LICENSE`
   - `package/dist/fonts/*` → `fonts/` (60 files; verified every font URL
     referenced in `katex.min.css` resolves to a vendored file)
