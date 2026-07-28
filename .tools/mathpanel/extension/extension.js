@@ -49,9 +49,9 @@ function deactivate() {
   stopFollower();
 }
 
-function show(context, preserveFocus = false) {
+function show(context, preserveFocus = false, preserveColumn = false) {
   if (panel) {
-    panel.reveal(vscode.ViewColumn.Beside, preserveFocus);
+    panel.reveal(preserveColumn ? undefined : vscode.ViewColumn.Beside, preserveFocus);
     return;
   }
   panel = vscode.window.createWebviewPanel(
@@ -98,7 +98,7 @@ async function followActiveChat(context) {
     } catch {}
   }
 
-  show(context, true);
+  show(context, true, true);
   if (!follower || !follower.workspaceReal) return;
 
   const activeClaude =
