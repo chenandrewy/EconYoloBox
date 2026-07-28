@@ -18,6 +18,11 @@ motivation in `0721a,MathRender-Risks.md`).
   *local* date of whichever machine wrote them, so the scan follows the host
   zone. It follows the most-recently-modified session across both sources and
   switches automatically when either tool writes.
+- **MathPanel: Follow Active Terminal Chat** switches immediately to the
+  transcript held open by the active terminal's process tree and pins that
+  selection. If the terminal cannot be matched (for example, an idle CLI has
+  closed its transcript), a picker lists the workspace's recent chats. Choose
+  **Automatic** in that picker to resume following the newest transcript.
 - Shows assistant text and real user prompts, newest 50 messages. Thinking
   blocks, tool calls/results, and harness bookkeeping are skipped.
 - Renders `$$…$$`, `\[…\]` (display) and `\(…\)`, `$…$` (inline) via a
@@ -32,13 +37,16 @@ motivation in `0721a,MathRender-Risks.md`).
 ## Security posture (summary)
 
 - **Read-only**: never writes under `~/.claude/` or `~/.codex/`. Claude
-  discovery reads only direct-child `*.jsonl` files for this workspace. Codex
-  discovery must read the first line of every rollout in the scanned date
-  directories, including other workspaces; those lines can contain base
-  instructions, git, and provider metadata. Only `cwd` and the session
-  timestamp are cached from each line. Metadata from nonmatching rollouts is
-  never logged or sent to the webview; full contents are read only for the one
-  selected workspace-matching rollout.
+  automatic discovery reads only direct-child `*.jsonl` files for this
+  workspace. **Follow Active Terminal Chat** may additionally read the
+  PID-keyed Claude state record under `~/.claude/sessions/` and the exact
+  transcript it names, after validating that its real cwd is inside the
+  workspace. Codex discovery must read the first line of every rollout in the
+  scanned date directories, including other workspaces; those lines can
+  contain base instructions, git, and provider metadata. Only `cwd` and the
+  session timestamp are cached from each line. Metadata from nonmatching
+  rollouts is never logged or sent to the webview; full contents are read only
+  for the one selected workspace-matching rollout.
 - **No network**: no HTTP listener, socket, port, or CDN request. KaTeX is
   vendored and served through VS Code's internal webview channel.
 - **No second copy**: no inbox, no history file — the panel re-reads the
@@ -78,7 +86,7 @@ anywhere.
 ## Tests
 
 ```sh
-node --test .tools/mathpanel/extension/test/
+node --test .tools/mathpanel/extension/test/*.test.js
 ```
 
 Pure-parser tests (`transcript.js` and `codex.js`) against synthetic fixtures —
@@ -86,9 +94,14 @@ no real transcript content is committed.
 
 ## v0.2 limitations
 
-- Exactly one workspace folder; sessions started from a subdirectory of the
-  workspace do not match that workspace cwd and are not followed.
+- Exactly one workspace folder. Automatic discovery does not follow sessions
+  started from a subdirectory, but **Follow Active Terminal Chat** can select
+  an active Claude session whose real cwd is inside the workspace.
 - There is no source toggle. Across concurrent Claude and Codex sessions, the
-  panel follows whichever matching file was modified most recently.
+  panel follows whichever matching file was modified most recently unless a
+  chat was explicitly pinned with **Follow Active Terminal Chat**.
+- Active-terminal detection uses Linux `/proc`, as provided by the
+  devcontainer. Some idle CLI processes close their transcript file; in that
+  case the command asks the user to select the chat.
 - Codex discovery scans only the last seven date directories. Older rollouts
   outside that window are not followed, even when resumed.

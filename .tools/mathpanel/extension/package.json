@@ -13,13 +13,18 @@
     "workspace"
   ],
   "activationEvents": [
-    "onCommand:mathpanel.show"
+    "onCommand:mathpanel.show",
+    "onCommand:mathpanel.followActiveChat"
   ],
   "contributes": {
     "commands": [
       {
         "command": "mathpanel.show",
         "title": "MathPanel: Show"
+      },
+      {
+        "command": "mathpanel.followActiveChat",
+        "title": "MathPanel: Follow Active Terminal Chat"
       }
     ]
   }

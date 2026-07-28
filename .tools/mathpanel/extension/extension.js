@@ -20,6 +20,10 @@ const {
   cachedSessionMeta,
   parseLine: parseCodexLine,
 } = require('./codex');
+const {
+  candidateForProcessTree,
+  claudeSessionForProcessTree,
+} = require('./active-terminal');
 
 const INCLUDE_USER = true; // interleave real user prompts with assistant text
 const DISCOVERY_MS = 1000;
@@ -35,6 +39,9 @@ let follower; // transcript-follow state while the panel is open
 function activate(context) {
   context.subscriptions.push(
     vscode.commands.registerCommand('mathpanel.show', () => show(context)),
+    vscode.commands.registerCommand('mathpanel.followActiveChat', () =>
+      followActiveChat(context),
+    ),
   );
 }
 
@@ -42,15 +49,20 @@ function deactivate() {
   stopFollower();
 }
 
-function show(context) {
+function show(context, preserveFocus = false) {
   if (panel) {
-    panel.reveal(vscode.ViewColumn.Beside);
+    panel.reveal(vscode.ViewColumn.Beside, preserveFocus);
     return;
   }
-  panel = vscode.window.createWebviewPanel('mathpanel', 'MathPanel', vscode.ViewColumn.Beside, {
-    enableScripts: true,
-    localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')],
-  });
+  panel = vscode.window.createWebviewPanel(
+    'mathpanel',
+    'MathPanel',
+    { viewColumn: vscode.ViewColumn.Beside, preserveFocus },
+    {
+      enableScripts: true,
+      localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'media')],
+    },
+  );
   webviewReady = false;
   panel.webview.html = buildHtml(context, panel.webview);
   panel.webview.onDidReceiveMessage(
@@ -73,6 +85,88 @@ function show(context) {
     context.subscriptions,
   );
   startFollower();
+}
+
+async function followActiveChat(context) {
+  // Capture this before showing MathPanel: revealing a webview can otherwise
+  // change which terminal VS Code considers active.
+  const terminal = vscode.window.activeTerminal;
+  let terminalPid;
+  if (terminal) {
+    try {
+      terminalPid = await terminal.processId;
+    } catch {}
+  }
+
+  show(context, true);
+  if (!follower || !follower.workspaceReal) return;
+
+  const activeClaude =
+    terminalPid !== undefined ? activeClaudeCandidate(terminalPid) : undefined;
+  const candidates = discoverCandidates();
+  if (
+    activeClaude &&
+    !candidates.some(
+      (candidate) =>
+        candidate.path === activeClaude.path && candidate.source === activeClaude.source,
+    )
+  ) {
+    candidates.push(activeClaude);
+  }
+  let candidate =
+    activeClaude ||
+    (terminalPid !== undefined
+      ? candidateForProcessTree(terminalPid, candidates)
+      : undefined);
+
+  if (!candidate) {
+    const selected = await pickCandidate(candidates);
+    if (!selected) return;
+    if (selected.automatic) {
+      follower.pinned = undefined;
+      discover();
+      vscode.window.setStatusBarMessage('MathPanel: Following the newest transcript.', 3000);
+      return;
+    }
+    candidate = selected.candidate;
+  }
+
+  follower.pinned = candidate;
+  selectFile(candidate);
+  vscode.window.setStatusBarMessage(
+    `MathPanel: Following the selected ${candidate.source === 'codex' ? 'Codex' : 'Claude'} chat.`,
+    3000,
+  );
+}
+
+async function pickCandidate(candidates) {
+  if (!candidates.length) {
+    vscode.window.showWarningMessage(NO_SESSION);
+    return undefined;
+  }
+  const sorted = [...candidates].sort((a, b) => b.mtimeMs - a.mtimeMs);
+  const items = [
+    {
+      label: '$(sync) Automatic',
+      description: 'Follow the most recently modified transcript',
+      automatic: true,
+    },
+    ...sorted.map((candidate) => {
+      const id = path.basename(candidate.path, '.jsonl');
+      const shortened = id.length > 20 ? `…${id.slice(-20)}` : id;
+      return {
+        label: `${candidate.source === 'codex' ? 'Codex' : 'Claude'} — ${tsDisplay(
+          candidate.sessionTimestamp || candidate.mtimeMs,
+        )}`,
+        description: shortened,
+        candidate,
+      };
+    }),
+  ];
+  return vscode.window.showQuickPick(items, {
+    placeHolder: 'The active terminal could not be matched; select a chat to follow',
+    matchOnDescription: true,
+  });
 }
 
 function buildHtml(context, webview) {
@@ -107,11 +201,14 @@ function startFollower() {
   }
   follower = {
     workspaceReal: real,
+    claudeProjectsRoot: path.join(os.homedir(), '.claude', 'projects'),
+    claudeSessionsDir: path.join(os.homedir(), '.claude', 'sessions'),
     claudeProjDir: path.join(os.homedir(), '.claude', 'projects', mungePath(real)),
     codexRoot: path.join(os.homedir(), '.codex', 'sessions'),
     codexMetaCache: new Map(), // positive path+inode; negative path+inode+size
     file: undefined,
     source: undefined,
+    pinned: undefined,
     sessionTimestamp: '',
     lastIno: -1,
     lastSize: 0,
@@ -138,14 +235,58 @@ function newer(a, b) {
   return b.path > a.path ? b : a;
 }
 
-function discoverClaude() {
+function activeClaudeCandidate(terminalPid) {
+  const state = claudeSessionForProcessTree(
+    terminalPid,
+    follower.claudeSessionsDir,
+  );
+  if (!state) return undefined;
+
+  let cwdReal;
+  try {
+    cwdReal = fs.realpathSync(state.cwd);
+  } catch {
+    return undefined;
+  }
+  const relative = path.relative(follower.workspaceReal, cwdReal);
+  if (
+    relative !== '' &&
+    (relative === '..' ||
+      relative.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relative))
+  ) {
+    return undefined;
+  }
+
+  // Claude keys its project directory by the cwd spelling it was launched
+  // with. Try that first, then its realpath for symlinked subdirectories.
+  const cwdChoices = [...new Set([state.cwd, cwdReal])];
+  for (const cwd of cwdChoices) {
+    const p = path.join(
+      follower.claudeProjectsRoot,
+      mungePath(cwd),
+      `${state.sessionId}.jsonl`,
+    );
+    let st;
+    try {
+      st = fs.statSync(p);
+    } catch {
+      continue;
+    }
+    if (!st.isFile() || st.size === 0) continue;
+    return { path: p, source: 'claude', mtimeMs: st.mtimeMs };
+  }
+  return undefined;
+}
+
+function discoverClaudeCandidates() {
   let names;
   try {
     names = fs.readdirSync(follower.claudeProjDir);
   } catch {
-    return undefined;
+    return [];
   }
-  let best;
+  const candidates = [];
   for (const name of names) {
     if (!name.endsWith('.jsonl')) continue;
     const p = path.join(follower.claudeProjDir, name);
@@ -156,9 +297,9 @@ function discoverClaude() {
       continue;
     }
     if (!st.isFile() || st.size === 0) continue;
-    best = newer(best, { path: p, source: 'claude', mtimeMs: st.mtimeMs });
+    candidates.push({ path: p, source: 'claude', mtimeMs: st.mtimeMs });
   }
-  return best;
+  return candidates;
 }
 
 function recentCodexDirs() {
@@ -200,8 +341,8 @@ function readFirstLine(p) {
   }
 }
 
-function discoverCodex() {
-  let best;
+function discoverCodexCandidates() {
+  const candidates = [];
   for (const dir of recentCodexDirs()) {
     let names;
     try {
@@ -228,7 +369,7 @@ function discoverCodex() {
       );
       if (!meta) continue;
       if (meta.cwd !== follower.workspaceReal) continue;
-      best = newer(best, {
+      candidates.push({
         path: p,
         source: 'codex',
         mtimeMs: st.mtimeMs,
@@ -236,7 +377,12 @@ function discoverCodex() {
       });
     }
   }
-  return best;
+  return candidates;
+}
+
+function discoverCandidates() {
+  if (!follower || !follower.claudeProjDir) return [];
+  return [...discoverClaudeCandidates(), ...discoverCodexCandidates()];
 }
 
 // Every ~1s: union the Claude project candidates with cwd-matched Codex
@@ -244,7 +390,20 @@ function discoverCodex() {
 // then follow the newest mtime.
 function discover() {
   if (!follower || !follower.claudeProjDir) return;
-  selectFile(newer(discoverClaude(), discoverCodex()));
+  const candidates = discoverCandidates();
+  if (follower.pinned) {
+    const refreshed = candidates.find(
+      (candidate) =>
+        candidate.path === follower.pinned.path &&
+        candidate.source === follower.pinned.source,
+    );
+    if (refreshed) follower.pinned = refreshed;
+    selectFile(follower.pinned);
+    return;
+  }
+  let best;
+  for (const candidate of candidates) best = newer(best, candidate);
+  selectFile(best);
 }
 
 function selectFile(candidate) {
