@@ -57,7 +57,8 @@ user rather than editing the firewall unprompted.
 ### `openalex_cited_by.py` (OpenAlex)
 
 Takes a DOI (raw, `doi:` form, or `https://doi.org/...` URL) and sorts citers by
-citation count. Reads `OPENALEX_API_KEY` from the env when present, anonymous
+citation count. Reads `OPENALEX_API_KEY` through the shared credential resolver
+when present, anonymous
 otherwise; OpenAlex authenticates via `?api_key=`, **not** a Bearer header —
 sending `Authorization: Bearer` hard-fails with 401.
 

@@ -14,11 +14,22 @@
 
 import argparse
 import base64
-import os
+import importlib.machinery
+import importlib.util
 from pathlib import Path
 
 from mistralai.client import Mistral
 from mistralai.client.models.documenturlchunk import DocumentURLChunk
+
+_credentials_path = (
+    Path(__file__).resolve().parents[2] / ".credentials" / "get-credentials.py"
+)
+_credentials_spec = importlib.util.spec_from_loader(
+    "get_credentials",
+    importlib.machinery.SourceFileLoader("get_credentials", str(_credentials_path)),
+)
+_credentials = importlib.util.module_from_spec(_credentials_spec)
+_credentials_spec.loader.exec_module(_credentials)
 
 
 def _extract_and_relink_images(
@@ -39,29 +50,15 @@ def _extract_and_relink_images(
 
 
 def resolve_api_key(var_name: str = "MISTRAL_API_KEY") -> str:
-    """Return the API key from the environment or a `.env` file."""
-    api_key = os.getenv(var_name)
+    """Return the Mistral API key from the shared credential resolver."""
+    api_key = _credentials.get_credential(var_name, "mistral-api-key")
     if api_key:
         return api_key
 
-    script_dir = Path(__file__).resolve().parent
-    candidate_paths = [Path.cwd() / ".env"]
-    script_env = script_dir / ".env"
-    if script_env not in candidate_paths:
-        candidate_paths.append(script_env)
-
-    for env_path in candidate_paths:
-        if not env_path.is_file():
-            continue
-        for line in env_path.read_text(encoding="utf-8").splitlines():
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            key, _, value = stripped.partition("=")
-            if key.strip() == var_name:
-                return value.strip()
-
-    raise SystemExit(f"{var_name} not found; export it or add it to .env.")
+    raise SystemExit(
+        f"{var_name} not found; run `python .credentials/setup.py` on the host "
+        "and reopen the container or rerun its host-side injector."
+    )
 
 
 def convert_pdf_to_markdown(

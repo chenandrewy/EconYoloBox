@@ -24,12 +24,15 @@ Removes existing bookmarks from a PDF and rebuilds them using:
 Dependencies:
     pip install pikepdf PyMuPDF openai
 
-Environment:
-    OPENROUTER_API_KEY - Your OpenRouter API key
+Credentials and environment:
+    OPENROUTER_API_KEY - Optional per-command override; otherwise read through
+        .credentials/get-credentials.py
     OPENROUTER_MODEL - Optional model override (defaults to google/gemini-2.5-flash)
 """
 
 import json
+import importlib.machinery
+import importlib.util
 import os
 import re
 import sys
@@ -39,6 +42,16 @@ from typing import Dict, List, Optional, Tuple
 import fitz  # PyMuPDF
 import pikepdf
 from openai import OpenAI
+
+_credentials_path = (
+    Path(__file__).resolve().parents[2] / ".credentials" / "get-credentials.py"
+)
+_credentials_spec = importlib.util.spec_from_loader(
+    "get_credentials",
+    importlib.machinery.SourceFileLoader("get_credentials", str(_credentials_path)),
+)
+_credentials = importlib.util.module_from_spec(_credentials_spec)
+_credentials_spec.loader.exec_module(_credentials)
 
 # Configuration
 MODEL_NAME = os.getenv("OPENROUTER_MODEL", "google/gemini-2.5-flash")
@@ -506,10 +519,16 @@ def main():
         sys.exit(1)
     
     # Check for API key
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = _credentials.get_credential(
+        "OPENROUTER_API_KEY",
+        "openrouter-api-key",
+    )
     if not api_key:
-        print("Error: OPENROUTER_API_KEY environment variable not set")
-        print("Run `python .credentials/setup.py` on your host to save it.")
+        print("Error: OPENROUTER_API_KEY credential not available")
+        print(
+            "Run `python .credentials/setup.py` on the host, then reopen the "
+            "container or rerun its host-side injector."
+        )
         sys.exit(1)
     
     print(f"Processing {input_file}...")

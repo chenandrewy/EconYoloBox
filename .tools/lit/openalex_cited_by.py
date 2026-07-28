@@ -5,8 +5,8 @@ A "follow-up" paper here means any work that cites the input paper. Output is
 sorted by citation count (descending) and includes author, year, journal,
 title, and citation count.
 
-Auth: reads OPENALEX_API_KEY from the env (mapped from .credentials). Falls
-back to anonymous if unset. Note: OpenAlex uses ?api_key=..., NOT a Bearer
+Auth: reads OPENALEX_API_KEY through the shared credential resolver. Falls back
+to anonymous if unset. Note: OpenAlex uses ?api_key=..., NOT a Bearer
 header — sending Authorization: Bearer hard-fails with 401.
 
 Usage:
@@ -31,14 +31,26 @@ Looking up working papers / preprints:
   directly at https://api.openalex.org/works?search=<title>.
 """
 import argparse
-import os
+import importlib.machinery
+import importlib.util
 import sys
+from pathlib import Path
 from urllib.parse import quote
 
 import requests
 
 API = "https://api.openalex.org/works"
 TIMEOUT = 20
+
+_credentials_path = (
+    Path(__file__).resolve().parents[2] / ".credentials" / "get-credentials.py"
+)
+_credentials_spec = importlib.util.spec_from_loader(
+    "get_credentials",
+    importlib.machinery.SourceFileLoader("get_credentials", str(_credentials_path)),
+)
+_credentials = importlib.util.module_from_spec(_credentials_spec)
+_credentials_spec.loader.exec_module(_credentials)
 
 
 def normalize_doi(s: str) -> str:
@@ -52,7 +64,7 @@ def normalize_doi(s: str) -> str:
 
 def base_params() -> dict:
     p = {}
-    key = os.environ.get("OPENALEX_API_KEY")
+    key = _credentials.get_credential("OPENALEX_API_KEY", "openalex-api-key")
     if key:
         p["api_key"] = key
     return p

@@ -6,12 +6,15 @@ This file documents how the pieces work.
 
 ## Credentials (`.credentials/`)
 
-Credentials are resolved in two ways, in order:
+Credentials are resolved in three ways, in order:
 
-1. **Environment variable** (set automatically inside the container)
-2. **Host credential store** (macOS Keychain or Windows Credential Manager)
+1. **Environment variable** (an explicit per-command override)
+2. **Mounted secret file** (`/run/secrets/credentials.env` inside the container)
+3. **Host credential store** (macOS Keychain or Windows Credential Manager)
 
 This means scripts work both inside and outside the container without changes.
+Credentials are not placed in the container-wide environment: that would expose
+them through Docker metadata and ambiently inherit them into every subprocess.
 
 ### Files
 
@@ -34,9 +37,34 @@ Edit `credentials-map.json`:
 
 Keys are credential store entry names; values are the env var names scripts will use. `setup.py` automatically groups prompts by the first segment of the key (e.g. `wrds-username` and `wrds-password` are grouped under "WRDS").
 
+To update the mounted file after changing credentials, run this command **on the
+host**, from the repository root:
+
+```bash
+source .devcontainer/find-python.sh
+$PYTHON .devcontainer/inject-credentials.py
+```
+
+The resolver re-reads the mounted file on every lookup, so updates take effect
+immediately, and truncating the file on the host
+(`: > /tmp/devcontainer-credentials.env`) immediately revokes the container's
+access.
+
+If the host reboots (clearing `/tmp`) and the container is then started without
+VS Code (plain `docker start`), Docker recreates the missing mount source as an
+empty directory and the container may fail to start. Rerunning the command
+above — or just reopening in VS Code, which runs it automatically — repairs
+this.
+
 ## Dev Container (`.devcontainer/`)
 
-- `inject-credentials.py` — runs on the host before the container starts (`initializeCommand`). Reads credentials via `get-credentials.py` and writes `/tmp/devcontainer-credentials.env`, which the container picks up via `--env-file`. The file is auto-deleted after 10 minutes.
+- `inject-credentials.py` — runs on the host before the container starts
+  (`initializeCommand`). It writes a `0600` file at
+  `/tmp/devcontainer-credentials.env`, bind-mounted read-only at
+  `/run/secrets/credentials.env`. The file is not timed: it remains available
+  for the container session and is overwritten on the next initialization.
+  Because it is host-side, it may remain after the container stops until it is
+  overwritten, manually removed, or cleaned up by the host OS.
 - `devcontainer.json` — container configuration.
 - `Dockerfile` — container image definition.
 - `init-firewall.sh` — network firewall rules applied post-create.

@@ -21,8 +21,7 @@
   "runArgs": [
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
-    "--env-file=/tmp/devcontainer-local.env",
-    "--env-file=/tmp/devcontainer-credentials.env"
+    "--env-file=/tmp/devcontainer-local.env"
   ],
   "customizations": {
     "vscode": {
@@ -75,6 +74,9 @@
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     "source=${localWorkspaceFolderBasename}-claude-config,target=/home/node/.claude,type=volume",
     "source=${localWorkspaceFolderBasename}-codex-config,target=/home/node/.codex,type=volume",
+    // Credentials stay out of Docker's Config.Env and are read on demand.
+    // inject-credentials.py creates this host-side file before Docker starts.
+    "source=/tmp/devcontainer-credentials.env,target=/run/secrets/credentials.env,type=bind,readonly",
     // Compiled-package volumes (docs/journal/0725f): installs stay at runtime
     // so image builds stay fast, but packages survive container recreation.
     // Names carry the interpreter version so an upgrade starts a fresh volume

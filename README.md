@@ -40,7 +40,8 @@ inside the container.
    Name**. If you change it later, recreate the container so the new value is
    picked up.
 
-4. **Save your credentials**, from the host, so the container can inject them:
+4. **Save your credentials**, from the host, so the container can mount them
+   through a protected host-side file:
 
    ```bash
    python .credentials/setup.py

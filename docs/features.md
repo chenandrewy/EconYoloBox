@@ -40,11 +40,12 @@
    SSRN, WRDS, the Ken French data library, global-q, and JKP factor data are
    reachable alongside package registries and agent APIs — little else is.
 
-6. **Keychain-based credential injection (`.credentials/`)** — secrets stay in
+6. **Keychain-based credential mounting (`.credentials/`)** — secrets stay in
    the host credential store (macOS Keychain / Windows Credential Manager),
-   mapped by `credentials-map.json`, and injected at container start via a temp
-   env file that self-deletes after 10 minutes. The same resolver works inside
-   and outside the container, so scripts never change.
+   mapped by `credentials-map.json`, and exposed on demand through a read-only
+   host-side file. They do not enter Docker metadata or the global container
+   environment. The same resolver works inside and outside the container, so
+   scripts never change.
 
 7. **Cross-machine AI session sync (`ai-sesh`)** — Claude/Codex session stores
    are symlinked into the Dropbox-synced workspace per machine, so sessions

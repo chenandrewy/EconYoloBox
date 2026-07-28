@@ -1,19 +1,33 @@
 """Quick sanity check for OpenAlex API access.
 
-Reads OPENALEX_API_KEY from the env (mapped from .credentials), makes one
-cheap call, and prints status + rate-limit headers.
+Reads OPENALEX_API_KEY through the shared credential resolver, makes one cheap
+call, and prints status + rate-limit headers.
 
-Usage:  python dev/check-openalex.py
+Usage:  python3 docs/check-openalex.py
+Inputs: Optional OPENALEX_API_KEY resolved through `.credentials`
+Outputs: OpenAlex status and rate-limit information on stdout
 """
-import os
+import importlib.machinery
+import importlib.util
 import sys
+from pathlib import Path
 
 import requests
+
+_credentials_path = (
+    Path(__file__).resolve().parents[1] / ".credentials" / "get-credentials.py"
+)
+_credentials_spec = importlib.util.spec_from_loader(
+    "get_credentials",
+    importlib.machinery.SourceFileLoader("get_credentials", str(_credentials_path)),
+)
+_credentials = importlib.util.module_from_spec(_credentials_spec)
+_credentials_spec.loader.exec_module(_credentials)
 
 URL = "https://api.openalex.org/works"
 params = {"per_page": 1, "select": "id"}
 
-key = os.environ.get("OPENALEX_API_KEY")
+key = _credentials.get_credential("OPENALEX_API_KEY", "openalex-api-key")
 if key:
     params["api_key"] = key
     print(f"using key {key[:4]}…{key[-4:]} ({len(key)} chars)")
