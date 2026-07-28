@@ -12,7 +12,7 @@
   }
   body {
     font-family: var(--vscode-font-family, sans-serif);
-    font-size: 115%;
+    font-size: 108%;
     color: var(--vscode-editor-foreground);
     background: var(--vscode-editor-background);
     margin: 0;
@@ -44,11 +44,44 @@
   .txt { white-space: pre-wrap; overflow-wrap: break-word; }
   .math.display { margin: 0.4em 0; overflow-x: auto; }
   .katex { font-size: 1.1em; }
+  #turn-index {
+    position: fixed;
+    z-index: 1;
+    top: 0.6em;
+    right: 0.6em;
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 1.2em);
+    overflow-y: auto;
+    border: 1px solid var(--vscode-panel-border, #888);
+    border-radius: 4px;
+    background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+    opacity: 0.65;
+  }
+  #turn-index:hover, #turn-index:focus-within { opacity: 1; }
+  #turn-index:empty { display: none; }
+  #turn-index button {
+    min-width: 1.6em;
+    padding: 0.15em 0.35em;
+    border: 0;
+    color: var(--vscode-foreground);
+    background: transparent;
+    font: inherit;
+    font-size: 0.75em;
+    line-height: 1.2;
+    cursor: pointer;
+  }
+  #turn-index button:hover, #turn-index button:focus {
+    color: var(--vscode-list-activeSelectionForeground);
+    background: var(--vscode-list-activeSelectionBackground);
+    outline: none;
+  }
 </style>
 </head>
 <body>
 <div id="status"></div>
 <div id="notice"></div>
+<nav id="turn-index" aria-label="User turns"></nav>
 <main id="log"></main>
 <script nonce="{{nonce}}" src="{{katexJs}}"></script>
 <script nonce="{{nonce}}">
@@ -58,6 +91,7 @@
   var log = document.getElementById('log');
   var statusEl = document.getElementById('status');
   var noticeEl = document.getElementById('notice');
+  var turnIndexEl = document.getElementById('turn-index');
 
   function validSpan(s) {
     if (!s || typeof s !== 'object' || typeof s.s !== 'string') return false;
@@ -78,14 +112,27 @@
     noticeEl.textContent = typeof msg.notice === 'string' ? msg.notice : '';
     var atBottom = window.innerHeight + window.scrollY >= document.body.scrollHeight - 40;
     log.replaceChildren();
+    turnIndexEl.replaceChildren();
     var entries = Array.isArray(msg.entries) ? msg.entries : [];
+    var turnNumber = 0;
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i];
       if (!validEntry(e)) continue;
       var art = document.createElement('article');
       art.className = e.role;
+      if (e.role === 'user') {
+        turnNumber++;
+        art.id = 'user-turn-' + turnNumber;
+        var turnButton = document.createElement('button');
+        turnButton.type = 'button';
+        turnButton.textContent = String(turnNumber);
+        turnButton.title = 'Go to user turn ' + turnNumber;
+        turnButton.setAttribute('aria-label', turnButton.title);
+        turnButton.dataset.target = art.id;
+        turnIndexEl.appendChild(turnButton);
+      }
       var head = document.createElement('header');
-      head.textContent = (e.role === 'user' ? 'You' : '==== Agent Response ====') + (e.tsDisplay ? ' · ' + e.tsDisplay : '');
+      head.textContent = (e.role === 'user' ? '==== You ====' : '==== Agent Response ====') + (e.tsDisplay ? ' · ' + e.tsDisplay : '');
       art.appendChild(head);
       var body = document.createElement('div');
       for (var j = 0; j < e.spans.length; j++) {
@@ -117,6 +164,13 @@
     }
     if (atBottom) window.scrollTo(0, document.body.scrollHeight);
   }
+
+  turnIndexEl.addEventListener('click', function (ev) {
+    var button = ev.target.closest('button[data-target]');
+    if (!button || !turnIndexEl.contains(button)) return;
+    var target = document.getElementById(button.dataset.target);
+    if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 
   window.addEventListener('message', function (ev) {
     var m = ev.data;
