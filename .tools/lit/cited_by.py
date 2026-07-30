@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
 """Rank recent papers that cite a given paper, via Google Scholar.
 
+Two steps, because Scholar cannot be trusted to put the paper you mean at the
+top of its own results (it reshuffles between identical requests, and the record
+you want is sometimes not on the page at all). So a bare query BROWSES — it
+prints the search hits with a copy-pasteable --cluster id for each — and you
+re-run with the id of the one you wanted to get the citers.
+
 `query` is sent verbatim to Scholar's search box, so a title, a title plus
-authors, a DOI, or operators like author:"chen" all work. The FIRST hit becomes
-the seed — check the "Seed:" line on stderr, or pass --cluster to pin it.
+authors, a DOI, or operators like author:"chen" all work.
 
 Usage:
-  # seed by search; default window is the past 3 years, ranked by total cites
-  python .tools/lit/cited_by.py "Does Academic Research Destroy Stock Return Predictability"
+  # step 1: browse the hits for the paper you mean
+  python .tools/lit/cited_by.py "kahn landsburg"
 
-  # add authors to disambiguate a common title
-  python .tools/lit/cited_by.py "Replicating anomalies hou xue zhang"
-
-  # pin the seed by cluster id and skip the search
-  python .tools/lit/cited_by.py --cluster 18219577721106400043 --since 2023
+  # step 2: rank its citers; default window is the past 3 years, by total cites
+  python .tools/lit/cited_by.py --cluster 5179910145110411934 --since 1996
 
   # rank by citations per year to surface fast-rising work
-  python .tools/lit/cited_by.py "..." --rank cpy --since 2024 --top 30
+  python .tools/lit/cited_by.py --cluster 18219577721106400043 --rank cpy --top 30
+
+  # one shot, taking the top hit as the seed — only when the query is
+  # distinctive enough to trust; check the Seed: line it echoes back
+  python .tools/lit/cited_by.py "Replicating anomalies hou xue zhang" --first
 
 --since is a calendar year (earliest publication year to include), default three
 years back. See README.md for source choice, ranking, and blocking notes.
@@ -44,6 +50,11 @@ BASE = "https://scholar.google.com/scholar"
 TIMEOUT = 25
 PER_PAGE = 10  # Scholar's fixed page size
 CURRENT_YEAR = datetime.now(ZoneInfo("America/New_York")).year
+
+# The seed search sends no corpus parameters. Citation-only records are included
+# by default (Scholar's "include citations" checkbox comes back aria-checked;
+# as_vis=1 is the opt-OUT, as_vis=0 the default), and an as_sdt value gets
+# normalized away — Scholar rewrote 2000005 to 0,21 in every link it generated.
 
 
 class Unreachable(Exception):
@@ -78,16 +89,25 @@ def get(params: dict) -> tuple[requests.Response, bool]:
 
 
 def cluster_from_result(div) -> tuple[str | None, int | None]:
-    """Extract (cluster_id, cite_count) from a result's footer 'Cited by N' link."""
+    """Extract (cluster_id, cite_count) from a result's footer links.
+
+    Prefers 'Cited by N', which carries the id and the count together. Falls
+    back to the 'All N versions' link: its cluster= id is the same id space as
+    cites=, so it is the only handle on a record Scholar shows no Cited-by link
+    for (an uncited paper, or a PDF scan indexed separately from the article).
+    """
+    versions = None
     for a in div.select("div.gs_fl a"):
         href = a.get("href", "")
         text = a.get_text()
         m = re.search(r"cites=(\d+)", href)
         if m and "Cited by" in text:
             n = re.search(r"Cited by\s+([\d,]+)", text)
-            count = int(n.group(1).replace(",", "")) if n else None
-            return m.group(1), count
-    return None, None
+            return m.group(1), int(n.group(1).replace(",", "")) if n else None
+        v = re.search(r"cluster=(\d+)", href)
+        if v and versions is None:
+            versions = v.group(1)
+    return versions, None
 
 
 def parse_year(byline: str) -> int | None:
@@ -135,18 +155,33 @@ def parse_results(html: str) -> list[dict]:
     return out
 
 
-def resolve_cluster(query: str) -> tuple[str, dict]:
-    """Search the seed title; return (cluster_id, top_hit) or exit with a reason."""
+def search(query: str) -> list[dict]:
+    """Run the seed search and return its hits, or exit with a reason."""
     r, blocked = get({"q": query, "hl": "en"})
     if blocked:
-        sys.exit("BLOCKED resolving seed — Scholar is CAPTCHA-ing this IP.")
+        sys.exit("BLOCKED searching — Scholar is CAPTCHA-ing this IP.")
     hits = parse_results(r.text)
     if not hits:
-        sys.exit("No results parsed for seed — HTML structure may have changed.")
-    top = hits[0]
-    if not top["cluster"]:
-        sys.exit("Could not extract a cluster id from the top hit.")
-    return top["cluster"], top
+        # A 200 with no results and no CAPTCHA marker is Scholar's soft-empty
+        # response; it comes and goes for the same query, so retry before
+        # concluding the markup changed.
+        sys.exit(f"No results parsed (HTTP {r.status_code}, {len(r.text)} bytes). "
+                 "Scholar sometimes serves an empty page for a query that works "
+                 "on retry — try again before suspecting the HTML structure.")
+    return hits
+
+
+def describe_cluster(cluster: str) -> dict | None:
+    """Fetch a cluster's own record, so a pinned --cluster can be echoed back.
+
+    Costs one GET. Returns None if Scholar blocks or the id resolves to nothing,
+    which is a warning rather than a failure: the citer fetch can still proceed.
+    """
+    r, blocked = get({"cluster": cluster, "hl": "en"})
+    if blocked:
+        return None
+    hits = parse_results(r.text)
+    return hits[0] if hits else None
 
 
 def fetch_citers(cluster: str, as_ylo: int, want: int, max_pages: int) -> tuple[list[dict], bool]:
@@ -187,12 +222,63 @@ def cpy(row: dict) -> float:
     return row["cites"] / elapsed
 
 
+# Outline rather than a table: titles are long enough that a Title column either
+# wraps badly or gets truncated past the point of being useful.
+INDENT = " " * 5  # matches the "%3d. " label, so wrapped lines stay aligned
+
+
+def body_width() -> int:
+    width = min(shutil.get_terminal_size((100, 24)).columns, 100)
+    return max(30, width - len(INDENT))
+
+
+def print_entry(i: int, title: str, *meta_lines: str) -> None:
+    """One numbered outline entry: wrapped title, then wrapped indented lines."""
+    body = body_width()
+    lines = textwrap.wrap(title, width=body) or ["?"]
+    print(f"{i:>3}. " + lines[0])
+    for line in lines[1:]:
+        print(INDENT + line)
+    for meta in meta_lines:
+        for line in textwrap.wrap(meta, width=body):
+            print(INDENT + line)
+
+
+def meta_line(row: dict) -> str:
+    """'AUTHOR · YEAR · VENUE · N cites' for a parsed result."""
+    return " · ".join([row["author"], str(row["year"] or "—"), row["venue"],
+                       f"{row['cites']} cites"])
+
+
+def print_hits(query: str, hits: list[dict], as_ylo: int) -> None:
+    """Browse view: the search hits, each with the argument that pins it.
+
+    All of it on stdout — in browse mode the listing is the output, and splitting
+    it across streams would let the header and footer reorder around the rows.
+    """
+    sys.stderr.flush()
+    print(f"Search: {query} — {len(hits)} hits\n")
+    for i, row in enumerate(hits, 1):
+        pin = (f"--cluster {row['cluster']}" if row["cluster"]
+               else "no cluster id — Scholar offers no Cited-by or versions link")
+        print_entry(i, row["title"], meta_line(row), pin)
+        print()
+    print(f"Pick the paper you meant, then: cited_by.py --cluster <id> "
+          f"--since {as_ylo}")
+    print("Nothing here? Scholar reshuffles between identical requests — retry, "
+          "or add authors, the year, or the venue to the query.")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("query", nargs="?",
                     help="Scholar search for the seed paper — title, title plus "
-                         "authors, a DOI, or Scholar operators; the first hit wins")
-    ap.add_argument("--cluster", help="Scholar cluster id, to skip the title search")
+                         "authors, a DOI, or operators; prints the hits to pick from")
+    ap.add_argument("--cluster", help="Scholar cluster id, to rank that paper's citers")
+    ap.add_argument("--first", action="store_true",
+                    help="skip browsing and seed on the top hit (echoed back on stderr)")
+    ap.add_argument("--no-confirm", action="store_true",
+                    help="with --cluster, skip the GET that echoes the seed's title")
     ap.add_argument("--since", type=int, default=None, metavar="YEAR",
                     help="earliest publication year to include, e.g. 2023 "
                          "(default: three years back)")
@@ -203,8 +289,12 @@ def main() -> int:
                     help="max Scholar pages to fetch (10 results each, default 5)")
     args = ap.parse_args()
 
+    if args.first and not args.query:
+        ap.error("--first seeds on a query's top hit, so it needs a query")
+    if args.cluster and args.query:
+        ap.error("--cluster pins the seed; drop the query")
     if not args.query and not args.cluster:
-        ap.error("pass a seed title or --cluster")
+        ap.error("pass a query to browse, or --cluster to rank citers")
 
     # --since used to be a window width; catch stale invocations like "--since 3"
     # rather than silently asking Scholar for everything published since year 3.
@@ -212,13 +302,44 @@ def main() -> int:
         ap.error(f"--since takes a calendar year, not a window width (got {args.since})")
     as_ylo = args.since if args.since is not None else CURRENT_YEAR - 3
 
+    # Browsing: print the hits and stop. Ranking options have nothing to act on
+    # yet, so say so rather than letting them look applied.
+    if args.query and not args.first:
+        ignored = [f for f, used in (("--since", args.since is not None),
+                                     ("--rank", args.rank != "cites"),
+                                     ("--top", args.top != 25),
+                                     ("--max-pages", args.max_pages != 5)) if used]
+        if ignored:
+            print(f"  ! {', '.join(ignored)} ignored while browsing — pass them "
+                  "with --cluster in step 2", file=sys.stderr)
+        print_hits(args.query, search(args.query), as_ylo)
+        return 0
+
     if args.cluster:
         cluster = args.cluster
-        print(f"Seed: cluster {cluster} — citers since {as_ylo}", file=sys.stderr)
+        seed = None if args.no_confirm else describe_cluster(cluster)
     else:
-        cluster, seed = resolve_cluster(args.query)
-        print(f"Seed: {seed['title']} — {seed['cites']} total cites — "
-              f"cluster {cluster} — citers since {as_ylo}", file=sys.stderr)
+        hits = search(args.query)
+        seed = hits[0]
+        cluster = seed["cluster"]
+        if not cluster:
+            # The top hit is unpinnable (citation-only stub, OCR'd scan). The
+            # hits are already in hand, so show them instead of dead-ending.
+            print("--first cannot seed on the top hit: no cluster id. Browse "
+                  "instead:\n", file=sys.stderr)
+            print_hits(args.query, hits, as_ylo)
+            return 1
+
+    if seed:
+        print(f"Seed: {seed['title']}\n"
+              f"      {meta_line(seed)} · cluster {cluster}", file=sys.stderr)
+    else:
+        why = "--no-confirm" if args.no_confirm else "blocked or empty on lookup"
+        print(f"Seed: cluster {cluster} (title unconfirmed: {why})", file=sys.stderr)
+    print(f"Citers since {as_ylo}, ranked by "
+          f"{'citations per year' if args.rank == 'cpy' else 'total cites'}.",
+          file=sys.stderr)
+    sys.stderr.flush()  # keep the seed banner above the rows when 2>&1 is piped
 
     # Fetch a ranking pool larger than --top so cpy re-ranking has headroom.
     want = max(args.top, 30)
@@ -231,27 +352,11 @@ def main() -> int:
     citers.sort(key=key, reverse=True)
     citers = citers[: args.top]
 
-    # Outline rather than a table: titles are long enough that a Title column
-    # either wraps badly or gets truncated past the point of being useful.
-    show_cpy = args.rank == "cpy"
-    width = min(shutil.get_terminal_size((100, 24)).columns, 100)
-    indent = " " * 5  # matches the "%3d. " label, so wrapped lines stay aligned
-    body = max(30, width - len(indent))
-
     for i, row in enumerate(citers, 1):
-        label = f"{i:>3}. "
-        title = textwrap.wrap(row["title"], width=body) or ["?"]
-        print(label + title[0])
-        for line in title[1:]:
-            print(indent + line)
-
-        meta = [row["author"], str(row["year"] or "—"), row["venue"]]
-        cites = f"{row['cites']} cites"
-        if show_cpy:
-            cites += f" ({cpy(row):.1f}/yr)"
-        meta.append(cites)
-        for line in textwrap.wrap(" · ".join(meta), width=body):
-            print(indent + line)
+        meta = meta_line(row)
+        if args.rank == "cpy":
+            meta += f" ({cpy(row):.1f}/yr)"
+        print_entry(i, row["title"], meta)
         print()
     return 0
 
