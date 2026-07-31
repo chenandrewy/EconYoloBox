@@ -11,7 +11,7 @@ different sources. A "follow-up" is any work citing the seed paper.
 | | `cited_by.py` | `openalex_cited_by.py` |
 |---|---|---|
 | Source | Google Scholar (scraped) | OpenAlex API |
-| Seed | search query or cluster id | DOI |
+| Seed | search query or cluster id | search query, DOI, or W-id |
 | Strength | freshness, canonical counts | stable, structured, no blocking |
 
 ### `cited_by.py` (Google Scholar)
@@ -100,8 +100,18 @@ sending `Authorization: Bearer` hard-fails with 401.
 Preprints work the same way, each platform minting its own DOI. The preprint and
 the published version are usually separate OpenAlex records with separate
 citation counts. See the script's docstring for the per-platform DOI patterns
-(SSRN, NBER, arXiv). Drafts without a DOI aren't reachable through the script —
-search OpenAlex directly at `https://api.openalex.org/works?search=<title>`.
+(SSRN, NBER, arXiv).
+
+**No DOI in hand?** Pass a title and it browses, same two-step as `cited_by.py`:
+the hit list carries the DOI or OpenAlex W-id that pins each record, and you
+re-run with that. The browse step is the default rather than an auto-pick for
+the same reason it is in `cited_by.py` — the top hit is regularly the wrong
+paper. A title query for the Kahn-Landsburg-Stockman JET paper returns Friedman's
+*The Methodology of Positive Economics* and two of its reprints above it, purely
+on citation weight.
+
+The W-id seed also covers records that carry no DOI at all — older articles,
+book chapters, some working papers — which were previously unreachable here.
 
 ## `cited_by.py` vs `openalex_cited_by.py`
 
