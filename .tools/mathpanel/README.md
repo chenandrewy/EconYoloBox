@@ -74,15 +74,16 @@ After a changed copy is installed, reload the VS Code window
 **MathPanel: Show** from the Command Palette. The extension runs container-side
 (`"extensionKind": ["workspace"]`).
 
-The install target (`~/.vscode-server/extensions/local.mathpanel-0.2.0`) is
-wiped on container rebuild and restored automatically on the next start. During
-an upgrade, the installer removes the superseded `local.mathpanel-0.1.0` folder
-after the new copy succeeds.
+The installer reads the version from `extension/package.json`; the current
+target is `~/.vscode-server/extensions/local.mathpanel-0.2.1`. It is wiped on
+container rebuild and restored automatically on the next start. During an
+upgrade, the installer removes the known superseded MathPanel folders after the
+new copy succeeds.
 
 ## Uninstall
 
 ```sh
-rm -rf ~/.vscode-server/extensions/local.mathpanel-0.2.0
+rm -rf ~/.vscode-server/extensions/local.mathpanel-0.2.1
 ```
 
 Also remove MathPanel from the devcontainer's `postStartCommand`, or it will be

@@ -2,7 +2,7 @@
   "name": "mathpanel",
   "displayName": "MathPanel",
   "description": "Render Claude Code or Codex CLI session math live from transcripts (read-only, no network).",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "local",
   "license": "MIT",
   "engines": {
