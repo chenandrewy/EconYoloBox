@@ -1,66 +1,150 @@
-# Public release plan
+# Public release procedure
 
-Goal: publish the sandbox infrastructure without revealing which journals the
-owner reviews for, or any host paths and identifiers.
+Publish the sandbox infrastructure as `EconYoloBox`: a snapshot carrying no
+private projects, journal notes, host paths, or private history.
 
-## Approach: snapshot, re-export if needed
+Three rules make the rest routine:
 
-Copy the tracked files into a **fresh folder**, `git init`, one commit, push to a
-new public repo. Two physically separate folders means no push from the private
-repo can reach the public remote.
+- The public checkout lives at `/workspace/Other/EconYoloBox/`, ignored by the
+  private repository and holding its own `.git`. Never add a public remote to
+  the private repository.
+- Export with `git archive` from a commit, never by copying the working tree.
+- Scrub the export only. The private tree keeps its real values, so the scrubs
+  are redone on every release.
 
-Rejected: an orphan branch in this repo (one wrong push leaks everything) and a
-`git filter-repo` rewrite (auditing 72 commits to preserve history nobody will
-read).
+## 1. Export
 
-Deferred: inverting the flow, so the public repo becomes the home of the
-infrastructure and the private workspace consumes it. Cleanest long-run, but it
-means developing the container config in public. Only worth it if people
-actually use the thing.
+The release is always `HEAD`. Pin it so every later step reads one tree.
 
-Re-export when there is something worth re-exporting. Public history becomes a
-series of snapshots. If it goes stale instead, a dated snapshot is a fine
-outcome for a "here's my setup" repo.
+```bash
+release_commit="$(git rev-parse HEAD)"
+release_dir="/workspace/Other/EconYoloBox"
 
-## Excluded from the export
+test -z "$(git status --porcelain)"
+test ! -e "$release_dir"
+mkdir -p "$release_dir"
 
-- `docs/journal/` — messy notes by definition, and where every PII hit lives.
-- Everything already in `.gitignore` (private project folders, `template/`,
-  `/dev/`, session data).
+git archive "$release_commit" -- \
+  . \
+  ':(exclude)docs/journal' \
+  ':(exclude)docs/journal/**' \
+  ':(exclude)docs/public-release.md' \
+  | tar -x -C "$release_dir"
 
-## Pre-flight check
+test ! -e "$release_dir/docs/journal"
+test ! -e "$release_dir/docs/public-release.md"
+```
 
-Grep the staged copy for `chen1678`, `/Users/`, `Dropbox`, `MacBook`, `Ref,`,
-`Disc,` and refuse to publish on any hit. This is what caught the mathpanel test
-fixture.
+Everything `.gitignore` covers is excluded automatically, because `git archive`
+reads the committed tree. The journal and this file are tracked, so they need
+the explicit exclusions above.
 
-Already safe: `credentials-map.json` holds only slug → env-var-name mappings, no
-values; private project folders were never committed; `.gitignore` uses the
-comma forms that actually match the folder names; no remote is configured.
+Do not assume `HEAD` is already clean because `3218e05 "Initial public release
+of the sandbox setup"` sits in the history. That cleanup was done in a copy that
+was not kept, and its scrubs are not in this tree.
 
-## Open decisions
+## 2. Scrub the export
 
-- **Repo name.** Earlier suggestions were `agentic-sandbox` / `sandbox-setup`;
-  the naming discussion favored something more distinctive (`EconYoloBox` and
-  variants).
-- **Journal.** Strip entirely (safe, less interesting) or curate a few scrubbed
-  entries. The firewall analysis, the credential-theatre entry, and the Codex
-  review that caught leaked examples are the strongest candidates.
-- **README.** `docs/features.md` is now a usable front door, so the public
-  README can be thin and point at it.
+Edit only under `$release_dir`.
 
-## Fixes to make in the private repo
+- **README** — name it `EconYoloBox`, keep the setup instructions that apply to
+  public users, drop private-workspace commentary, and link `docs/features.md`
+  for the feature tour.
+- **`.gitignore`** — the project-folder block, marked by its comments, lists the
+  real private prefixes. Replace them with `My-Project/`.
+- **Examples** — replace real project names and hostnames with `My-Project` and
+  a generic host, wherever they appear in prose or comments.
+- **Journal references** — the journal is excluded, not scrubbed, so every link
+  or path pointing into it dangles in the export. Reword them to state the fact
+  without the citation; an entry's filename can name private work by itself.
+- **Keep** the author's name in `LICENSE` and the README byline. The repository
+  is published under it deliberately.
 
-These outlive the export, so do them here rather than in a staging copy.
+## 3. Audit
 
-- `.tools/mathpanel/extension/test/transcript.test.js` uses the fixture path
-  `/workspace/Ref,JEconom`. Genericize it.
-- Decide whether `docs/journal/0629T14-public-sandbox-sharing.md` (superseded by
-  this file) and the two build-error dumps still earn their place.
+Stage the snapshot so it can be reviewed as a diff, then search it.
 
-## History note
+```bash
+git -C "$release_dir" init -b main
+git -C "$release_dir" add -A
 
-`3218e05 "Initial public release of the sandbox setup"` sits mid-history. That
-cleanup was done on a copy that was not kept; 63 commits have landed since, and
-its scrubs are **not** in this repo. Do not assume HEAD is clean because that
-commit exists.
+git -C "$release_dir" grep --cached -n -F \
+  -e 'chen1678' -e '/Users/' -e 'Dropbox' -e 'MacBook' -e 'docs/journal' -- .
+
+git show "$release_commit:.gitignore" \
+  | sed -n 's#^\([^#[:space:]]*\)\*/$#\1#p' \
+  | while IFS= read -r prefix; do
+      printf '\n== %s ==\n' "$prefix"
+      git -C "$release_dir" grep --cached -n -F -e "$prefix" -- .
+    done
+
+git -C "$release_dir" ls-files
+git -C "$release_dir" diff --cached
+```
+
+Prefixes are derived from `.gitignore` rather than listed here, so the audit
+stays correct as they change; confirm the derived list is non-empty before
+trusting a quiet result. Judge each hit on context — generic Dropbox references
+are fine, and a short prefix can occur in ordinary English — but do not publish
+with an unexplained match. Confirm `credentials-map.json` still holds only
+slug-to-environment-variable mappings.
+
+## 4. Test
+
+```bash
+cd "$release_dir/.tools/mathpanel/extension" && node --test test/*.test.js
+```
+
+Add whatever else the changes warrant, and rebuild the exported devcontainer if
+its configuration moved.
+
+## 5. Publish
+
+Create an empty public `EconYoloBox` repository, with no generated README,
+license, or `.gitignore`. Then, from the public checkout only:
+
+```bash
+git -C "$release_dir" commit -m "Initial EconYoloBox release"
+git -C "$release_dir" remote add origin <PUBLIC-REPOSITORY-URL>
+git -C "$release_dir" remote -v   # must show only the public repository
+git -C "$release_dir" push -u origin main
+```
+
+## 6. Later snapshots
+
+Reuse the same checkout. Export the new commit to a temporary directory, scrub
+and audit and test it there, then swap it in.
+
+```bash
+release_dir="/workspace/Other/EconYoloBox"
+release_commit="$(git -C /workspace rev-parse HEAD)"
+next_snapshot="$(mktemp -d)"
+
+test "$(git -C "$release_dir" rev-parse --show-toplevel)" = "$release_dir"
+git -C "$release_dir" remote -v
+test -z "$(git -C "$release_dir" status --porcelain)"
+
+git -C /workspace archive "$release_commit" -- \
+  . \
+  ':(exclude)docs/journal' \
+  ':(exclude)docs/journal/**' \
+  ':(exclude)docs/public-release.md' \
+  | tar -x -C "$next_snapshot"
+
+# Scrub, audit, and test $next_snapshot before going further.
+
+git -C "$release_dir" rm -r .
+git -C "$release_dir" clean -fdx
+cp -a "$next_snapshot"/. "$release_dir"/
+git -C "$release_dir" add -A
+git -C "$release_dir" diff --cached
+```
+
+The `clean -fdx` matters: `git rm` leaves untracked and ignored files behind,
+and `add -A` would sweep them into the snapshot.
+
+Review the staged deletions and additions, commit as one snapshot, and push.
+Never force-push, and never use the private repository as the public checkout.
+
+Re-export only when there is something worth publishing. A dated snapshot that
+goes stale is a fine outcome.

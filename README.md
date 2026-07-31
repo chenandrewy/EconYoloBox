@@ -1,64 +1,176 @@
-# Workspace Sandbox
+# EconYoloBox
 
-This repository root is a shared sandbox for active projects plus the harness used to build and run agentic tooling around them.
+EconYoloBox is an ergonomic, AI-forward environment for economics research. It
+was built by obsessively improving my research workflow (instead of doing
+actual research work).
 
-The rest of the root-level files and directories are primarily support infrastructure.
+— Andrew Chen
 
-Root-level dot folders:
+Key features:
 
-- `.credentials/`: local credential and environment support
-- `.devcontainer/`: shared root devcontainer for the sandbox environment
-- `.devcontainer/agents/`: canonical agent guidance and enforced agent settings (see `.devcontainer/README.md`)
-- `.git/`: repository metadata
-- `.tools/`: local utility scripts for workspace maintenance and document processing
+1. **Safe YOLO agents**
 
-Project-specific setup can still live inside individual project directories. The root `.devcontainer` is the shared workspace container used for the overall sandbox and build/tooling flow.
+   - Don't waste time approving agent actions.
+   - Rely on a sandbox design that follows
+     [`anthropics/claude-code`](https://github.com/anthropics/claude-code)
+     security practices.
 
-## Setting up a new machine
+2. **Ergonomic container and AI access**
 
-Do these once per computer, in order. Steps 1-4 run on the Mac; step 5 runs
-inside the container.
+   - Enter the container at a project-specific path with one command.
+   - Organize agent guidance and settings as code, with optional Dropbox
+     synchronization.
+   - Synchronize AI chat sessions across machines via Dropbox.
 
-1. **Install the host prerequisites:**
+3. **Economics-research AI tooling**
 
-   - [Docker](https://www.docker.com/), running
-   - the [`devcontainer` CLI](https://github.com/devcontainers/cli):
-     `npm i -g @devcontainers/cli`
-   - `python3`, and the `code` CLI if you want `dccode`
+   - Use a container image designed for fast R and Python package installation.
+   - Chat with AI about math with equations rendered by a custom VS Code
+     extension.
+   - Search the literature with custom Google Scholar and OpenAlex tools.
+   - Convert PDFs to Markdown with high fidelity using a tool built on Mistral
+     OCR (h/t Don Bowen).
 
-2. **Load the host-side shell functions.** These open and navigate the
-   containers (`dcu`, `dce`, `dccode`). Add one line to `~/.zshrc`, pointing at
-   wherever you cloned this repo, then reload with `exec zsh`:
+More concretely, it's a shared sandbox built around the following folders:
 
-   ```zsh
-   source /path/to/1-SANDBOX/.host/devcontainer.zsh
+- `.credentials/`: credential injection mechanism
+- `.devcontainer/`: sandbox implementation
+- `.host/`: ergonomic container access
+- `.tools/`: custom AI tooling
+
+See [Sandbox Features](docs/features.md) for a detailed tour.
+
+## Minimal setup
+
+These instructions are for macOS and use VS Code as the primary interface. This
+minimal path gets the container and AI agents running without research
+credentials or the optional R and Python package stacks.
+Windows and Linux support is partially wired but has not been tested.
+
+1. **Install the host applications:**
+
+   - [Git](https://git-scm.com/download/mac)
+   - [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+   - [Visual Studio Code](https://code.visualstudio.com/)
+   - Python 3 (macOS: `xcode-select --install`)
+
+   Open Docker Desktop after installing it and wait until it reports that the
+   Docker engine is running. Leave Docker Desktop running while using
+   EconYoloBox.
+
+2. **Install the Dev Containers extension.** Open VS Code, select the Extensions
+   icon in the left sidebar, search for `Dev Containers` by Microsoft, and click
+   **Install**.
+
+3. **Clone EconYoloBox in VS Code.** Open the Command Palette with
+   **Shift–Command–P**, select **Git: Clone**, and enter:
+
+   ```text
+   https://github.com/chenandrewy/EconYoloBox.git
    ```
 
-3. **Give the Mac a short name**, before building the container. It prefixes
-   every Claude session name, so `MacBook25` reads better than
-   `Andrews-MacBook-Pro`. Set it under **System Settings → General → About →
-   Name**. If you change it later, recreate the container so the new value is
-   picked up.
+   Choose your home folder as the destination, then click **Open** when VS Code
+   asks whether to open the cloned repository.
 
-4. **Save your credentials**, from the host, so the container can mount them
-   through a protected host-side file:
+4. **Build and open the container.** Open the Command Palette with
+   **Shift–Command–P**, select **Dev Containers: Reopen in Container**, and wait
+   for the first build to finish. VS Code reloads with `Dev Container` shown in
+   the lower-left corner when it is ready.
+
+5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
+   Project folders are listed in `.gitignore` so the outer EconYoloBox
+   repository deliberately ignores them. Each project must therefore be its own
+   Git repository; add any differently named project folder to `.gitignore`
+   too.
+
+   For a new project:
 
    ```bash
-   python .credentials/setup.py
+   cd /workspace
+   mkdir -p My-Project
+   git -C My-Project init
    ```
 
-   Nothing that touches WRDS or an LLM API works until this is done.
-
-5. **Install the analysis stacks**, inside the container, after a fresh build.
-   The image ships without the Python and R packages; interactive shells nudge
-   you while either is missing.
+   For an existing project, clone its repository instead:
 
    ```bash
-   .devcontainer/install-packages.sh          # both, a few minutes
-   .devcontainer/install-packages.sh python   # or one at a time
-   .devcontainer/install-packages.sh r
-   .devcontainer/install-packages.sh --force  # reinstall even if present
+   cd /workspace
+   git clone https://github.com/your-name/your-project.git My-Project
    ```
+
+6. **Start an AI agent from the project directory.** The first launch may ask
+   you to authenticate. Start Claude with:
+
+   ```bash
+   cd /workspace/My-Project
+   cchat-yolo
+   ```
+
+   Or start Codex with:
+
+   ```bash
+   cd /workspace/My-Project
+   gptchat-yolo
+   ```
+
+   Both commands intentionally run their agent without permission prompts; the
+   container and its firewall provide the safety boundary.
+
+## Recommended additions
+
+The minimal setup works without these steps. Add the pieces needed for your
+workflow after the container is running.
+
+### Give the Mac a short name
+
+A short computer name keeps Claude session names readable: `MacBook25` is
+clearer than `Andrews-MacBook-Pro`. Set it under **System Settings → General →
+About → Name**. Reopen the container afterward so it picks up the new name.
+
+### Save credentials for research tools
+
+These credentials support WRDS, Mistral, OpenRouter, and OpenAlex tools; they
+are not needed to authenticate Claude or Codex. In the Mac's Terminal, run:
+
+```bash
+cd "$HOME/EconYoloBox"
+python3 .credentials/setup.py
+python3 .devcontainer/inject-credentials.py
+```
+
+Press Enter to skip any service you do not use. The final command refreshes the
+credential file mounted in an already-running container; skip it if you have
+not built the container yet.
+
+### Install the analysis stacks
+
+The base container omits the optional R and Python packages. Install both
+stacks—or only the one you need—from a VS Code terminal inside the container:
+
+```bash
+cd /workspace
+.devcontainer/install-packages.sh          # both, a few minutes
+.devcontainer/install-packages.sh python   # Python only
+.devcontainer/install-packages.sh r        # R only
+.devcontainer/install-packages.sh --force  # reinstall even if present
+```
+
+## Optional command-line workflow
+
+The VS Code workflow above is sufficient. To start and enter EconYoloBox from
+the Mac's Terminal instead, install the `devcontainer` CLI and the VS Code
+`code` CLI, then load the included shell helpers:
+
+```zsh
+npm install -g @devcontainers/cli
+echo 'source "$HOME/EconYoloBox/.host/devcontainer.zsh"' >> ~/.zshrc
+exec zsh
+type dcu dce dccode
+```
+
+Run `dcu` from the EconYoloBox root to start the container. Then use
+`dccode My-Project` to open a project in VS Code or `dce My-Project` to enter it
+in a terminal.
 
 Optional: the container picks up the Mac's timezone automatically. To force a
 different one, export it on the host before the container starts.
@@ -69,21 +181,14 @@ export TZ=America/Chicago
 
 ## Devcontainer storage
 
-Budget roughly **5.5GB per checkout**: a 3.42GB image plus about 2.0GB of
-persistent volumes (the Python venv and R library dominate), with the BuildKit
-build cache on top.
+Budget roughly **5.5GB for the first checkout**, plus about 2GB of persistent
+volumes for each additional checkout. The container image is shared.
 
-Docker's default `20GB` BuildKit garbage-collection budget was once too small
-for this container and caused expensive layers to be evicted between rebuilds.
-That is no longer clearly true: after the analysis stacks moved to runtime
-installs and the base migrated to `ubuntu:24.04`, a 2026-07-26 measurement found
-a **3.42GB** image, down from 24.2GB on 2026-07-20.
-
-So raising the budget to `35GB` is headroom now, not a fix — do it if you hit
-slow rebuilds, not by default. See
+Docker's default 20GB BuildKit garbage-collection budget is adequate. If you
+hit repeated slow rebuilds, raising it to 35GB gives headroom. See
 [Devcontainer storage needs](docs/storage-needs.md) for the settings and for how
-to tell whether eviction is actually what is happening to you.
+to confirm that eviction is the actual problem.
 
-## Plans for eventual public release.
+## License
 
-We will **eventually** clean up the git history in a way that allows for public release. But our immediate goal is a quality sandbox for AI powered econ research.
+EconYoloBox is released under the [MIT License](LICENSE).

@@ -3,25 +3,19 @@
 __pycache__/
 *.py[cod]
 
-# Private project folders — NOT for public sharing.
-# Folders use a "Prefix,Name" convention; both comma and
-# dash forms are matched so private work is never staged. Add prefixes here.
+# Project folders share this sandbox but have their own Git repositories.
+# Add exact folder names or prefix globs as needed.
+My-Project/
 Ref,*/
 Disc,*/
 Travel,*/
 Live,*/
 Other/
 LIBRARY/
+dev/
 
 # messy templates
 template/
-
-# scratch/superseded work, incl. nested repos. Leading slash is required so
-# this matches only the top-level dev/, not a dev/ anywhere in the tree.
-/dev/
-
-# for codex autocomplete convenience
-.git/
 
 # local-only Claude Code permissions (recreated by Claude when working from ./)
 .claude/settings.local.json
