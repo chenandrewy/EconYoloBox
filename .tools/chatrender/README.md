@@ -1,4 +1,4 @@
-# MathPanel
+# ChatRender
 
 A minimal VS Code webview that shows the current Claude Code or Codex CLI
 session transcript — prose as plain text, math rendered by KaTeX — updating
@@ -8,7 +8,9 @@ directly; there is no hook, no HTTP server, and no data store of our own.
 Base design and threat model: `docs/journal/0723a,mathpanel-transcript.md`;
 Codex v0.2 design: `docs/journal/0723b,codex-mathpanel-plan.md`
 (supersedes the hook+inbox design in `0722a,mathpanel-plan.md`; security
-motivation in `0721a,MathRender-Risks.md`).
+motivation in `0721a,MathRender-Risks.md`). Those journal entries predate the
+rename and call this tool **MathPanel**; they are snapshots and are left as
+written.
 
 ## What it does
 
@@ -18,7 +20,7 @@ motivation in `0721a,MathRender-Risks.md`).
   *local* date of whichever machine wrote them, so the scan follows the host
   zone. It follows the most-recently-modified session across both sources and
   switches automatically when either tool writes.
-- **MathPanel: Follow Active Terminal Chat** switches immediately to the
+- **ChatRender: Follow Active Terminal Chat** switches immediately to the
   transcript held open by the active terminal's process tree and pins that
   selection. If the terminal cannot be matched (for example, an idle CLI has
   closed its transcript), a picker lists the workspace's recent chats. Choose
@@ -64,36 +66,36 @@ motivation in `0721a,MathRender-Risks.md`).
 
 ## Install (inside the devcontainer)
 
-The devcontainer's `postStartCommand` automatically synchronizes MathPanel into
+The devcontainer's `postStartCommand` automatically synchronizes ChatRender into
 the VS Code Server extension directory. If the installed copy is already
 current, the check is a no-op. To synchronize it immediately without restarting
-the container, run `.tools/mathpanel/install-extension.sh`.
+the container, run `.tools/chatrender/install-extension.sh`.
 
 After a changed copy is installed, reload the VS Code window
-(`Developer: Reload Window`) if MathPanel does not appear, then run
-**MathPanel: Show** from the Command Palette. The extension runs container-side
-(`"extensionKind": ["workspace"]`).
+(`Developer: Reload Window`) if ChatRender does not appear, then run
+**ChatRender: Show Panel** from the Command Palette. The extension runs
+container-side (`"extensionKind": ["workspace"]`).
 
 The installer reads the version from `extension/package.json`; the current
-target is `~/.vscode-server/extensions/local.mathpanel-0.2.1`. It is wiped on
+target is `~/.vscode-server/extensions/local.chatrender-0.3.0`. It is wiped on
 container rebuild and restored automatically on the next start. During an
-upgrade, the installer removes the known superseded MathPanel folders after the
-new copy succeeds.
+upgrade, the installer removes the known superseded folders — including the
+pre-rename `local.mathpanel-*` installs — after the new copy succeeds.
 
 ## Uninstall
 
 ```sh
-rm -rf ~/.vscode-server/extensions/local.mathpanel-0.2.1
+rm -rf ~/.vscode-server/extensions/local.chatrender-0.3.0
 ```
 
-Also remove MathPanel from the devcontainer's `postStartCommand`, or it will be
+Also remove ChatRender from the devcontainer's `postStartCommand`, or it will be
 restored on the next start. Reload the window. Nothing else was created
 anywhere.
 
 ## Tests
 
 ```sh
-node --test .tools/mathpanel/extension/test/*.test.js
+node --test .tools/chatrender/extension/test/*.test.js
 ```
 
 Pure-parser tests (`transcript.js` and `codex.js`) against synthetic fixtures —

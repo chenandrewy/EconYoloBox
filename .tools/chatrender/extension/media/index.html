@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'; img-src 'none'; script-src 'nonce-{{nonce}}'; style-src-elem {{cspSource}} 'nonce-{{nonce}}'; style-src-attr 'unsafe-inline'; font-src {{cspSource}}">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MathPanel</title>
+<title>ChatRender</title>
 <link rel="stylesheet" href="{{katexCss}}">
 <style nonce="{{nonce}}">
   html {
@@ -204,7 +204,7 @@
   }
 
   function renderMarkdown(parent, spans) {
-    var blocks = MathPanelMarkdown.parse(spans);
+    var blocks = ChatRenderMarkdown.parse(spans);
     for (var i = 0; i < blocks.length; i++) {
       var block = blocks[i];
       var el;

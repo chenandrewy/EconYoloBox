@@ -1,4 +1,4 @@
-// MathPanel: VS Code glue. Discovers the active Claude Code or Codex CLI session
+// ChatRender: VS Code glue. Discovers the active Claude Code or Codex CLI session
 // transcript for this workspace, follows it read-only via fs.watchFile, and
 // mirrors the parsed history into a singleton webview. No network, no transcript
 // writes, no files of our own.
@@ -38,8 +38,8 @@ let follower; // transcript-follow state while the panel is open
 
 function activate(context) {
   context.subscriptions.push(
-    vscode.commands.registerCommand('mathpanel.show', () => show(context)),
-    vscode.commands.registerCommand('mathpanel.followActiveChat', () =>
+    vscode.commands.registerCommand('chatrender.show', () => show(context)),
+    vscode.commands.registerCommand('chatrender.followActiveChat', () =>
       followActiveChat(context),
     ),
   );
@@ -55,8 +55,8 @@ function show(context, preserveFocus = false, preserveColumn = false) {
     return;
   }
   panel = vscode.window.createWebviewPanel(
-    'mathpanel',
-    'MathPanel',
+    'chatrender',
+    'ChatRender',
     { viewColumn: vscode.ViewColumn.Beside, preserveFocus },
     {
       enableScripts: true,
@@ -88,7 +88,7 @@ function show(context, preserveFocus = false, preserveColumn = false) {
 }
 
 async function followActiveChat(context) {
-  // Capture this before showing MathPanel: revealing a webview can otherwise
+  // Capture this before showing ChatRender: revealing a webview can otherwise
   // change which terminal VS Code considers active.
   const terminal = vscode.window.activeTerminal;
   let terminalPid;
@@ -125,7 +125,7 @@ async function followActiveChat(context) {
     if (selected.automatic) {
       follower.pinned = undefined;
       discover();
-      vscode.window.setStatusBarMessage('MathPanel: Following the newest transcript.', 3000);
+      vscode.window.setStatusBarMessage('ChatRender: Following the newest transcript.', 3000);
       return;
     }
     candidate = selected.candidate;
@@ -134,7 +134,7 @@ async function followActiveChat(context) {
   follower.pinned = candidate;
   selectFile(candidate);
   vscode.window.setStatusBarMessage(
-    `MathPanel: Following the selected ${candidate.source === 'codex' ? 'Codex' : 'Claude'} chat.`,
+    `ChatRender: Following the selected ${candidate.source === 'codex' ? 'Codex' : 'Claude'} chat.`,
     3000,
   );
 }
@@ -189,7 +189,7 @@ function startFollower() {
   if (follower) return;
   const folders = vscode.workspace.workspaceFolders;
   if (!folders || folders.length !== 1 || folders[0].uri.scheme !== 'file') {
-    follower = { messages: [], status: 'MathPanel supports exactly one local workspace folder.' };
+    follower = { messages: [], status: 'ChatRender supports exactly one local workspace folder.' };
     return;
   }
   // Match both vendors against the workspace realpath. Their transcript roots

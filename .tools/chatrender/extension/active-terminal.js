@@ -1,4 +1,4 @@
-// Pure active-terminal process helpers for MathPanel.
+// Pure active-terminal process helpers for ChatRender.
 // Input: a terminal root PID, workspace-validated transcript candidates, and
 // optionally an injected /proc reader for tests.
 // Output: the candidate whose JSONL basename is open in that process tree, or

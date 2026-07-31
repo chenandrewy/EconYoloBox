@@ -1,4 +1,4 @@
-// Run: `node --test .tools/mathpanel/extension/test/active-terminal.test.js`.
+// Run: `node --test .tools/chatrender/extension/test/active-terminal.test.js`.
 // Input: a synthetic /proc process tree and workspace-validated candidates.
 // Output: assertions for active terminal transcript selection.
 'use strict';

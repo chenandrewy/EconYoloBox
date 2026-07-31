@@ -92,7 +92,7 @@ slug-to-environment-variable mappings.
 ## 4. Test
 
 ```bash
-cd "$release_dir/.tools/mathpanel/extension" && node --test test/*.test.js
+cd "$release_dir/.tools/chatrender/extension" && node --test test/*.test.js
 ```
 
 Add whatever else the changes warrant, and rebuild the exported devcontainer if

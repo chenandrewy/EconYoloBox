@@ -5,7 +5,7 @@
   'use strict';
   var api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
-  else root.MathPanelMarkdown = api;
+  else root.ChatRenderMarkdown = api;
 })(typeof globalThis === 'object' ? globalThis : this, function () {
   'use strict';
 

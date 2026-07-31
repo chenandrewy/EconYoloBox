@@ -48,7 +48,7 @@ tooling those changes exist to support is described in
   REJECTed so they fail fast instead of hanging.
 
 - **Startup scripts.** `postStartCommand` arms the firewall, seeds canonical
-  agent guidance, and installs the MathPanel extension — so a fresh container is
+  agent guidance, and installs the ChatRender extension — so a fresh container is
   research-ready with no manual steps.
 
 ### Credential handling
@@ -173,7 +173,7 @@ workable should each be one step.
 | `.tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
 | `.tools/latex/` | `sync-lyx.sh` |
 | `.tools/lit/` | `cited_by.py`, `openalex_cited_by.py` |
-| `.tools/mathpanel/` | `install-extension.sh` (runs at container start) |
+| `.tools/chatrender/` | `install-extension.sh` (runs at container start) |
 | `.devcontainer/agents/` | `seed-agent-guidelines.sh` (runs at container start) |
 | `.devcontainer/` | `install-packages.sh`, `test-firewall.sh` |
 
@@ -219,7 +219,7 @@ commands.
   you between desks; `sesh-push` installs another machine's sessions when you
   switch, with fork and wipe helpers.
 
-- **MathPanel VS Code extension.** A live transcript panel for the current
+- **ChatRender VS Code extension.** A live transcript panel for the current
   Claude/Codex session with KaTeX-rendered math, auto-following whichever
   session wrote most recently. Deliberately hookless, serverless, and
   HTML-inert; auto-installed on container start.

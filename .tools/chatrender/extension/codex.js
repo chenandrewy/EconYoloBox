@@ -1,4 +1,4 @@
-// Pure Codex CLI transcript helpers for MathPanel. No vscode or filesystem
+// Pure Codex CLI transcript helpers for ChatRender. No vscode or filesystem
 // imports. Discovery uses sessionMetaFromLine() on the first JSONL line; the
 // follower sends all later lines through parseLine().
 'use strict';

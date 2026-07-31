@@ -1,5 +1,5 @@
-// Run: `node --test .tools/mathpanel/extension/test/copy-tex.test.js`.
-// Input: the pinned KaTeX copy-tex asset and MathPanel webview template.
+// Run: `node --test .tools/chatrender/extension/test/copy-tex.test.js`.
+// Input: the pinned KaTeX copy-tex asset and ChatRender webview template.
 // Output: assertions for vendor integrity and clipboard-script load order.
 'use strict';
 
@@ -24,7 +24,7 @@ test('copy-tex: vendored asset matches the pinned KaTeX 0.16.47 tarball', () => 
   );
 });
 
-test('copy-tex: webview loads it after KaTeX and before MathPanel rendering', () => {
+test('copy-tex: webview loads it after KaTeX and before ChatRender rendering', () => {
   const html = fs.readFileSync(path.join(EXTENSION_DIR, 'media', 'index.html'), 'utf8');
   const katexAt = html.indexOf('src="{{katexJs}}"');
   const copyTexAt = html.indexOf('src="{{copyTexJs}}"');

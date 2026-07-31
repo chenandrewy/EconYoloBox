@@ -1,10 +1,11 @@
 #!/bin/sh
-# Run: .tools/mathpanel/install-extension.sh
+# Run: .tools/chatrender/install-extension.sh
 # Input: the sibling extension/package.json and extension source tree.
 # Output: a synchronized, versioned VS Code Server extension installation.
 # Idempotent: unchanged installs are left untouched, so this is cheap and safe
 # to run from the devcontainer's postStartCommand. Removes only known
-# superseded MathPanel folders after a successful copy. Touches no extension
+# superseded ChatRender folders — including the pre-rename MathPanel ones —
+# after a successful copy. Touches no extension
 # registry, tool settings, or devcontainer configuration.
 set -eu
 
@@ -23,12 +24,13 @@ case "$VERSION" in
 esac
 
 EXTENSIONS_DIR="$HOME/.vscode-server/extensions"
-TARGET="$EXTENSIONS_DIR/local.mathpanel-$VERSION"
+TARGET="$EXTENSIONS_DIR/local.chatrender-$VERSION"
 
 remove_superseded() {
   for old_target in \
     "$EXTENSIONS_DIR/local.mathpanel-0.1.0" \
-    "$EXTENSIONS_DIR/local.mathpanel-0.2.0"
+    "$EXTENSIONS_DIR/local.mathpanel-0.2.0" \
+    "$EXTENSIONS_DIR/local.mathpanel-0.2.1"
   do
     if [ "$old_target" != "$TARGET" ]; then
       rm -rf "$old_target"
@@ -38,7 +40,7 @@ remove_superseded() {
 
 if [ -d "$TARGET" ] && diff -qr "$SRC" "$TARGET" >/dev/null; then
   remove_superseded
-  echo "MathPanel is already up to date."
+  echo "ChatRender is already up to date."
   exit 0
 fi
 
@@ -48,6 +50,6 @@ cp -r "$SRC/." "$TARGET/"
 remove_superseded
 
 echo "Installed to $TARGET"
-echo "If MathPanel does not appear, reload the VS Code window"
+echo "If ChatRender does not appear, reload the VS Code window"
 echo "(Command Palette: 'Developer: Reload Window')."
-echo "Then run 'MathPanel: Show' from the Command Palette."
+echo "Then run 'ChatRender: Show Panel' from the Command Palette."

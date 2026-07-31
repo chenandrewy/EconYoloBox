@@ -1,6 +1,6 @@
-// Run: `node --test .tools/mathpanel/extension/test/markdown.test.js`.
+// Run: `node --test .tools/chatrender/extension/test/markdown.test.js`.
 // Input: synthetic text/math spans.
-// Output: assertions for MathPanel's safe Markdown block model.
+// Output: assertions for ChatRender's safe Markdown block model.
 'use strict';
 
 const test = require('node:test');

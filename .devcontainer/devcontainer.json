@@ -108,6 +108,6 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && bash .devcontainer/agents/seed-agent-guidelines.sh && .tools/mathpanel/install-extension.sh",
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && bash .devcontainer/agents/seed-agent-guidelines.sh && .tools/chatrender/install-extension.sh",
   "waitFor": "postStartCommand"
 }

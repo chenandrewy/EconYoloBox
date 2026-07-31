@@ -1,4 +1,4 @@
-// Pure transcript-parsing module for MathPanel. No vscode imports — unit-testable
+// Pure transcript-parsing module for ChatRender. No vscode imports — unit-testable
 // under node:test. Converts Claude Code session JSONL lines into renderable
 // messages of ordered text/math spans. Fail-soft throughout: anything with an
 // unexpected shape is skipped, never fatal.
