@@ -28,13 +28,20 @@ Usage:
 years back. See README.md for source choice, ranking, and blocking notes.
 """
 import argparse
+import email.utils
+import http.cookiejar
+import json
+import os
 import random
 import re
 import shutil
 import sys
+import tempfile
 import textwrap
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 import requests
@@ -45,10 +52,27 @@ UA = (
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/125.0 Safari/537.36"
 )
-HEADERS = {"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9"}
+HEADERS = {
+    "User-Agent": UA,
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,image/apng,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+    "Sec-Ch-Ua": '"Not/A)Brand";v="8", "Chromium";v="125", '
+                 '"Google Chrome";v="125"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"macOS"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-User": "?1",
+    "Upgrade-Insecure-Requests": "1",
+}
 BASE = "https://scholar.google.com/scholar"
 TIMEOUT = 25
 PER_PAGE = 10  # Scholar's fixed page size
+REQUEST_DELAY = (3.0, 6.0)
+BLOCK_COOLDOWNS = (timedelta(hours=1), timedelta(hours=6), timedelta(hours=24))
 CURRENT_YEAR = datetime.now(ZoneInfo("America/New_York")).year
 
 # The seed search sends no corpus parameters. Citation-only records are included
@@ -67,25 +91,242 @@ class Unreachable(Exception):
     """
 
 
-def get(params: dict) -> tuple[requests.Response, bool]:
-    """One GET against Scholar. Returns (response, blocked).
+class CoolingDown(Exception):
+    """A recent Scholar block makes another request premature."""
 
-    Raises Unreachable on a network-layer failure (firewall / DNS / timeout)
-    so the caller can tell "the packets never arrived" apart from "Scholar
-    refused us" — the two need different fixes.
-    """
-    try:
-        r = requests.get(BASE, params=params, headers=HEADERS, timeout=TIMEOUT)
-    except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
-        raise Unreachable(
-            "could not reach scholar.google.com — suspect the firewall, not Scholar.\n"
-            "  Google rotated its anycast IP out of the allowlisted CIDRs.\n"
-            "  Fix: dig +short scholar.google.com, find which block it lands in,\n"
-            "  add that CIDR to the Google/Scholar loop in .devcontainer/init-firewall.sh,\n"
-            "  then re-run the firewall script (needs sudo / container rebuild)."
-        ) from e
-    blocked = ("gs_captcha" in r.text) or ("/sorry/" in r.url) or (r.status_code == 429)
-    return r, blocked
+
+class ScholarClient:
+    """Stateful, paced Scholar client with persistent cookies and block memory."""
+
+    def __init__(self, cache_dir: Path | None = None) -> None:
+        if cache_dir is None:
+            cache_root = Path(
+                os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache")
+            )
+            cache_dir = cache_root / "sandbox-lit"
+        self.cache_dir = cache_dir
+        self.cookie_path = cache_dir / "scholar-cookies.txt"
+        self.block_path = cache_dir / "scholar-block.json"
+        self.legacy_block_path = cache_dir / "scholar-blocked-at"
+        self.session = requests.Session()
+        self.session.headers.update(HEADERS)
+        self.cookies = http.cookiejar.MozillaCookieJar(str(self.cookie_path))
+        if self.cookie_path.exists():
+            try:
+                self.cookies.load(ignore_discard=True, ignore_expires=True)
+            except (OSError, http.cookiejar.LoadError):
+                # A truncated cache should cost continuity, not break the tool.
+                pass
+        self.session.cookies = self.cookies
+        self.referer = "https://scholar.google.com/"
+
+    def _ensure_cache_dir(self) -> None:
+        self.cache_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(self.cache_dir, 0o700)
+
+    def _save_cookies(self) -> None:
+        """Atomically retain even session cookies for continuity across runs."""
+        self._ensure_cache_dir()
+        fd, tmp_name = tempfile.mkstemp(prefix="scholar-cookies-", dir=self.cache_dir)
+        os.close(fd)
+        tmp_path = Path(tmp_name)
+        try:
+            self.cookies.save(str(tmp_path), ignore_discard=True, ignore_expires=True)
+            os.chmod(tmp_path, 0o600)
+            tmp_path.replace(self.cookie_path)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+    def _read_block_state(self) -> dict | None:
+        try:
+            state = json.loads(self.block_path.read_text(encoding="utf-8"))
+            datetime.fromisoformat(state["blocked_at"])
+            datetime.fromisoformat(state["retry_at"])
+            int(state["consecutive_blocks"])
+            return state
+        except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+            pass
+
+        # Migrate the timestamp-only state written by the first implementation.
+        try:
+            blocked_at = datetime.fromisoformat(
+                self.legacy_block_path.read_text(encoding="ascii").strip()
+            ).astimezone(timezone.utc)
+        except (OSError, ValueError):
+            return None
+        state = {
+            "blocked_at": blocked_at.isoformat(),
+            "retry_at": (blocked_at + BLOCK_COOLDOWNS[0]).isoformat(),
+            "consecutive_blocks": 1,
+            "request_kind": "unknown (legacy state)",
+            "status_code": None,
+            "signal": "unknown (legacy state)",
+            "redirect": None,
+            "retry_after": None,
+        }
+        self._write_block_state(state)
+        self.legacy_block_path.unlink(missing_ok=True)
+        return state
+
+    def _write_block_state(self, state: dict) -> None:
+        self._ensure_cache_dir()
+        fd, tmp_name = tempfile.mkstemp(prefix="scholar-block-", dir=self.cache_dir)
+        tmp_path = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2, sort_keys=True)
+                f.write("\n")
+            os.chmod(tmp_path, 0o600)
+            tmp_path.replace(self.block_path)
+        finally:
+            tmp_path.unlink(missing_ok=True)
+
+    @staticmethod
+    def _as_utc(value: str) -> datetime:
+        return datetime.fromisoformat(value).astimezone(timezone.utc)
+
+    @staticmethod
+    def _request_kind(params: dict) -> str:
+        return next(
+            (key for key in ("q", "cluster", "cites") if key in params),
+            "unknown",
+        )
+
+    @staticmethod
+    def _retry_after(response: requests.Response, now: datetime) -> datetime | None:
+        value = response.headers.get("Retry-After")
+        if not value:
+            return None
+        try:
+            return now + timedelta(seconds=max(0, int(value)))
+        except ValueError:
+            try:
+                parsed = email.utils.parsedate_to_datetime(value)
+                return parsed.astimezone(timezone.utc)
+            except (TypeError, ValueError, OverflowError):
+                return None
+
+    def _check_cooldown(self) -> None:
+        state = self._read_block_state()
+        if state is None:
+            return
+        retry_at = self._as_utc(state["retry_at"])
+        remaining = retry_at - datetime.now(timezone.utc)
+        if remaining <= timedelta(0):
+            return
+        minutes = max(1, int((remaining.total_seconds() + 59) // 60))
+        local_retry = retry_at.astimezone(ZoneInfo("America/New_York"))
+        raise CoolingDown(
+            f"Scholar blocked a recent request; refusing to retry for {minutes} more "
+            f"minute(s) (until {local_retry:%Y-%m-%d %H:%M:%S %Z})."
+        )
+
+    def _record_block(self, response: requests.Response, params: dict) -> None:
+        prior = self._read_block_state()
+        count = int(prior["consecutive_blocks"]) + 1 if prior else 1
+        cooldown = BLOCK_COOLDOWNS[min(count - 1, len(BLOCK_COOLDOWNS) - 1)]
+        now = datetime.now(timezone.utc)
+        retry_after = self._retry_after(response, now)
+        retry_at = max(now + cooldown, retry_after or now)
+        signals = []
+        if "gs_captcha" in response.text:
+            signals.append("gs_captcha")
+        if "/sorry/" in response.url:
+            signals.append("/sorry/ redirect")
+        if response.status_code == 429:
+            signals.append("HTTP 429")
+        parsed_url = urlparse(response.url)
+        redirect = (
+            f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
+            if response.history or "/sorry/" in response.url else None
+        )
+        state = {
+            "blocked_at": now.isoformat(),
+            "retry_at": retry_at.isoformat(),
+            "consecutive_blocks": count,
+            "request_kind": self._request_kind(params),
+            "status_code": response.status_code,
+            "signal": ", ".join(signals),
+            "redirect": redirect,
+            "retry_after": response.headers.get("Retry-After"),
+        }
+        self._write_block_state(state)
+
+    def print_status(self) -> None:
+        """Print local cookie and cooldown state without contacting Scholar."""
+        state = self._read_block_state()
+        cookie_names = sorted({cookie.name for cookie in self.cookies})
+        print(f"Cache: {self.cache_dir}")
+        print(f"Cookies: {len(cookie_names)}"
+              + (f" ({', '.join(cookie_names)})" if cookie_names else ""))
+        if state is None:
+            print("Cooldown: none")
+            return
+        retry_at = self._as_utc(state["retry_at"])
+        now = datetime.now(timezone.utc)
+        active = retry_at > now
+        print(f"Cooldown: {'active' if active else 'expired'}")
+        local_retry = retry_at.astimezone(ZoneInfo("America/New_York"))
+        print(f"Retry at: {local_retry:%Y-%m-%d %H:%M:%S %Z}")
+        print(f"Consecutive blocks: {state['consecutive_blocks']}")
+        print(f"Last request: {state['request_kind']} · HTTP "
+              f"{state['status_code']} · {state['signal']}")
+        if state.get("redirect"):
+            print(f"Redirect: {state['redirect']}")
+        if state.get("retry_after"):
+            print(f"Retry-After: {state['retry_after']}")
+
+    def get(self, params: dict) -> tuple[requests.Response, bool]:
+        """One GET against Scholar. Returns (response, blocked).
+
+        Raises Unreachable on a network-layer failure (firewall / DNS / timeout)
+        so the caller can tell "the packets never arrived" apart from "Scholar
+        refused us" — the two need different fixes.
+        """
+        self._check_cooldown()
+        headers = {
+            "Referer": self.referer,
+            "Sec-Fetch-Site": (
+                "same-origin"
+                if urlparse(self.referer).hostname == "scholar.google.com"
+                else "cross-site"
+            ),
+        }
+        try:
+            r = self.session.get(
+                BASE, params=params, headers=headers, timeout=TIMEOUT
+            )
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            raise Unreachable(
+                "could not reach scholar.google.com — suspect the firewall, not Scholar.\n"
+                "  Google rotated its anycast IP out of the allowlisted CIDRs.\n"
+                "  Fix: dig +short scholar.google.com, find which block it lands in,\n"
+                "  add that CIDR to the Google/Scholar loop in .devcontainer/init-firewall.sh,\n"
+                "  then re-run the firewall script (needs sudo / container rebuild)."
+            ) from e
+        self._save_cookies()
+        self.referer = r.url
+        blocked = (
+            ("gs_captcha" in r.text)
+            or ("/sorry/" in r.url)
+            or (r.status_code == 429)
+        )
+        if blocked:
+            self._record_block(r, params)
+        elif r.ok:
+            # A successful response is the only evidence that the block streak
+            # ended. Merely waiting out the timer does not reset escalation.
+            self.block_path.unlink(missing_ok=True)
+            self.legacy_block_path.unlink(missing_ok=True)
+        return r, blocked
+
+
+CLIENT = ScholarClient()
+
+
+def get(params: dict) -> tuple[requests.Response, bool]:
+    """Issue a request through the process-wide stateful Scholar client."""
+    return CLIENT.get(params)
 
 
 def cluster_from_result(div) -> tuple[str | None, int | None]:
@@ -192,6 +433,9 @@ def fetch_citers(cluster: str, as_ylo: int, want: int, max_pages: int) -> tuple[
     collected: list[dict] = []
     blocked = False
     for page in range(max_pages):
+        # Pace the first citer GET too: describe_cluster/search -> cites= was
+        # previously back-to-back, while only later citer pages were delayed.
+        time.sleep(random.uniform(*REQUEST_DELAY))
         params = {
             "cites": cluster,
             "as_ylo": str(as_ylo),
@@ -209,8 +453,6 @@ def fetch_citers(cluster: str, as_ylo: int, want: int, max_pages: int) -> tuple[
         collected.extend(rows)
         if len(collected) >= want:
             break
-        if page < max_pages - 1:
-            time.sleep(random.uniform(3.0, 6.0))  # be polite between pages
     return collected, blocked
 
 
@@ -287,8 +529,25 @@ def main() -> int:
     ap.add_argument("--top", type=int, default=25, help="how many to return (default 25)")
     ap.add_argument("--max-pages", type=int, default=5,
                     help="max Scholar pages to fetch (10 results each, default 5)")
+    ap.add_argument("--status", action="store_true",
+                    help="show local cookie/cooldown state without contacting Scholar")
     args = ap.parse_args()
 
+    if args.status:
+        conflicting = any([
+            args.query,
+            args.cluster,
+            args.first,
+            args.no_confirm,
+            args.since is not None,
+            args.rank != "cites",
+            args.top != 25,
+            args.max_pages != 5,
+        ])
+        if conflicting:
+            ap.error("--status must be used by itself")
+        CLIENT.print_status()
+        return 0
     if args.first and not args.query:
         ap.error("--first seeds on a query's top hit, so it needs a query")
     if args.cluster and args.query:
@@ -366,3 +625,5 @@ if __name__ == "__main__":
         sys.exit(main())
     except Unreachable as e:
         sys.exit(f"UNREACHABLE: {e}")
+    except CoolingDown as e:
+        sys.exit(f"COOLDOWN: {e}")

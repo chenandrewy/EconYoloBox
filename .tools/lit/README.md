@@ -72,10 +72,25 @@ indented beneath — because titles are too long to sit in a table column. It
 wraps to the terminal width, capped at 100 columns.
 
 **Blocking.** Scholar has no API; this scrapes the stable `cites=` URL pattern
-with a realistic UA, one page at a time with randomized delays. It stops
-immediately on a block signal (`gs_captcha` in the body, a `/sorry/` redirect,
-or HTTP 429) and ranks whatever it collected so far, so a blocked run still
-prints partial results. Keep `--max-pages` modest to stay under the radar.
+through a persistent `requests.Session`. The client retains Scholar cookies in
+`$XDG_CACHE_HOME/sandbox-lit/` (normally `~/.cache/sandbox-lit/`), sends a
+coherent Chrome navigation header set and same-origin referrer, and waits 3–6
+seconds before every citer page—including page 1. It stops immediately on a
+block signal (`gs_captcha` in the body, a `/sorry/` redirect, or HTTP 429) and
+ranks whatever it collected so far, so a blocked run still prints partial
+results. Keep `--max-pages` modest to stay under the radar.
+
+Block diagnostics are retained beside the cookies: request type, HTTP status,
+block signal, redirect target, and `Retry-After` when Scholar sends one. The
+tool refuses to contact Scholar during an active cooldown. Consecutive blocked
+attempts escalate from one hour to six hours to 24 hours (then remain at 24);
+only a successful response resets the streak. This prevents reflexive retries
+from deepening a block. Run `cited_by.py --status` to inspect this state without
+making a request, and use `openalex_cited_by.py` during the cooldown instead.
+
+These measures reduce bot-like behavior and prevent repeated requests; they do
+not clear a CAPTCHA or guarantee that Scholar will accept an IP already under a
+site-wide restriction.
 
 Scholar also has a softer refusal: HTTP 200, no CAPTCHA marker, no results in the
 body. It comes and goes for the same query, so `No results parsed` means retry
