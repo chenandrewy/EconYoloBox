@@ -12,7 +12,7 @@ const {
   claudeSessionForProcessTree,
 } = require('../active-terminal');
 
-function fakeProc(children, fds, files = {}) {
+function fakeProc(children, fds, files = {}, dirs = {}) {
   return {
     readFileSync(p) {
       if (files[p] !== undefined) return files[p];
@@ -21,6 +21,7 @@ function fakeProc(children, fds, files = {}) {
       return children[match[1]];
     },
     readdirSync(p) {
+      if (dirs[p] !== undefined) return dirs[p];
       const match = p.match(/^\/fake\/(\d+)\/fd$/);
       if (!match || fds[match[1]] === undefined) throw new Error('ENOENT');
       return Object.keys(fds[match[1]]);
@@ -169,5 +170,87 @@ test('Claude session: rejects stale PID state and unsafe metadata', () => {
       procRoot: '/fake',
     }),
     undefined,
+  );
+});
+
+test('Claude session: follows an interactive terminal into its parked background job', () => {
+  const parkedSessionId = '191aa71b-3593-4d37-84c5-a59131e9567c';
+  const procFs = fakeProc(
+    { 60: '61', 61: '' },
+    {},
+    {
+      '/fake/61/stat': procStat(61, 'claude', '6100'),
+      '/fake/99/stat': procStat(99, 'claude-bg', '9900'),
+      '/sessions/61.json': JSON.stringify({
+        pid: 61,
+        sessionId: '11111111-2222-4333-8444-555555555555',
+        cwd: '/workspace/project',
+        procStart: '6100',
+        kind: 'interactive',
+        parkedJobId: '191aa71b',
+      }),
+      '/sessions/99.json': JSON.stringify({
+        pid: 99,
+        sessionId: parkedSessionId,
+        cwd: '/workspace/project',
+        procStart: '9900',
+        kind: 'bg',
+        jobId: '191aa71b',
+      }),
+    },
+    { '/sessions': ['61.json', '99.json'] },
+  );
+  assert.deepEqual(
+    claudeSessionForProcessTree(60, '/sessions', {
+      fs: procFs,
+      procRoot: '/fake',
+    }),
+    {
+      pid: 99,
+      sessionId: parkedSessionId,
+      cwd: '/workspace/project',
+      kind: 'bg',
+    },
+  );
+});
+
+test('Claude session: ignores a stale parked job and keeps the interactive session', () => {
+  const interactiveSessionId = '11111111-2222-4333-8444-555555555555';
+  const procFs = fakeProc(
+    { 70: '71', 71: '' },
+    {},
+    {
+      '/fake/71/stat': procStat(71, 'claude', '7100'),
+      '/fake/98/stat': procStat(98, 'claude-bg', 'new-start'),
+      '/sessions/71.json': JSON.stringify({
+        pid: 71,
+        sessionId: interactiveSessionId,
+        cwd: '/workspace/project',
+        procStart: '7100',
+        kind: 'interactive',
+        parkedJobId: '191aa71b',
+      }),
+      '/sessions/98.json': JSON.stringify({
+        pid: 98,
+        sessionId: '191aa71b-3593-4d37-84c5-a59131e9567c',
+        cwd: '/workspace/project',
+        procStart: 'old-start',
+        kind: 'bg',
+        jobId: '191aa71b',
+      }),
+    },
+    { '/sessions': ['71.json', '98.json'] },
+  );
+  assert.deepEqual(
+    claudeSessionForProcessTree(70, '/sessions', {
+      fs: procFs,
+      procRoot: '/fake',
+    }),
+    {
+      pid: 71,
+      sessionId: interactiveSessionId,
+      cwd: '/workspace/project',
+      kind: 'interactive',
+    },
   );
 });

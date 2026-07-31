@@ -44,12 +44,15 @@ motivation in `0721a,MathRender-Risks.md`).
   workspace. **Follow Active Terminal Chat** may additionally read the
   PID-keyed Claude state record under `~/.claude/sessions/` and the exact
   transcript it names, after validating that its real cwd is inside the
-  workspace. Codex discovery must read the first line of every rollout in the
-  scanned date directories, including other workspaces; those lines can
-  contain base instructions, git, and provider metadata. Only `cwd` and the
-  session timestamp are cached from each line. Metadata from nonmatching
-  rollouts is never logged or sent to the webview; full contents are read only
-  for the one selected workspace-matching rollout.
+  workspace. If Claude has parked that terminal chat in a background PTY, the
+  command scans direct-child PID state records to resolve the named job, and
+  rejects stale PID records by process start time. Codex discovery must read
+  the first line of every rollout in the scanned date directories, including
+  other workspaces; those lines can contain base instructions, git, and
+  provider metadata. Only `cwd` and the session timestamp are cached from each
+  line. Metadata from nonmatching rollouts is never logged or sent to the
+  webview; full contents are read only for the one selected
+  workspace-matching rollout.
 - **No network**: no HTTP listener, socket, port, or CDN request. KaTeX is
   vendored and served through VS Code's internal webview channel.
 - **No second copy**: no inbox, no history file — the panel re-reads the
