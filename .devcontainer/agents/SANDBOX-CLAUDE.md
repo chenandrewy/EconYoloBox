@@ -35,10 +35,35 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
   - There is still no general web access — assume a fetch of an arbitrary URL
     will fail. A package install that dies on an unlisted **redirect** host is
     the common surprise; report the host so it can be added.
+- For general web information, Claude should use `WebSearch`, and Codex should
+  use the `web` tool. These tools access the web through the model providers'
+  servers and are not subject to the devcontainer firewall. This does not make
+  arbitrary URLs available to terminal commands or project code.
 - Installing *packages* from the allowlisted sources (pip, `install.packages()`,
   or `install-packages.sh`) is fine and does not need permission. New **system**
   libraries (`apt-get`, `-dev` packages) do — see `USER PERMISSION REQUIRED`.
 - If you think having access to a blocked resource would be helpful: **ASK THE USER TO ADD IT**
+- **Dropbox online-only files cannot be read in here.** `/workspace` is a
+  VirtioFS mount of a Dropbox folder, and files Dropbox has evicted still stat
+  and open normally — only reads fail, with **EDEADLK (errno 35)**, or **SIGBUS**
+  under `mmap` (exit code 135). Retrying never works: the refusal does not queue
+  a fetch, and no syscall available in here can request one. `.git` is not
+  exempt — a dataless index or loose object breaks ordinary git commands.
+  - **Ask the user to run `dbhydrate -f <path>` on the host**, then retry. It
+    reports before it downloads, so `dbhydrate <path>` alone is a safe check.
+  - Do not route around it by regenerating or re-downloading the data; that is a
+    workaround under `USER PERMISSION REQUIRED`. Ask first.
+- **Images cannot be pasted into the CLI chat.** There is no host clipboard in
+  here: no `DISPLAY`, no clipboard binaries, and the macOS pasteboard is
+  unreachable from a Linux container. Installing `xclip` would not help, and the
+  integrated terminal only carries text over the pty. So the user hands over
+  images by *path* instead, via `dev/shots/`, which the host writes screenshots
+  into directly (`/dev/` is gitignored).
+  - When the user refers to "this screenshot", "the image", or similar without
+    naming a file, read the newest one: `ls -t /workspace/dev/shots/* | head -1`.
+    Confirm which file you picked when it is ambiguous.
+  - The folder is Dropbox-synced, so old shots can be evicted to online-only and
+    fail to read — see the bullet above. Prune it when it gets noisy.
 
 ## Project Configuration
 
@@ -52,6 +77,26 @@ Read `/workspace/SANDBOX.toml` for project-specific settings regarding
 - Latex: Build using pdflatex and biber
 - PDF viewer safety: For compilation, validation, and visual inspection, build into a temporary output directory rather than overwriting the project's existing PDF, because replacing an open PDF can confuse the VS Code PDF viewer. Leave the project PDF untouched unless the user explicitly asks to rebuild it. For example, use `pdflatex -output-directory=/tmp/<build-dir> ...` and run biber and subsequent pdflatex passes against that temporary build.
 - Note taking: Use LyX if math is involved. We often do math and the human finds this much easier to work with.
+
+### PDF Bookmark Guidelines
+
+- When adding or reorganizing bookmarks, preserve the destination or action of
+  every existing outline item. A bookmark title and its place in the outline
+  tree are not enough to make it clickable: each item must retain either
+  `/Dest` or a valid `/A` `/GoTo` action. In particular, do not recreate an
+  existing `pikepdf.OutlineItem` with only its title when attaching children.
+- Preserve logical and document order when nesting new bookmarks. A theorem or
+  proposition that occurs before the next section heading belongs under the
+  preceding section, even if both appear on the same page.
+- Write bookmark edits to a temporary PDF and validate that file before
+  replacing the project PDF. If replacement was explicitly requested, keep a
+  recoverable copy of the prior PDF until validation succeeds.
+- Validate the completed outline with `PyMuPDF` using
+  `doc.get_toc(simple=False)`: every entry must be a `LINK_GOTO` destination
+  whose zero-based page is within the document. Also check PDF syntax with
+  `pikepdf.Pdf.check_pdf_syntax()`, verify outline counts/hierarchy, and confirm
+  that page count, page geometry, and extracted text are unchanged. Merely
+  seeing the bookmark titles in a viewer is not sufficient validation.
 
 ### LyX Guidelines
 - Use numbered `equation` environments with `\label{...}`. Don't use `\tag{...}`.
