@@ -31,7 +31,7 @@ function userLine(content, extra) {
 // ---------------------------------------------------------------- munge rule
 
 test('munge: per-char non-alnum to dash, no run-collapsing', () => {
-  assert.equal(mungePath('/workspace/Ref,JEconom'), '-workspace-Ref-JEconom');
+  assert.equal(mungePath('/workspace/example,project'), '-workspace-example-project');
   assert.equal(mungePath('/tmp/pdf2md__logotr_'), '-tmp-pdf2md--logotr-');
   assert.equal(mungePath('/a.b/c d'), '-a-b-c-d');
   assert.equal(mungePath('/workspace'), '-workspace');
