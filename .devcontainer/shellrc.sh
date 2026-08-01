@@ -7,7 +7,7 @@
 # workspace tools on PATH, organized by topic (see .devcontainer/agents/SANDBOX-CLAUDE.md)
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
-#   lit:     citation lookup (cited_by.py, openalex_cited_by.py)
+#   lit:     citation lookup (cited_by.py, via OpenAlex)
 #   ai-sesh: sesh-init, sesh-push, sesh-wipe, cc-fork, gpt-fork
 export PATH="/workspace/.tools/pdf:/workspace/.tools/latex:/workspace/.tools/lit:/workspace/.tools/ai-sesh:$PATH"
 

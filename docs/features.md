@@ -172,7 +172,7 @@ workable should each be one step.
 | `.tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork` |
 | `.tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
 | `.tools/latex/` | `sync-lyx.sh` |
-| `.tools/lit/` | `cited_by.py`, `openalex_cited_by.py` |
+| `.tools/lit/` | `cited_by.py` |
 | `.tools/chatrender/` | `install-extension.sh` (runs at container start) |
 | `.devcontainer/agents/` | `seed-agent-guidelines.sh` (runs at container start) |
 | `.devcontainer/` | `install-packages.sh`, `test-firewall.sh` |
@@ -187,8 +187,9 @@ commands.
   agent instead of re-read as a PDF on every question.
 - **PDF bookmarks (`rebookmark.py`).** Regenerates section bookmarks.
 - **LyX/TeX sync (`sync-lyx.sh`).** Two-way sync with PDF rebuild.
-- **Citation lookup.** `cited_by.py` (Google Scholar — fresh but scraped) and
-  `openalex_cited_by.py` (OpenAlex API — stable and structured).
+- **Citation lookup (`cited_by.py`).** OpenAlex API — stable and structured.
+  A Google Scholar scraper used to sit alongside it, but Scholar CAPTCHA-blocks
+  the container's IP; it is parked, unsupported, in the gitignored `dev/`.
 
 ### Containers, sessions, and agents
 

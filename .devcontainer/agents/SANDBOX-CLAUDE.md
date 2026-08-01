@@ -164,7 +164,7 @@ Custom tools live in `/workspace/.tools/`, organized by topic. Check these folde
 - `.tools/pdf/`: `pdf2md.py` (PDF to markdown), `rebookmark.py` (bookmarks PDFs)
 - `.tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
 - `.tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork`); see its README
-- `.tools/lit/`: citation lookup — `cited_by.py` (Google Scholar), `openalex_cited_by.py` (OpenAlex); see its README
+- `.tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README. **Google Scholar does not work from this sandbox** (its IP is CAPTCHA-blocked); the Scholar scraper is parked in `dev/gscholar_cited_by.py` and is not a fallback
 
 ## USER PERMISSION REQUIRED
 
