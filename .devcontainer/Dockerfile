@@ -339,4 +339,27 @@ COPY init-firewall.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/init-firewall.sh && \
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
+
+# Keep frequently edited, baked-in agent policy at the end of the Dockerfile so
+# changing it does not invalidate the expensive installation layers above.
+
+# Claude Code policy. `disableClaudeAiConnectors` has any-source-true semantics,
+# so user- and project-level settings cannot override this file. The companion
+# denylist covers the gap it leaves: connectors passed via `--mcp-config`.
+COPY agents/SANDBOX-claude-managed-settings.json /etc/claude-code/managed-settings.json
+
+# Codex requirements are admin-enforced and outrank user config, profiles, and
+# CLI --config / --enable overrides. The ordinary ~/.codex/config.toml remains
+# node-owned so Codex can persist user preferences.
+COPY agents/SANDBOX-codex-requirements.toml /etc/codex/requirements.toml
+
+# COPY already lands these root-owned, since this stage runs as root; the chmod
+# is what makes them read-only to `node`.
+RUN chmod 0444 /etc/claude-code/managed-settings.json /etc/codex/requirements.toml
+
+# Policy verification, run manually or from postStartCommand. Copied rather than
+# invoked from /workspace so a check of the policy is not itself node-writable.
+COPY test-agent-policy.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/test-agent-policy.sh
+
 USER node

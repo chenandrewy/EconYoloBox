@@ -112,13 +112,21 @@ it:
 
 ### Agent Config (`agents/`)
 
-`.devcontainer/agents/` is the single source of truth for user-level agent config inside the container:
+`.devcontainer/agents/` is the single source of truth for agent config and
+managed agent policy inside the container:
 
 - `SANDBOX-CLAUDE.md` — canonical agent guidance
 - `SANDBOX-AGENTS.md` — symlink to `SANDBOX-CLAUDE.md`; kept separate so Codex-specific guidance can diverge later
 - `SANDBOX-claude-settings.json` — canonical user-level Claude Code settings
 - `SANDBOX-claude-statusline.sh` — status line script referenced by the settings
-- `seed-agent-guidelines.sh` — applies all of the above on every container start (`postStartCommand`)
+- `SANDBOX-claude-managed-settings.json` — system-enforced Claude Code policy, baked to `/etc/claude-code/managed-settings.json`
+- `SANDBOX-codex-requirements.toml` — system-enforced Codex Apps and Plugins policy, baked to `/etc/codex/requirements.toml`
+- `seed-agent-guidelines.sh` — applies the user-level guidance and Claude settings on every container start (`postStartCommand`)
+
+The two baked policy files are **not** handled by the seed script. They are
+`COPY`ed into the image as root-owned `0444`, so changing either requires a
+rebuild — that is what puts them out of reach of an agent running as `node`.
+`../.devcontainer/test-agent-policy.sh` verifies they are actually in force.
 
 The seed script handles guidance and settings differently:
 

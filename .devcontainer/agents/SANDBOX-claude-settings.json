@@ -12,5 +12,6 @@
   "gitAttribution": false,
   "includeCoAuthoredBy": false,
   "remoteControlAtStartup": true,
-  "autoMemoryEnabled": false
+  "autoMemoryEnabled": false,
+  "disableClaudeAiConnectors": true
 }

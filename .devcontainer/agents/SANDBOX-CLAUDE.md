@@ -39,6 +39,13 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
   use the `web` tool. These tools access the web through the model providers'
   servers and are not subject to the devcontainer firewall. This does not make
   arbitrary URLs available to terminal commands or project code.
+- **Connectors and Codex Apps/Plugins are disabled in this sandbox.** Claude's
+  AI connectors are disabled by `/etc/claude-code/managed-settings.json`.
+  Codex Apps, Plugins, and remote plugin catalogs are disabled by
+  `/etc/codex/requirements.toml`. Do not try to bypass or re-enable them; ask
+  the user for the unavailable mail, calendar, or other private data instead.
+  These are client controls rather than a complete OS security boundary; see
+  `.devcontainer/README.md` under `Security Warnings` for the threat model.
 - Installing *packages* from the allowlisted sources (pip, `install.packages()`,
   or `install-packages.sh`) is fine and does not need permission. New **system**
   libraries (`apt-get`, `-dev` packages) do — see `USER PERMISSION REQUIRED`.

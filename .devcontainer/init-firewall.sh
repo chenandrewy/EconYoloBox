@@ -286,10 +286,13 @@ fi
 # AWS load balancer with a ~73s TTL, so it needs the resolve-time path.
 # jkpfactors-data.s3.amazonaws.com: Amazon S3 endpoint whose answers rotate,
 # so start-time IP pinning becomes stale.
+# developers.openai.com: Vercel-hosted OpenAI documentation and Docs MCP;
+# resolve-time allowlisting accommodates changes to its edge addresses.
 VOLATILE_DOMAINS=(
     "rspm-sync.rstudio.com"
     "apache.jfrog.io"
     "jkpfactors-data.s3.amazonaws.com"
+    "developers.openai.com"
 )
 
 if ! command -v dnsmasq >/dev/null; then

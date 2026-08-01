@@ -8,6 +8,7 @@ readonly BLOCKED_URL="https://example.com"
 # start-time pinning; this probe exercises that whole chain (0725e).
 readonly VOLATILE_URL="https://rspm-sync.rstudio.com/"
 readonly JKP_VOLATILE_URL="https://jkpfactors-data.s3.amazonaws.com/public/availability.json"
+readonly OPENAI_DOCS_URL="https://developers.openai.com/"
 readonly CONNECT_TIMEOUT=5
 readonly MAX_TIME=10
 
@@ -50,6 +51,13 @@ if probe "$JKP_VOLATILE_URL"; then
     echo "PASS: JKP volatile destination is reachable: $JKP_VOLATILE_URL"
 else
     echo "FAIL: JKP volatile destination is not reachable: $JKP_VOLATILE_URL" >&2
+    failures=$((failures + 1))
+fi
+
+if probe "$OPENAI_DOCS_URL"; then
+    echo "PASS: OpenAI developer docs are reachable: $OPENAI_DOCS_URL"
+else
+    echo "FAIL: OpenAI developer docs are not reachable: $OPENAI_DOCS_URL" >&2
     failures=$((failures + 1))
 fi
 
