@@ -112,6 +112,6 @@
   // the baked policy is not itself agent-writable. It is guarded and --warn-only:
   // absent before the first rebuild, and a policy regression must be loud without
   // bricking container start.
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && bash .devcontainer/agents/seed-agent-guidelines.sh && .tools/chatrender/install-extension.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; }",
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; }",
   "waitFor": "postStartCommand"
 }

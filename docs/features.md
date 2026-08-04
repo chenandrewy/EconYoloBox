@@ -47,9 +47,8 @@ tooling those changes exist to support is described in
   all traffic rather than leaving the container open, and blocked hosts are
   REJECTed so they fail fast instead of hanging.
 
-- **Startup scripts.** `postStartCommand` arms the firewall, seeds canonical
-  agent guidance, and installs the ChatRender extension — so a fresh container is
-  research-ready with no manual steps.
+- **Startup scripts.** `postStartCommand` arms the firewall and seeds canonical
+  agent guidance, so a fresh container is research-ready with no manual steps.
 
 ### Credential handling
 
@@ -173,7 +172,6 @@ workable should each be one step.
 | `.tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
 | `.tools/latex/` | `sync-lyx.sh` |
 | `.tools/lit/` | `cited_by.py` |
-| `.tools/chatrender/` | `install-extension.sh` (runs at container start) |
 | `.devcontainer/agents/` | `seed-agent-guidelines.sh` (runs at container start) |
 | `.devcontainer/` | `install-packages.sh`, `test-firewall.sh` |
 
@@ -220,10 +218,10 @@ commands.
   you between desks; `sesh-push` installs another machine's sessions when you
   switch, with fork and wipe helpers.
 
-- **ChatRender VS Code extension.** A live transcript panel for the current
-  Claude/Codex session with KaTeX-rendered math, auto-following whichever
-  session wrote most recently. Deliberately hookless, serverless, and
-  HTML-inert; auto-installed on container start.
+- **AIChatRender VS Code extension.** The transcript panel formerly bundled
+  here is now maintained separately in the
+  [AIChatRender repository](https://github.com/chenandrewy/aichatrender) and is
+  installed independently of this devcontainer.
 
 - **Agent config as code (`.devcontainer/agents/`).** The single source of truth
   for Claude/Codex guidance and settings, re-seeded on every container start:

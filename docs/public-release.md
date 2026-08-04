@@ -91,9 +91,8 @@ slug-to-environment-variable mappings.
 
 ## 4. Test
 
-```bash
-cd "$release_dir/.tools/chatrender/extension" && node --test test/*.test.js
-```
+AIChatRender is maintained and tested in its own repository; it is not part of
+this release audit.
 
 Add whatever else the changes warrant, and rebuild the exported devcontainer if
 its configuration moved.

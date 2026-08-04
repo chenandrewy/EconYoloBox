@@ -1,9 +1,0 @@
-{"timestamp":"2026-07-23T18:00:00.000Z","type":"session_meta","payload":{"type":"session_meta","cwd":"/workspace/example","timestamp":"2026-07-23T18:00:00.000Z","id":"synthetic-session"}}
-{"timestamp":"2026-07-23T18:00:01.000Z","type":"response_item","payload":{"type":"message","role":"developer","content":[{"type":"input_text","text":"Synthetic setup text."}]}}
-{"timestamp":"2026-07-23T18:00:02.000Z","type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"Injected context that is not a real prompt."}]}}
-{"timestamp":"2026-07-23T18:00:03.000Z","type":"event_msg","payload":{"type":"user_message","message":"Show why \\(x+y=y+x\\).","images":[]}}
-{"timestamp":"2026-07-23T18:00:04.000Z","type":"response_item","payload":{"type":"reasoning","summary":[],"content":null}}
-{"timestamp":"2026-07-23T18:00:05.000Z","type":"response_item","payload":{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Commutativity gives \\[x+y=y+x\\]."}]}}
-{"timestamp":"2026-07-23T18:00:06.000Z","type":"event_msg","payload":{"type":"agent_message","message":"Commutativity gives \\[x+y=y+x\\].","phase":"final_answer"}}
-{"timestamp":"2026-07-23T18:00:07.000Z","type":"response_item","payload":{"type":"custom_tool_call","name":"synthetic","call_id":"call_1","input":"{}"}}
-{"timestamp":"2026-07-23T18:00:08.000Z","type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"call_1","output":"Synthetic output."}}
