@@ -105,32 +105,6 @@ Read `/workspace/SANDBOX.toml` for project-specific settings regarding
   that page count, page geometry, and extracted text are unchanged. Merely
   seeing the bookmark titles in a viewer is not sufficient validation.
 
-### LyX Guidelines
-- Use numbered `equation` environments with `\label{...}`. Don't use `\tag{...}`.
-- Use `\text{...}` for operators. Don't use `\operatorname{...}`
-- Equation references: Use the full pattern below, including the closing `\end_inset`
-```text
-\begin_inset CommandInset ref
-LatexCommand eqref
-reference "eq:model_scan_prob"
-plural "false"
-caps "false"
-noprefix "false"
-nolink "false"
-
-\end_inset
-```
-Don't use raw `\eqref{...}`. 
-- In displaymath, put each equation on its own line.
-- Put a space in the text around an inline math inset or font change (trailing before, leading after):
-```text
-the 
-\emph on
-optimal
-\emph default
- test
-```
-
 ### R Guidelines
 - When running R scripts non-interactively (`Rscript`), add `pdf(NULL)` near the top to suppress the stray `Rplots.pdf` that R creates whenever a transient graphics device is opened (e.g. by `ggsave()` on a `gridExtra::arrangeGrob` output).
 

@@ -121,6 +121,7 @@ managed agent policy inside the container:
 - `SANDBOX-claude-statusline.sh` — status line script referenced by the settings
 - `SANDBOX-claude-managed-settings.json` — system-enforced Claude Code policy, baked to `/etc/claude-code/managed-settings.json`
 - `SANDBOX-codex-requirements.toml` — system-enforced Codex Apps and Plugins policy, baked to `/etc/codex/requirements.toml`
+- `skills/` — canonical shared Agent Skills, linked into both Claude Code and Codex user-level skill directories
 - `seed-agent-guidelines.sh` — applies the user-level guidance and Claude settings on every container start (`postStartCommand`)
 
 The two baked policy files are **not** handled by the seed script. They are
@@ -131,6 +132,9 @@ rebuild — that is what puts them out of reach of an agent running as `node`.
 The seed script handles guidance and settings differently:
 
 - Guidance is **symlinked** (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`), so edits apply live without a restart.
+- Shared skills are **symlinked individually** into `~/.claude/skills/` and
+  `~/.agents/skills/`. This keeps one portable source while preserving unrelated
+  personal skills in either directory.
 - Settings are **copied** to `~/.claude/settings.json`, not symlinked, because Claude Code writes to its settings file (`/config`, `/model`, permission grants). Those writes land in the volume copy and are overwritten by the canonical file on the next container start. To keep a setting permanently, put it in `SANDBOX-claude-settings.json`.
 
 Some user-specific agent settings live in the visible root-level `SANDBOX.toml`.
