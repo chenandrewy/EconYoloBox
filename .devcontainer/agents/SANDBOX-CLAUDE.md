@@ -149,21 +149,6 @@ optimal
 
 - At the top of every script, document how to run it, its inputs, and its outputs.
 
-## Codex and Claude Code Reviews
-The user will ask for code reviews from using Codex or Claude.
-
-Use yolo mode:
-    `codex exec --dangerously-bypass-approvals-and-sandbox "your prompt"`
-    or
-    `claude -p --dangerously-skip-permissions "your prompt"`
-
-Do not necessarily use all of the feedback
-- a. Codex tends to overemphasize edge cases
-- b. Claude tends to be too positive
-
-Be patient. Code reviews can take up to 20 minutes.
-
-
 ## Custom Tools
 
 Custom tools live in `/workspace/.tools/`, organized by topic. Check these folders when the user asks for using '.tools'. All are on `PATH` (set in `.devcontainer/shellrc.sh`), so the filenames are the commands:
