@@ -64,11 +64,13 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
   here: no `DISPLAY`, no clipboard binaries, and the macOS pasteboard is
   unreachable from a Linux container. Installing `xclip` would not help, and the
   integrated terminal only carries text over the pty. So the user hands over
-  images by *path* instead, via `dev/shots/`, which the host writes screenshots
-  into directly (`/dev/` is gitignored).
+  images by *path* instead. The host writes macOS screenshots into the directory
+  configured as `screenshot_directory` in `/workspace/SANDBOX.toml` (`/dev/` is
+  gitignored).
   - When the user refers to "this screenshot", "the image", or similar without
-    naming a file, read the newest one: `ls -t /workspace/dev/shots/* | head -1`.
-    Confirm which file you picked when it is ambiguous.
+    naming a file, read `screenshot_directory` from `/workspace/SANDBOX.toml`
+    and use the newest image in that directory. Confirm which file you picked
+    when it is ambiguous.
   - The folder is Dropbox-synced, so old shots can be evicted to online-only and
     fail to read — see the bullet above. Prune it when it gets noisy.
 
@@ -78,6 +80,7 @@ Read `/workspace/SANDBOX.toml` for project-specific settings regarding
 
 - the research library location
 - time zone
+- the macOS screenshot directory
 
 ## Coding and Writing Guidelines
 
