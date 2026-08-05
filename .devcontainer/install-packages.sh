@@ -79,6 +79,7 @@ PY_PKGS=(
     openai
     openassetpricing
     requests
+    PyYAML
 )
 
 install_python() {
