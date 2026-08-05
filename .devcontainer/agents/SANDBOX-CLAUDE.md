@@ -88,26 +88,6 @@ Read `/workspace/SANDBOX.toml` for project-specific settings regarding
 - PDF viewer safety: For compilation, validation, and visual inspection, build into a temporary output directory rather than overwriting the project's existing PDF, because replacing an open PDF can confuse the VS Code PDF viewer. Leave the project PDF untouched unless the user explicitly asks to rebuild it. For example, use `pdflatex -output-directory=/tmp/<build-dir> ...` and run biber and subsequent pdflatex passes against that temporary build.
 - Note taking: Use LyX if math is involved. We often do math and the human finds this much easier to work with.
 
-### PDF Bookmark Guidelines
-
-- When adding or reorganizing bookmarks, preserve the destination or action of
-  every existing outline item. A bookmark title and its place in the outline
-  tree are not enough to make it clickable: each item must retain either
-  `/Dest` or a valid `/A` `/GoTo` action. In particular, do not recreate an
-  existing `pikepdf.OutlineItem` with only its title when attaching children.
-- Preserve logical and document order when nesting new bookmarks. A theorem or
-  proposition that occurs before the next section heading belongs under the
-  preceding section, even if both appear on the same page.
-- Write bookmark edits to a temporary PDF and validate that file before
-  replacing the project PDF. If replacement was explicitly requested, keep a
-  recoverable copy of the prior PDF until validation succeeds.
-- Validate the completed outline with `PyMuPDF` using
-  `doc.get_toc(simple=False)`: every entry must be a `LINK_GOTO` destination
-  whose zero-based page is within the document. Also check PDF syntax with
-  `pikepdf.Pdf.check_pdf_syntax()`, verify outline counts/hierarchy, and confirm
-  that page count, page geometry, and extracted text are unchanged. Merely
-  seeing the bookmark titles in a viewer is not sufficient validation.
-
 ### R Guidelines
 - When running R scripts non-interactively (`Rscript`), add `pdf(NULL)` near the top to suppress the stray `Rplots.pdf` that R creates whenever a transient graphics device is opened (e.g. by `ggsave()` on a `gridExtra::arrangeGrob` output).
 
