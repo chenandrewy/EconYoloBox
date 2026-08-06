@@ -36,7 +36,7 @@ More concretely, it's a shared sandbox built around the following folders:
 - `.credentials/`: credential injection mechanism
 - `.devcontainer/`: sandbox implementation
 - `.host/`: ergonomic container access
-- `.tools/`: custom AI tooling
+- `.tools/`: custom AI tooling, including the `chat-example` fixture runner
 
 See [Sandbox Features](docs/features.md) for a detailed tour.
 
