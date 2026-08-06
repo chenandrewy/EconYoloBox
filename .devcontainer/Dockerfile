@@ -89,7 +89,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   cmake \
   pkg-config \
   xz-utils \
-  && ln -s /usr/bin/fdfind /usr/local/bin/fd \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Node is ours to pin now that the base image no longer supplies it. NodeSource
@@ -362,5 +361,9 @@ RUN chmod 0444 /etc/claude-code/managed-settings.json /etc/codex/requirements.to
 # invoked from /workspace so a check of the policy is not itself node-writable.
 COPY test-agent-policy.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/test-agent-policy.sh
+
+# Debian installs fd as fdfind to avoid a package-name collision. Provide the
+# conventional command name after all expensive build layers are complete.
+RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
 
 USER node
