@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# Run: chat-example [fork|resume] [claude1|codex1|...] [options]
-# Input: a chat fixture selector and optional arguments for the fixture runner.
-# Output: a staged disposable Claude Code or Codex CLI session.
-set -euo pipefail
-
-repo_root="/workspace/Live,AIChatRender"
-exec node "$repo_root/scripts/chat-example.js" "$@"
