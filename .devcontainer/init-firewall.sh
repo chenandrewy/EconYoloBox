@@ -178,6 +178,7 @@ for domain in \
     "ms-python.gallerycdn.vsassets.io" \
     "ikuyadeu.gallerycdn.vsassets.io" \
     "reditorsupport.gallerycdn.vsassets.io" \
+    "chenandrewy.gallerycdn.vsassets.io" \
     "copilot-proxy.githubusercontent.com" \
     "origin-tracker.githubusercontent.com" \
     "copilot-telemetry.githubusercontent.com" \

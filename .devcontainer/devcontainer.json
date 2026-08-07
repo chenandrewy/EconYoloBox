@@ -40,7 +40,8 @@
         "ms-python.python",
         "ms-python.vscode-pylance",
         "ikuyadeu.r-pack",
-        "reditorsupport.r"
+        "reditorsupport.r",
+        "chenandrewy.aichatrender"
       ],
       "settings": {
         "editor.formatOnSave": true,
