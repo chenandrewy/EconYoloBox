@@ -32,10 +32,26 @@ detect_tz() {
     fi
 }
 
+# Stable host name. Plain `hostname` is the *transient* name on macOS: it is
+# network-derived, so DHCP can hand back a truncated or generic value ("Mac")
+# that then freezes into the container's env at create time. LocalHostName is
+# the stable identity and carries no .local suffix.
+detect_hostname() {
+    local name
+    if command -v scutil >/dev/null 2>&1; then
+        name=$(scutil --get LocalHostName 2>/dev/null || true)
+        if [ -n "$name" ]; then
+            printf '%s' "$name"
+            return
+        fi
+    fi
+    hostname -s 2>/dev/null || hostname
+}
+
 ENV_FILE=/tmp/devcontainer-local.env
 umask 077
 {
-    printf 'LOCAL_HOSTNAME=%s\n' "$(hostname)"
+    printf 'LOCAL_HOSTNAME=%s\n' "$(detect_hostname)"
     printf 'LOCAL_CONTAINER_FOLDER=%s\n' "$LOCAL_CONTAINER_FOLDER"
     HOST_TZ=$(detect_tz)
     [ -n "$HOST_TZ" ] && printf 'TZ=%s\n' "$HOST_TZ"
