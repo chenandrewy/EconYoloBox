@@ -50,10 +50,11 @@ links_valid = bool(toc) and all(
   gone. Journal submission systems that staple a cover page onto a manuscript
   land here, so a submission PDF normally has nothing to preserve and goes
   straight to a rebuild.
-- Figure and table bookmarks are a separate question. `hyperref` builds the
-  outline from sectioning commands only, so even a clean outline contains no
-  floats. Scan captions whenever float bookmarks are wanted, and add them to
-  the outline that was kept.
+- A section outline is incomplete without exhibits. `hyperref` builds its
+  outline from sectioning commands only, so even a clean source-generated
+  outline normally omits floats. Always scan the full document for table and
+  figure captions and add the missing exhibit bookmarks to the outline that was
+  kept.
 - Report before you discard. When you rebuild over an existing outline, state
   how the result differs — entry count, depth, and any titles that
   disappeared — rather than silently shipping a smaller outline.
@@ -90,6 +91,36 @@ links_valid = bool(toc) and all(
   a single heading; a naive extractor emits the tail as its own bookmark.
 - Confirm the recovered structure against the document before writing it. Check
   that the level sequence has no gaps and that numbering runs consecutively.
+
+## Always bookmark exhibits
+
+- Scan the full document on every bookmark task, including repairs. A caption
+  begins with a table or figure label — `Table`, `Tab.`, `Tbl.`, `Figure`,
+  `Fig.` — followed by a number, and the number is not always arabic. Match
+  roman numerals (`Table I`, `Table II`, standard in finance journals) and
+  appendix or internet-appendix prefixes (`Table A1`, `Figure IA.2`) as well as
+  `Table 1`. A pattern that assumes `Table 1` finds nothing in a roman-numeral
+  paper and silently drops the appendix in a prefixed one, and the gap check
+  below will not catch either, because the sequence it sees looks complete.
+- Do not trust an assumed exhibit count; compare the scan with the document and
+  report discrepancies.
+- When the user scoped the task to sections, still scan, but report the missing
+  exhibits rather than adding them unasked.
+- Distinguish captions from body references using font, position, surrounding
+  lines, and layout. Rejoin wrapped captions before constructing the bookmark.
+- Bookmark every detected table and figure exactly once. Check each numbering
+  sequence for gaps, but do not invent bookmarks for exhibits that are absent.
+- Use concise, caption-derived titles: retain the label and number as the
+  document prints them — `Table 1:`, `Table I:`, `Figure A2:` — plus the
+  identifying caption title or first sentence; omit caption notes and extended
+  interpretation.
+- Default exhibits to one level below the nearest preceding main section
+  (typically level 2 when sections are level 1). Interleave them with sections
+  and subsections by their actual page and vertical position. Follow a
+  user-specified level or grouping when provided.
+- Preserve existing exhibit destinations when reorganizing a clean outline;
+  create caption-position destinations for newly detected captions, using the
+  technique in the next section with the caption line in place of the heading.
 
 ## Build destinations that land on the heading
 
@@ -130,11 +161,9 @@ These rules apply to any outline, rebuilt or preserved.
 - Follow logical and document order within each subtree. A theorem or
   proposition appearing before the next section heading belongs under the
   preceding section, even when both occur on the same page.
-- A float index is a legitimate exception. A top-level `Tables and Figures`
-  group collecting every table and figure in document order is useful when
-  floats are scattered through the body and appendices, and its page numbers
-  will restart relative to the section tree that precedes it. Order entries
-  within the group by document position.
+- Use a top-level `Tables and Figures` index only when the user requests it or
+  the document's own structure calls for one. Collect every exhibit once and
+  order entries within the group by document position.
 
 ## Protect the source PDF
 
@@ -155,6 +184,9 @@ These rules apply to any outline, rebuilt or preserved.
   page within the document.
 - Check PDF syntax with `pikepdf.Pdf.check_pdf_syntax()`.
 - Verify the expected outline count, hierarchy, and ordering.
+- Verify that the caption scan and final outline contain the same tables and
+  figures, each exactly once, at the intended hierarchy level. Account for
+  numbering gaps explicitly.
 - Confirm that the page count and per-page geometry are unchanged, and that
   each page's extracted text is identical to the original page for page. A
   whole-document text comparison hides content that moved between pages.
