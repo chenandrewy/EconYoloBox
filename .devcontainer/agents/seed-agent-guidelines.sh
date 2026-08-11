@@ -66,8 +66,13 @@ for skill_root in "$HOME/.claude/skills" "$HOME/.agents/skills"; do
     done
 done
 
-# Keep Codex's @ autocomplete dedicated to files; Skills remain available via $.
-codex features disable mentions_v2
+# NOTE: `codex features disable mentions_v2` used to run here. It was the only
+# step that shelled out to an agent binary, and once the CLIs moved out of the
+# image into a volume that starts empty, a fresh container had no `codex` - so
+# `set -e` killed the seed at 127, before the settings copy below. It is now
+# baked into /etc/codex/requirements.toml instead. Keep this script declarative:
+# every step should be repo-to-$HOME file plumbing that works on a bare
+# container, with no dependency on anything installed at runtime.
 
 # Settings: copied, not symlinked. Claude Code writes to its settings file
 # (/config, /model, permission grants), and those writes belong in the volume,

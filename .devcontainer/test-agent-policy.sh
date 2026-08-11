@@ -111,7 +111,11 @@ feature_state() {
 }
 
 if command -v codex >/dev/null; then
-    for feature in apps plugins remote_plugin; do
+    # mentions_v2 rides along with the three connector flags. It is a UX
+    # preference, not a security control, but it sits in the same requirements
+    # table - so checking it is also how we notice if that table was knocked
+    # out of service, which is the failure this script exists to catch.
+    for feature in apps plugins remote_plugin mentions_v2; do
         state=$(feature_state "$feature")
         if [[ -z $state ]]; then
             fail "codex feature '$feature' not found (flag renamed? update this test)"
@@ -130,6 +134,18 @@ if command -v codex >/dev/null; then
         pass "codex rejects '--enable plugins' override"
     else
         fail "codex '--enable plugins' produced '$override' - requirements NOT enforced"
+    fi
+
+    # Needed on top of the effective-state loop above: `mentions_v2 = false` may
+    # also be sitting in ~/.codex/config.toml, left over from when the seeder
+    # set it there. That would make the state check pass without requirements
+    # doing any work. Only a refused override proves this file is the control.
+    override=$(codex features list --enable mentions_v2 2>/dev/null \
+        | awk '$1 == "mentions_v2" { print $NF }')
+    if [[ $override == "false" ]]; then
+        pass "codex rejects '--enable mentions_v2' override"
+    else
+        fail "codex '--enable mentions_v2' produced '$override' - requirements NOT enforced"
     fi
 
     override=$(codex features list -c 'features.plugins=true' 2>/dev/null \
