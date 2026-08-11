@@ -16,6 +16,11 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
 - **Neither stack is baked into the image.** Both come from
   `.devcontainer/install-packages.sh`, which is re-runnable and skips what is
   already installed. If an import fails right after a rebuild, notify the user.
+- **The Claude Code and Codex CLIs come from the same script**
+  (`install-packages.sh cli`), into an npm-global *volume* — so an update
+  survives rebuilds rather than being reverted by them. Claude Code
+  self-updates; Codex does not and nags at launch instead. Re-running the
+  script's `cli` target is the fix, not a rebuild.
 - Latex with `texlive-full` and `biber`.
 - **Network is deny-by-default**, via an IP allowlist built at container start by
   `init-firewall.sh`. Blocked hosts are REJECTed, so they fail fast rather than

@@ -6,8 +6,6 @@ ENV TZ="$TZ"
 ARG GIT_VERSION=2.49.0
 ARG NODE_MAJOR=24
 ARG NODE_VERSION=24.18.0-1nodesource1
-ARG CLAUDE_CODE_VERSION=latest
-ARG CODEX_CLI_VERSION=latest
 ARG PANDOC_VERSION=3.9.0.2
 ARG PANDOC_CROSSREF_VERSION=v0.3.23a
 ARG LYX_VERSION=2.4.5
@@ -138,6 +136,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Ensure default node user has access to /usr/local/share.
+# npm-global is now a volume mountpoint, which makes this load-bearing beyond
+# the chown: Docker seeds a fresh named volume from the image directory at that
+# path, ownership included. The directory must therefore exist and be
+# node-owned here, or the new volume comes up root-owned and `npm install -g`
+# fails as node with EACCES.
 # Must run BEFORE the LyX build below, not after: `make install` drops ~40MB of
 # LyX data files into /usr/local/share/lyx, and a recursive chown crossing them
 # would rewrite every one of those inodes into a new layer for no benefit.
@@ -294,10 +297,14 @@ RUN sed -i "s/^export LANG=.*/export LANG='C.UTF-8'/" /home/node/.zshrc && \
   sed -i "s/^export LANGUAGE=.*/export LANGUAGE='C.UTF-8'/" /home/node/.zshrc && \
   sed -i "s/^export LC_ALL=.*/export LC_ALL='C.UTF-8'/" /home/node/.zshrc
 
-# Install AI CLIs
-RUN npm install -g \
-  @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} \
-  @openai/codex@${CODEX_CLI_VERSION}
+# The Claude Code and Codex CLIs are NOT baked into the image, for the same
+# reason as the analysis stacks above: a baked `npm install -g ...@latest` layer
+# pins itself to whenever it was first cached, so rebuilds kept serving whatever
+# was current on that day. They are installed at runtime by
+# install-packages.sh into NPM_CONFIG_PREFIX, which is a volume - so an update
+# made in a running container survives rebuilds instead of being reverted by
+# them. A fresh volume starts empty; shellrc.sh says so, and test-agent-policy.sh
+# skips rather than fails when a CLI is absent.
 
 USER root
 
