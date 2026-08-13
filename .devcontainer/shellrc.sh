@@ -35,6 +35,38 @@ if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; th
     echo "note: AI CLIs not installed - run .devcontainer/install-packages.sh cli"
 fi
 
+# Firewall window warning. devcontainer.json can be hand-swapped to a
+# postStartCommand that skips init-firewall.sh, leaving the container on
+# Docker's default ACCEPT policies - no network restrictions at all. Nothing
+# else surfaces that state: startup looks entirely normal and the only symptom
+# is that blocked hosts start answering.
+#
+# The open postStartCommand touches this marker and the armed one removes it,
+# so no network probe is needed here. Not inferred from dnsmasq or resolv.conf:
+# both look "open" on init-firewall.sh's legitimate armed-but-dnsmasq-failed
+# path, and iptables itself needs root. The open side writes the marker rather
+# than the armed side because /tmp is not tmpfs here - a stale "armed" marker
+# would fail silent, whereas a stale open one only cries wolf.
+#
+# Knows what devcontainer.json declared at the last container start, not the
+# live kernel state: a bare `docker restart` skips postStartCommand entirely
+# and leaves the container open with whatever marker was there before.
+if [ -f /tmp/FIREWALL-WINDOW-OPEN ]; then
+    if [ -t 1 ]; then
+        _fw_hi=$'\033[1;37;41m'
+        _fw_off=$'\033[0m'
+    else
+        _fw_hi=''
+        _fw_off=''
+    fi
+    printf '%s\n' \
+        "${_fw_hi} !!  FIREWALL OPEN - this container has no network restrictions  !! ${_fw_off}" \
+        "  Everything here can reach the whole internet, agents included." \
+        "  To close: restore the FINAL postStartCommand in .devcontainer/devcontainer.json," \
+        "  Rebuild Container, then confirm with .devcontainer/test-firewall.sh"
+    unset _fw_hi _fw_off
+fi
+
 # cchat-yolo [claude args...]
 # Start Claude in the container, always under --remote-control so the session is
 # visible to `ccsessions` / `cckill` on the host. The name is derived from the

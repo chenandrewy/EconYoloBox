@@ -114,10 +114,12 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  // test-agent-policy.sh runs from /usr/local/bin, not /workspace, so a check of
-  // the baked policy is not itself agent-writable. It is guarded and --warn-only:
-  // absent before the first rebuild, and a policy regression must be loud without
-  // bricking container start.
-  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; }",
+  // === FINAL COMMANDS ===
+  // To open the firewall, uncomment the temporary final command, comment the armed final command
+  // Warning: DO NOT COMMIT AN OPEN FIREWALL FINAL COMMAND
+  // TEMPORARY FINAL COMMANDS: skip firewall, seed agent guidelines
+  // "postStartCommand": "touch /tmp/FIREWALL-WINDOW-OPEN && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; }",
+  // ARMED FINAL COMMANDS: raise firewall, seed agent guidelines, test
+  "postStartCommand": "rm -f /tmp/FIREWALL-WINDOW-OPEN && sudo /usr/local/bin/init-firewall.sh && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; }",
   "waitFor": "postStartCommand"
 }
