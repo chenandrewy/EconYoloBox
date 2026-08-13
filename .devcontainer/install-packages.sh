@@ -230,9 +230,8 @@ CLI_PKGS=(
 # out of date. NPM_CONFIG_PREFIX is a volume, so what this installs outlives the
 # container - a rebuild no longer reverts an update made here.
 #
-# Claude Code self-updates in place and so is usually already current; Codex
-# does not, and only prints an update banner at launch. --force is not consulted
-# for the same reason: @latest is already the strongest request available.
+# Neither npm-managed CLI should be assumed to update itself. --force is not
+# consulted because @latest is already the strongest request available.
 install_cli() {
     echo "==> AI CLIs (${NPM_CONFIG_PREFIX:-npm global}), ${#CLI_PKGS[@]} packages"
     local pinned=()

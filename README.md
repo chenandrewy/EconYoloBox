@@ -100,16 +100,18 @@ Windows and Linux support is partially wired but has not been tested.
 
 6. **Install the AI CLIs.** They are not baked into the image — they live in a
    persistent volume so that updating them is not undone by the next rebuild.
-   A newly built container therefore starts without them:
+   A newly created npm-global volume therefore starts without them:
 
    ```bash
    /workspace/.devcontainer/install-packages.sh cli
    ```
 
    This takes a few seconds and installs the current Claude Code and Codex
-   releases. It is needed once per container rebuild, not per session; an
-   interactive shell prints a reminder while either CLI is missing. Re-run the
-   same command whenever Codex reports an update at launch.
+   releases. It is needed once when the volume is first created, not per session
+   or ordinary container rebuild; an interactive shell prints a reminder while
+   either CLI is missing. Re-run the same command to update either npm-managed
+   CLI. A new volume is created only when the old one is removed or its
+   distro/Node version token changes in `devcontainer.json`.
 
 7. **Start an AI agent from the project directory.** The first launch may ask
    you to authenticate. Start Claude with:

@@ -159,13 +159,14 @@ of the change — the CLIs stay where you left them.
 
 Because the volume can start empty, `test-agent-policy.sh` reports `SKIP`
 (not `PASS`) for a CLI that is not installed, and interactive shells nudge the
-same way they do for a missing analysis stack. Claude Code self-updates in
-place; Codex does not, and prints its own update banner at launch — which is
-the signal to re-run `install-packages.sh cli`.
+same way they do for a missing analysis stack. The npm-managed CLIs should not
+be assumed to self-update; re-run `install-packages.sh cli` to update both to
+their current releases.
 
-Re-runs skip what is already installed, and the script fails loudly if anything
-in its list is missing at the end. Interactive shells print a one-line nudge
-while either stack is absent.
+Python and R re-runs skip what is already installed; the `cli` target requests
+`@latest` each time. The script fails loudly if anything in its list is missing
+at the end. Interactive shells print a one-line nudge while either stack or CLI
+is absent.
 
 Why not Dockerfile layers: baked-in packages made every change to the stack a
 full rebuild, and a broken package unrecoverable without one. As a script, the
