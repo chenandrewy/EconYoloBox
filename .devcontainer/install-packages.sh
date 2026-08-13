@@ -15,9 +15,10 @@
 # both made node-writable at build time. Deliberately no user-level layering.
 #
 # Usage:
-#   .devcontainer/install-packages.sh           # both stacks
+#   .devcontainer/install-packages.sh           # everything
 #   .devcontainer/install-packages.sh python    # Python only
 #   .devcontainer/install-packages.sh r         # R only
+#   .devcontainer/install-packages.sh cli       # AI CLIs only (always @latest)
 #   .devcontainer/install-packages.sh --force   # reinstall even if present
 #
 # Re-runs are cheap: already-installed packages are skipped unless --force.
@@ -26,11 +27,12 @@ set -euo pipefail
 
 usage() {
     cat <<'USAGE'
-Usage: install-packages.sh [python|r|all] [--force]
+Usage: install-packages.sh [python|r|cli|all] [--force]
 
   python    install the Python stack into /opt/venv
   r         install the R stack into the site library
-  all       both (default)
+  cli       install/update the Claude Code and Codex CLIs
+  all       all three (default)
   --force   reinstall even if a package is already present
 
 Re-runs are cheap: already-installed packages are skipped unless --force.
@@ -43,6 +45,7 @@ for arg in "$@"; do
     case "$arg" in
     python | py) TARGET=python ;;
     r | R) TARGET=r ;;
+    cli | clis) TARGET=cli ;;
     all | both) TARGET=all ;;
     --force | -f) FORCE=1 ;;
     -h | --help)
@@ -217,12 +220,51 @@ REOF
     STACK_FORCE="$FORCE" Rscript "$r_script"
 }
 
+CLI_PKGS=(
+    @anthropic-ai/claude-code
+    @openai/codex
+)
+
+# Always @latest, deliberately: unlike the analysis stacks there is no snapshot
+# to pin against, and this is the command you reach for *because* something is
+# out of date. NPM_CONFIG_PREFIX is a volume, so what this installs outlives the
+# container - a rebuild no longer reverts an update made here.
+#
+# Neither npm-managed CLI should be assumed to update itself. --force is not
+# consulted because @latest is already the strongest request available.
+install_cli() {
+    echo "==> AI CLIs (${NPM_CONFIG_PREFIX:-npm global}), ${#CLI_PKGS[@]} packages"
+    local pinned=()
+    local pkg
+    for pkg in "${CLI_PKGS[@]}"; do
+        pinned+=("${pkg}@latest")
+    done
+    npm install -g "${pinned[@]}"
+
+    local missing=()
+    for pkg in "${CLI_PKGS[@]}"; do
+        # `npm ls -g` rather than `command -v`: the bin name does not always
+        # match the package name, and we are asserting the install, not the PATH.
+        if ! npm ls -g --depth=0 "$pkg" >/dev/null 2>&1; then
+            missing+=("$pkg")
+        fi
+    done
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo "MISSING (cli): ${missing[*]}" >&2
+        return 1
+    fi
+    echo "AI CLIs OK (${#CLI_PKGS[@]} packages)"
+    echo "Re-run test-agent-policy.sh to verify connector policy against them."
+}
+
 case "$TARGET" in
 python) install_python ;;
 r) install_r ;;
+cli) install_cli ;;
 all)
     install_python
     install_r
+    install_cli
     ;;
 esac
 

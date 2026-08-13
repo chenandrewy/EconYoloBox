@@ -24,6 +24,17 @@ if [ -z "$(find /opt/venv/lib -maxdepth 3 -type d -name pandas -print -quit 2>/d
     echo "note: analysis stack not fully installed - run .devcontainer/install-packages.sh"
 fi
 
+# Same idea for the AI CLIs, which are also runtime-installed now (into the
+# npm-global volume). This is the bootstrap path after a fresh volume: without
+# it you would discover the absence by typing `claude` and getting nothing.
+# Deliberately a local `command -v` and not a version check - the analysis-stack
+# nag above tests a local absence, which is instant and cannot fail spuriously,
+# whereas asking npm what `latest` is would put a network round-trip in front of
+# every shell. Codex announces its own updates at launch; that is enough.
+if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; then
+    echo "note: AI CLIs not installed - run .devcontainer/install-packages.sh cli"
+fi
+
 # cchat-yolo [claude args...]
 # Start Claude in the container, always under --remote-control so the session is
 # visible to `ccsessions` / `cckill` on the host. The name is derived from the

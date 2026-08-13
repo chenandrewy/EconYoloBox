@@ -10,8 +10,6 @@
       // Keep NODE_MAJOR in step with NODE_VERSION: it selects the apt repo.
       "NODE_MAJOR": "24",
       "NODE_VERSION": "24.18.0-1nodesource1",
-      "CLAUDE_CODE_VERSION": "latest",
-      "CODEX_CLI_VERSION": "latest",
       "GIT_DELTA_VERSION": "0.18.2",
       "ZSH_IN_DOCKER_VERSION": "1.2.0"
     }
@@ -92,7 +90,14 @@
     // Changing the token is what makes the base migration start clean volumes
     // automatically instead of failing at load time with ABI errors.
     "source=${localWorkspaceFolderBasename}-r-site-library-noble-4.5.3,target=/opt/R/4.5.3/lib/R/site-library,type=volume",
-    "source=${localWorkspaceFolderBasename}-venv-noble-py3.12,target=/opt/venv,type=volume"
+    "source=${localWorkspaceFolderBasename}-venv-noble-py3.12,target=/opt/venv,type=volume",
+    // The AI CLIs live here rather than in an image layer, so that updating
+    // Codex in a running container is not undone by the next rebuild (a baked
+    // `@latest` layer freezes at first cache; see the Dockerfile note). Codex
+    // ships native per-platform binaries, so the name carries the distro AND
+    // the node major - bump the token with NODE_MAJOR to start a clean volume
+    // rather than serving binaries built against the wrong runtime.
+    "source=${localWorkspaceFolderBasename}-npm-global-noble-node24,target=/usr/local/share/npm-global,type=volume"
   ],
   "containerEnv": {
     // TZ is intentionally absent: write-local-env.sh detects the host zone into

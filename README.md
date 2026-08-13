@@ -98,7 +98,22 @@ Windows and Linux support is partially wired but has not been tested.
    git clone https://github.com/your-name/your-project.git My-Project
    ```
 
-6. **Start an AI agent from the project directory.** The first launch may ask
+6. **Install the AI CLIs.** They are not baked into the image — they live in a
+   persistent volume so that updating them is not undone by the next rebuild.
+   A newly created npm-global volume therefore starts without them:
+
+   ```bash
+   /workspace/.devcontainer/install-packages.sh cli
+   ```
+
+   This takes a few seconds and installs the current Claude Code and Codex
+   releases. It is needed once when the volume is first created, not per session
+   or ordinary container rebuild; an interactive shell prints a reminder while
+   either CLI is missing. Re-run the same command to update either npm-managed
+   CLI. A new volume is created only when the old one is removed or its
+   distro/Node version token changes in `devcontainer.json`.
+
+7. **Start an AI agent from the project directory.** The first launch may ask
    you to authenticate. Start Claude with:
 
    ```bash
@@ -149,9 +164,10 @@ stacks—or only the one you need—from a VS Code terminal inside the container
 
 ```bash
 cd /workspace
-.devcontainer/install-packages.sh          # both, a few minutes
+.devcontainer/install-packages.sh          # stacks and CLIs, a few minutes
 .devcontainer/install-packages.sh python   # Python only
 .devcontainer/install-packages.sh r        # R only
+.devcontainer/install-packages.sh cli      # AI CLIs only (step 6 above)
 .devcontainer/install-packages.sh --force  # reinstall even if present
 ```
 

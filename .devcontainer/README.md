@@ -68,8 +68,8 @@ this.
 - `devcontainer.json` — container configuration.
 - `Dockerfile` — container image definition.
 - `init-firewall.sh` — network firewall rules applied post-create.
-- `install-packages.sh` — installs the optional Python and R analysis stacks into
-  a running container (see "Analysis stacks" below).
+- `install-packages.sh` — installs the optional Python and R analysis stacks and
+  the AI CLIs into a running container (see "Analysis stacks and AI CLIs" below).
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
 - `agents/` — canonical agent guidance and settings, applied to the container's user-level config on every start (see "Agent Config" below).
 
@@ -143,15 +143,30 @@ human-facing timestamps. Relative paths are resolved from the repository root.
 Because agents read this file directly, edits take effect without rebuilding or
 restarting the container.
 
-### Analysis stacks (`install-packages.sh`)
+### Analysis stacks and AI CLIs (`install-packages.sh`)
 
 The Python and R packages are **not** in the image. A freshly built container
 has R, an empty venv, and the system `-dev` libraries until `install-packages.sh`
 is run.
 
-Re-runs skip what is already installed, and the script fails loudly if anything
-in its list is missing at the end. Interactive shells print a one-line nudge
-while either stack is absent.
+The Claude Code and Codex CLIs are runtime-installed too — `install-packages.sh
+cli`, or the default `all`. They were a Dockerfile layer pinned to `@latest`,
+which turned out to mean "whatever was current the day the layer was first
+cached": rebuilds kept restoring a months-old Codex. They now install into
+`/usr/local/share/npm-global`, which is a **volume**, so updating Codex in a
+running container is no longer reverted by the next rebuild. That is the point
+of the change — the CLIs stay where you left them.
+
+Because the volume can start empty, `test-agent-policy.sh` reports `SKIP`
+(not `PASS`) for a CLI that is not installed, and interactive shells nudge the
+same way they do for a missing analysis stack. The npm-managed CLIs should not
+be assumed to self-update; re-run `install-packages.sh cli` to update both to
+their current releases.
+
+Python and R re-runs skip what is already installed; the `cli` target requests
+`@latest` each time. The script fails loudly if anything in its list is missing
+at the end. Interactive shells print a one-line nudge while either stack or CLI
+is absent.
 
 Why not Dockerfile layers: baked-in packages made every change to the stack a
 full rebuild, and a broken package unrecoverable without one. As a script, the
