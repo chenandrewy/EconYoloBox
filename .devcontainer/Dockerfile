@@ -334,6 +334,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   librsvg2-bin \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+# Headers for the R graphics-device stack that install-packages.sh compiles at
+# runtime: systemfonts needs fontconfig, and ragg needs jpeg and tiff on top of
+# it. (libpng-dev, ragg's fourth requirement, already arrives as a dependency.)
+#
+# Their natural home is the freetype/harfbuzz/fribidi group far above, but that
+# block also carries texlive-full and sits above the LyX source build, so
+# touching it costs a ~30-minute rebuild. Nothing in this Dockerfile links
+# against these - only runtime R installs do - so a late layer is equivalent.
+# Fold them upward whenever something else forces a full rebuild anyway.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  libfontconfig-dev \
+  libjpeg-dev \
+  libtiff-dev \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Detect converters (latex, pdflatex, pandoc, ...) once, system-wide. LyX would
 # otherwise run this itself on first export, per user, writing into ~/.lyx -
 # slower, noisier, and lost whenever the home volume is recreated. Runs here,
