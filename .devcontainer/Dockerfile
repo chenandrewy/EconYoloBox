@@ -51,6 +51,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   git \
   libexpat1-dev \
   procps \
+  # GNU time, i.e. /usr/bin/time. zsh's builtin `time` only applies to commands
+  # typed at an interactive prompt, so it gives nothing inside Rscript, a
+  # python3 subprocess chain, or anything run via `sh -c`. `/usr/bin/time -v`
+  # works anywhere and reports max RSS, page faults, and I/O in one block -
+  # what you want when a pandas/polars job or an R source build gets OOM-killed.
+  # (The builtin's TIMEFMT %M is also mislabelled: it prints MB, not KB.)
+  time \
   sudo \
   fzf \
   zsh \
