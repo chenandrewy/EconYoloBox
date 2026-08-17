@@ -20,5 +20,8 @@ template/
 # local-only Claude Code permissions (recreated by Claude when working from ./)
 .claude/settings.local.json
 
+# editor state is personal, not shared container config
+.vscode/
+
 # agent session transcripts are a local-only cache, never committed
 .tools/ai-sesh/data/

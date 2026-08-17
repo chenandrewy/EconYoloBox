@@ -72,6 +72,11 @@ this.
   the AI CLIs into a running container (see "Analysis stacks and AI CLIs" below).
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
 - `agents/` — canonical agent guidance and settings, applied to the container's user-level config on every start (see "Agent Config" below).
+- `home/` — user-level dotfiles that must survive a rebuild. The container's
+  home directory is not a persisted volume, so a file placed at `~` would be
+  wiped; these live in the tracked repo instead and are pointed at by
+  environment variables exported in `shellrc.sh`. Currently `Rprofile`
+  (via `R_PROFILE_USER`).
 
 ### Hostname and Claude session names
 

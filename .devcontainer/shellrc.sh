@@ -121,3 +121,16 @@ loccode() {
 }
 
 alias gitlog="git log --graph --oneline --decorate --pretty=format:'%C(auto)%h %ad %d %s' --date=format:'%Y-%m-%d %H:%M'"
+
+# R user config lives in the tracked repo, not ~/.Rprofile: the home dir is not
+# a persisted volume, so a home-level profile would be wiped on every rebuild.
+# R_PROFILE_USER points R at .devcontainer/home/Rprofile instead (see that file
+# for what it sets, e.g. suppressing the stray Rplots.pdf). Add a home/Renviron
+# and R_ENVIRON_USER here alongside it if env-style R settings are ever needed.
+export R_PROFILE_USER=/workspace/.devcontainer/home/Rprofile
+
+# Never prompt to save the workspace image (.RData) on exit from an interactive
+# R session. There is no R option for this - it is a front-end flag - so an
+# alias is the standard fix. Rscript never prompts, so only interactive R is
+# affected; --no-save is accepted before CMD, so `R CMD BATCH` still works.
+alias R='R --no-save'

@@ -1,0 +1,21 @@
+# User-level R profile for the devcontainer.
+#
+# Loaded at the start of every R session via R_PROFILE_USER, which is exported
+# in .devcontainer/shellrc.sh to point here. It lives in the tracked repo rather
+# than ~/.Rprofile because the home dir is not a persisted volume (a plain
+# ~/.Rprofile would be wiped on every rebuild). Runs after the root-owned
+# etc/Rprofile.site (which pins the P3M repo). A project-local ./.Rprofile, if
+# one exists, takes precedence over this file and this one is not read.
+
+# Suppress the stray Rplots.pdf that R drops in the cwd whenever code opens a
+# transient graphics device non-interactively (e.g. ggsave() on a gridExtra
+# grob): point the fallback device at a null pdf sink instead of a file.
+if (!interactive()) options(device = function(...) grDevices::pdf(NULL))
+
+# No X11/Tk in the container, so render any menu (CRAN mirror picker,
+# install.packages() choices) as a text menu instead of a failed GUI popup.
+options(menu.graphics = FALSE)
+
+# Longer download timeout for large P3M binaries / slow fetches behind the
+# firewall (the default is 60s).
+options(timeout = 300)
