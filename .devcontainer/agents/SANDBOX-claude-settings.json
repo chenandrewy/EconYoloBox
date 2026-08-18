@@ -9,8 +9,11 @@
   "theme": "dark",
   "skipDangerousModePermissionPrompt": true,
   "agentPushNotifEnabled": true,
-  "gitAttribution": false,
-  "includeCoAuthoredBy": false,
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
   "remoteControlAtStartup": true,
   "autoMemoryEnabled": false,
   "disableClaudeAiConnectors": true
