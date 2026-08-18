@@ -50,6 +50,15 @@
         "[python]": {
           "editor.formatOnSave": false
         },
+        "[latex]": {
+          "editor.formatOnSave": false
+        },
+        "[tex]": {
+          "editor.formatOnSave": false
+        },
+        "[bibtex]": {
+          "editor.formatOnSave": false
+        },
         "python.defaultInterpreterPath": "/opt/venv/bin/python",
         "editor.codeActionsOnSave": {
           "source.fixAll.eslint": "explicit"
