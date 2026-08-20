@@ -5,15 +5,11 @@ __pycache__/
 
 # Project folders share this sandbox but have their own Git repositories.
 # Add exact folder names or prefix globs as needed.
-My-Project/
-Ref,*/
-Disc,*/
-Travel,*/
-Live,*/
 Other/
 LIBRARY/
 dev/
 DONE/
+Live/
 
 # messy templates
 template/
