@@ -107,10 +107,10 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 # (arbitrary rented VMs), i.e. a rent-a-C2 endpoint surface; goog.json is
 # Google's own fleet. That boundary is what keeps this defensible.
 #
-# This is what makes Scholar reachable, and it self-heals across Google's
-# anycast rotations instead of needing hand-patched CIDRs. Knowingly accepted:
-# the fleet is routed by SNI, so allowing Scholar necessarily allows
-# Docs/Drive/Forms - programmable first-party sinks that can relay data out.
+# Allowing the published ranges self-heals across Google's anycast rotations
+# instead of needing hand-patched CIDRs. Knowingly accepted: the fleet is routed
+# by SNI, so allowing any Google host necessarily allows Docs/Drive/Forms -
+# programmable first-party sinks that can relay data out.
 # See docs/journal/0724d,google-firewall-open.md for why that trade is fine here.
 echo "Fetching Google IP ranges..."
 goog_ranges=$(curl -s https://www.gstatic.com/ipranges/goog.json)
@@ -202,7 +202,6 @@ for domain in \
     "arxiv.org" \
     "www.arxiv.org" \
     "export.arxiv.org" \
-    "scholar.google.com" \
     "api.mistral.ai" \
     "pypi.org" \
     "files.pythonhosted.org" \

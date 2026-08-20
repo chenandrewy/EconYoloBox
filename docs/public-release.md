@@ -5,7 +5,7 @@ private projects, journal notes, host paths, or private history.
 
 Three rules make the rest routine:
 
-- The public checkout lives at `/workspace/Other/EconYoloBox/`, ignored by the
+- The public checkout lives at `/workspace/Live/EconYoloBox/`, ignored by the
   private repository and holding its own `.git`. Never add a public remote to
   the private repository.
 - Export with `git archive` from a commit, never by copying the working tree.
@@ -18,7 +18,7 @@ The release is always `HEAD`. Pin it so every later step reads one tree.
 
 ```bash
 release_commit="$(git rev-parse HEAD)"
-release_dir="/workspace/Other/EconYoloBox"
+release_dir="/workspace/Live/EconYoloBox"
 
 test -z "$(git status --porcelain)"
 test ! -e "$release_dir"
@@ -50,13 +50,19 @@ Edit only under `$release_dir`.
 - **README** — name it `EconYoloBox`, keep the setup instructions that apply to
   public users, drop private-workspace commentary, and link `docs/features.md`
   for the feature tour.
-- **`.gitignore`** — the project-folder block, marked by its comments, lists the
-  real private prefixes. Replace them with `My-Project/`.
+- **`.gitignore`** — the project-folder block, marked by its comments, lists
+  the real private folders (`Live/` and friends). Replace that block with a
+  single `My-Project/`.
 - **Examples** — replace real project names and hostnames with `My-Project` and
   a generic host, wherever they appear in prose or comments.
 - **Journal references** — the journal is excluded, not scrubbed, so every link
   or path pointing into it dangles in the export. Reword them to state the fact
   without the citation; an entry's filename can name private work by itself.
+- **Google Scholar** — nothing to do here as long as the private tree stays
+  clean; the Scholar scraper and every mention of it were removed upstream. The
+  audit in step 3 greps for its fingerprints so a reintroduced mention cannot
+  reach the export unnoticed. If one turns up, remove it upstream rather than
+  scrubbing it here.
 - **Keep** the author's name in `LICENSE` and the README byline. The repository
   is published under it deliberately.
 
@@ -68,26 +74,38 @@ Stage the snapshot so it can be reviewed as a diff, then search it.
 git -C "$release_dir" init -b main
 git -C "$release_dir" add -A
 
-git -C "$release_dir" grep --cached -n -F \
-  -e 'chen1678' -e '/Users/' -e 'Dropbox' -e 'MacBook' -e 'docs/journal' -- .
+git -C "$release_dir" grep --cached -n -i -F \
+  -e 'chen1678' -e '/Users/' -e 'Dropbox' -e 'MacBook' -e 'docs/journal' \
+  -e 'scholar' -e 'gs_captcha' -e 'cites=' -e 'as_sdt' -e 'cluster=' \
+  -e '--cluster' -- .
 
-git show "$release_commit:.gitignore" \
-  | sed -n 's#^\([^#[:space:]]*\)\*/$#\1#p' \
-  | while IFS= read -r prefix; do
-      printf '\n== %s ==\n' "$prefix"
-      git -C "$release_dir" grep --cached -n -F -e "$prefix" -- .
-    done
+private_names="$(
+  { git show "$release_commit:.gitignore" \
+      | sed -n 's#^\([A-Za-z][^#[:space:]]*\)/$#\1#p'
+    ls -1 /workspace/Live | grep -vx EconYoloBox   # the release names itself
+  } | sort -u
+)"
+test -n "$private_names"
+printf '%s\n' "$private_names"          # eyeball before trusting a quiet result
+
+printf '%s\n' "$private_names" | while IFS= read -r name; do
+    printf '\n== %s ==\n' "$name"
+    git -C "$release_dir" grep --cached -n -F -e "$name" -- .
+done
 
 git -C "$release_dir" ls-files
 git -C "$release_dir" diff --cached
 ```
 
-Prefixes are derived from `.gitignore` rather than listed here, so the audit
-stays correct as they change; confirm the derived list is non-empty before
-trusting a quiet result. Judge each hit on context — generic Dropbox references
-are fine, and a short prefix can occur in ordinary English — but do not publish
-with an unexplained match. Confirm `credentials-map.json` still holds only
-slug-to-environment-variable mappings.
+Private names are derived rather than listed here, so the audit stays correct
+as projects come and go: the ignored top-level folders come from `.gitignore`,
+and the individual project names come from listing `Live/`. The second source
+matters — a folder name can be revealing on its own, and nothing in
+`.gitignore` spells those names out. Confirm the printed list is non-empty and
+looks right before trusting a quiet result. Judge each hit on context —
+generic Dropbox references are fine, and a short name can occur in ordinary
+English — but do not publish with an unexplained match. Confirm
+`credentials-map.json` still holds only slug-to-environment-variable mappings.
 
 ## 4. Test
 
@@ -115,7 +133,7 @@ Reuse the same checkout. Export the new commit to a temporary directory, scrub
 and audit and test it there, then swap it in.
 
 ```bash
-release_dir="/workspace/Other/EconYoloBox"
+release_dir="/workspace/Live/EconYoloBox"
 release_commit="$(git -C /workspace rev-parse HEAD)"
 next_snapshot="$(mktemp -d)"
 

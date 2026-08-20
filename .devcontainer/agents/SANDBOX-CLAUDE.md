@@ -33,8 +33,8 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
   - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
-    (`goog.json`) — which covers Scholar and the rest of Google's first-party
-    fleet. GCP customer ranges (`cloud.json`) are deliberately **not** allowed.
+    (`goog.json`), which cover Google's first-party fleet. GCP customer ranges
+    (`cloud.json`) are deliberately **not** allowed.
   - **Data**: WRDS, FRED, Ken French's data library
     (`mba.tuck.dartmouth.edu`), `global-q.org`, `www.agr.com`.
   - There is still no general web access — assume a fetch of an arbitrary URL
@@ -118,7 +118,7 @@ Custom tools live in `/workspace/.tools/`, organized by topic. Check these folde
 - `.tools/pdf/`: `pdf2md.py` (PDF to markdown), `rebookmark.py` (bookmarks PDFs)
 - `.tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
 - `.tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork`); see its README
-- `.tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README. **Google Scholar does not work from this sandbox** (its IP is CAPTCHA-blocked) and there is no Scholar fallback here
+- `.tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README
 
 ## USER PERMISSION REQUIRED
 

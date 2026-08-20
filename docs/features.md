@@ -144,10 +144,10 @@ commands built on top of them are in [§4](#4-ergonomic-research-tooling).
 - **Research-tuned network allowlist.** The firewall is deny-by-default and
   allows FRED, OpenAlex, arXiv, SSRN, WRDS, the Ken French data library,
   global-q, and JKP factor data alongside package registries, code hosting, and
-  agent APIs. Google's published first-party ranges are also allowed for
-  Scholar and other Google-hosted services; arbitrary GCP customer ranges are
-  not. CDN-fronted package and documentation hosts are added at DNS resolution
-  time so ordinary address rotation does not break installs.
+  agent APIs. Google's published first-party ranges are also allowed, so
+  Google-hosted services resolve; arbitrary GCP customer ranges are not.
+  CDN-fronted package and documentation hosts are added at DNS resolution time
+  so ordinary address rotation does not break installs.
 
 ## 3. Project templates (`template/`)
 
@@ -213,9 +213,7 @@ commands.
   hierarchies, including section, figure, and table bookmarks.
 - **LyX/TeX sync (`sync-lyx.sh`).** Two-way sync with PDF rebuild.
 - **Citation lookup (`cited_by.py`).** OpenAlex API — stable and structured.
-  Google Scholar CAPTCHA-blocks the container's IP, so there is no Scholar
-  fallback inside the sandbox; use OpenAlex or ask the user to search Scholar
-  on the host.
+  Seeds from a DOI, a title, or an OpenAlex W-id.
 
 ### Containers, sessions, and agents
 

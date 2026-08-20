@@ -8,12 +8,6 @@ file holds the background that would otherwise bloat it.
 `cited_by.py` answers "what has cited this paper?" from OpenAlex. A "follow-up"
 is any work citing the seed paper.
 
-> **Google Scholar does not work from inside this sandbox.** Scholar CAPTCHA-blocks
-> the container's IP, and no amount of client-side politeness clears it: the block
-> is site-side and IP-scoped, not a matter of request shaping. There is no Scholar
-> path to fall back to here — use `cited_by.py`, or ask the user to run a Scholar
-> search on the host.
-
 ### `cited_by.py` (OpenAlex)
 
 Takes a DOI (raw, `doi:` form, or `https://doi.org/...` URL) and sorts citers by
@@ -41,9 +35,7 @@ on citation weight.
 The W-id seed also covers records that carry no DOI at all — older articles,
 book chapters, some working papers.
 
-**What you give up without Scholar.** OpenAlex trails Scholar on working papers:
-Scholar indexes SSRN/NBER/arXiv drafts and their citations weeks-to-months
-earlier, and it produces the canonical "Cited by N" count people quote in
-finance/econ. For a recent or unpublished paper, treat an OpenAlex count as a
-floor, and check the paper's own SSRN/NBER page or ask the user to run a Scholar
-search on the host.
+**Coverage caveat.** OpenAlex trails on working papers: SSRN/NBER/arXiv drafts
+and their citations are indexed later than the versions of record. For a recent
+or unpublished paper, treat an OpenAlex count as a floor and check the paper's
+own SSRN/NBER page.
