@@ -1,8 +1,7 @@
 # Sandbox Features
 
 Agents run unsupervised but bounded, the container supplies the system layer for
-economics research, recurring project workflows are converging on reusable
-templates, and the daily workflow around all of it is short.
+economics research, and the daily workflow around all of it is short.
 
 ## 1. Safe YOLO agents
 
@@ -118,7 +117,7 @@ security theatre.
 
 What the container makes reachable and installable: the analysis stacks, and the
 network allowlist that lets research data and package mirrors through. The
-commands built on top of them are in [§4](#4-ergonomic-research-tooling).
+commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
 - **One-command analysis stacks.** `install-packages.sh` populates a Python venv
   and R site-library in version-named persistent volumes, so rebuilds are fast
@@ -149,40 +148,7 @@ commands built on top of them are in [§4](#4-ergonomic-research-tooling).
   CDN-fronted package and documentation hosts are added at DNS resolution time
   so ordinary address rotation does not break installs.
 
-## 3. Project templates (`template/`)
-
-Container-level setup gets you a working environment. The next step is to turn
-the repeated structure in existing projects into generalized templates. Econ
-research output comes in a few recurring genres, each tending toward a stable
-file layout, build pipeline, and set of agent instructions.
-
-Status: `template/` currently holds real work instances, not generalized
-templates. A common skeleton has converged across the recent ones and is ready
-to be extracted:
-
-- `AGENTS.md` + `CLAUDE.md` — the gig, target file structure, workflow, build
-  commands, forbidden actions
-- `sub/` — the submission as received, plus `paper.md` from `pdf2md.py` so
-  agents can grep the paper rather than re-reading a PDF
-- `dev/journal/` → `notes/` → output — messy notes to clean notes to product
-- `build.sh` / `final-build.sh` / `number_slides.py` — one-command builds,
-  including the rename/touch trick that makes VS Code's PDF viewer refresh
-- `agent-sessions/` with `cc-paper.sh` and `gpt-paper.sh` — fork a session that
-  has already ingested the paper, so the reading cost is paid once
-
-Three templates planned:
-
-- **Live research projects** — the long-running case: data, code, drafts.
-- **Referee reports** — the public version must be built around a **fabricated**
-  manuscript. Real reports and the submissions they discuss are confidential and
-  cannot ship.
-- **Discussions** — conference and webinar discussions. These are the author's
-  own work and can ship real, which makes them the strongest public
-  demonstration: a short, self-contained, deadline-driven genre that exercises
-  OCR, literature lookup, LyX math notes, Beamer builds, and agent session
-  forking end to end.
-
-## 4. Ergonomic research tooling
+## 3. Ergonomic research tooling
 
 The largest share of the work here. Getting into a container, starting an agent,
 finding it again, moving between machines, and turning a PDF into something
@@ -267,3 +233,22 @@ commands.
 - **Persistent agent auth.** Named volumes keep Claude and Codex login state
   across rebuilds; VS Code forwards host Git credentials so in-container work
   can push branches and open PRs.
+
+### Project conventions the tooling assumes
+
+The commands above are shaped by a layout that has converged across recent
+projects. None of it is enforced — it is the working style the tools were built
+to serve, and it explains why they exist:
+
+- `AGENTS.md` + `CLAUDE.md` at the project root — the gig, target file
+  structure, workflow, build commands, forbidden actions.
+- `sub/` holds the source document as received, plus a `paper.md` from
+  `pdf2md.py`, so agents grep the paper rather than re-reading a PDF on every
+  question.
+- `dev/journal/` → `notes/` → output — messy notes to clean notes to product,
+  with the journal treated as dated snapshots rather than maintained docs.
+- `build.sh` / `final-build.sh` — one-command builds, including the rename and
+  touch trick that makes the VS Code PDF viewer refresh instead of showing a
+  stale render.
+- A forked agent session that has already ingested the paper (`cc-fork`,
+  `gpt-fork`), so the reading cost is paid once rather than at every restart.
