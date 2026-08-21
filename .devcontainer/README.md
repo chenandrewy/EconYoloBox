@@ -87,7 +87,7 @@ Claude Code remote-control session names so sessions from different computers
 are distinguishable:
 
 ```text
-MacBook25:Live,Risk-vs-Writing#1
+MacBook25:My-Project#1
 ```
 
 Because the name appears in every session, a short one is worth setting.

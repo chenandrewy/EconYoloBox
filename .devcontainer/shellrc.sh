@@ -71,8 +71,8 @@ fi
 # Start Claude in the container, always under --remote-control so the session is
 # visible to `ccsessions` / `cckill` on the host. The name is derived from the
 # working directory rather than asked for, so starting a session is still one
-# word: on host "MacBook.local", /workspace/Live,Risk-vs-Writing becomes
-# "MacBook:Live,Risk-vs-Writing#1". /workspace itself uses the host folder's
+# word: on host "MacBook.local", /workspace/My-Project becomes
+# "MacBook:My-Project#1". /workspace itself uses the host folder's
 # name. Set CC_SESSION_NAME to override the project portion. Yolo is
 # unconditional here because the container is the blast radius — host-side
 # launchers that target a container pass the flag themselves.

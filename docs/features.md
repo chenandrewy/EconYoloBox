@@ -1,8 +1,7 @@
 # Sandbox Features
 
-Agents run unsupervised but bounded, the environment is ready for economics
-research out of the box, projects start from a known-good skeleton, and the
-daily workflow around all of it is short.
+Agents run unsupervised but bounded, the container supplies the system layer for
+economics research, and the daily workflow around all of it is short.
 
 ## 1. Safe YOLO agents
 
@@ -24,9 +23,10 @@ judgment. Traces of the lineage are still visible — the container user is
 `node`, and the shell-history volume is still named
 `claude-code-bashhistory-*`.
 
-The consequence is worth stating plainly: nothing in the agent configuration
-tries to constrain a running agent, because that is not where the boundary
-lives. The firewall is the blast radius.
+The consequence is worth stating plainly: ordinary agent preferences are not
+the boundary. The container isolates the process and the firewall bounds its
+network reach; files deliberately bind-mounted into `/workspace` remain live
+host files and must be treated accordingly.
 
 ### Adapted for economics research
 
@@ -35,10 +35,13 @@ tooling those changes exist to support is described in
 [§2](#2-economics-research).
 
 - **Base image.** Rebased onto `ubuntu:24.04` rather than a Node image, because
-  the stack that matters here is R, Python, TeX Live, and LyX. Tool versions are
-  pinned (git, delta, Claude Code, Codex CLI) and layers are cache-conscious, so
-  the image stays disposable: destroy and rebuild at will, with everything worth
-  keeping in named volumes or on the host.
+  the stack that matters here is R, Python, TeX Live, and LyX. Image-level tools
+  such as Git, Node, delta, R, Pandoc, and LyX are pinned, and layers are
+  cache-conscious. The Claude Code and Codex CLIs deliberately live outside the
+  image in a named npm volume: `install-packages.sh cli` installs or updates both
+  to their current releases without a rebuild undoing the update. The image
+  stays disposable, with everything worth keeping in named volumes or on the
+  host.
 
 - **Firewall.** Upstream's allowlist covers what a software engineer needs.
   This one runs its own dnsmasq for domain-based allowlisting and adds the
@@ -47,12 +50,19 @@ tooling those changes exist to support is described in
   all traffic rather than leaving the container open, and blocked hosts are
   REJECTed so they fail fast instead of hanging.
 
-- **Startup scripts.** `postStartCommand` arms the firewall and seeds canonical
-  agent guidance, so a fresh container is research-ready with no manual steps.
+- **Startup scripts.** `postStartCommand` arms the firewall, seeds canonical
+  agent guidance and shared skills, and checks the enforced agent policy. A
+  fresh container has the system toolchain immediately; the optional Python and
+  R stacks and the AI CLIs are installed once into persistent volumes with
+  `install-packages.sh`.
+
+- **Enforced agent policy.** Root-owned configuration disables Claude's online
+  connectors and Codex Apps, Plugins, and remote plugin catalogs. A startup
+  check verifies the effective policy. This reduces unavailable or unintended
+  integration surfaces; like the rest of the agent configuration, it is not the
+  sandbox boundary.
 
 ### Credential handling
-
-This part is not inherited, so it has to stand on its own argument.
 
 WRDS and LLM API keys have to reach a container that a YOLO agent is running
 inside. The design: secrets live in the **host** credential store (macOS
@@ -63,12 +73,12 @@ and writes a mode-`600` file that is bind-mounted **read-only** at
 call `get-credentials.py`, which reads the file on demand and returns the one
 value asked for.
 
-Three properties follow, in decreasing order of how much they matter.
-
-- **Credentials never enter any process environment.** They are not in PID 1's
-  `environ`, so they are not inherited by every shell, agent, and subprocess in
-  the container. An agent that dumps its own environment — or a crash reporter,
-  or a logging library that helpfully serializes `os.environ` — gets nothing.
+- **Credentials are not injected into the ambient process environment.** They
+  are not in PID 1's `environ`, so they are not inherited by every shell, agent,
+  and subprocess in the container. An agent that dumps its own environment — or
+  a crash reporter, or a logging library that helpfully serializes `os.environ`
+  — gets nothing unless a caller explicitly supplied a per-command environment
+  override.
 
 - **Credentials never enter Docker metadata.** `--env-file` values become
   `Config.Env`: `docker inspect` prints them, and they persist in the daemon's
@@ -77,92 +87,57 @@ Three properties follow, in decreasing order of how much they matter.
   readable by anyone who can reach the Docker socket. The bind mount has no such
   copy.
 
-- **The store is the OS's, not ours.** Keychain enforces per-app ACLs and can
-  prompt. A container-side store would have to be unlocked by a passphrase
-  arriving from outside at startup — the same injection problem one level down,
-  and a store auto-unlocked at boot is a plaintext file with extra steps.
-  Accordingly `get-credentials.py` does not attempt store lookups on Linux;
-  in-container resolution is file-and-env only, by design.
-
 **What this does not do.** It is not a boundary against the agent. Anything
 running as `node` can read `/run/secrets/credentials.env` — it must, or WRDS
 queries would not work. Nor does it stop the host user, who can always
-`docker exec -u root`. The claim is narrower and worth stating precisely: the
-secret exists in exactly one place inside the container, in one file, readable
-on demand — instead of being copied into every process environment and into
-Docker's own metadata, where it outlives the thing it was scoped to and spreads
-to places nobody thinks to check. Given that the agent is deliberately
-unsupervised, minimizing the number of places a credential can be picked up
-incidentally is the part actually worth engineering.
-
-See [`docs/journal/0725c,credential-env-file.md`](journal/0725c,credential-env-file.md)
-for the analysis this replaced, including why the earlier auto-delete timer was
-security theatre.
-
+`docker exec -u root`. The claim is narrower and worth stating precisely: by
+default, the injected secret exists in one place inside the container, in one
+file, readable on demand — instead of being copied into every process
+environment and into Docker's own metadata, where it outlives the thing it was
+scoped to and spreads to places nobody thinks to check.
 
 ## 2. Economics research
 
 What the container makes reachable and installable: the analysis stacks, and the
 network allowlist that lets research data and package mirrors through. The
-commands built on top of them are in [§4](#4-ergonomic-research-tooling).
+commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
-- **Ready-to-use analysis stacks.** A full Python venv and R site-library
-  installed by one script (`install-packages.sh`) into version-named persistent
-  volumes, so rebuilds are fast and packages survive container recreation.
+- **One-command analysis stacks.** `install-packages.sh` populates a Python venv
+  and R site-library in version-named persistent volumes, so rebuilds are fast
+  and packages survive container recreation. A newly created volume starts
+  empty; the script is the explicit, one-time setup step and can be rerun to add
+  or repair packages.
 
   Note that installs run *behind the firewall*, which makes them tricky: package
   hosts and their redirect mirrors must be allowlisted, and `docker build`
   having open network is no evidence a command works in a running container.
 
-- **Reproducible package state.** R resolves against a dated P3M snapshot rather
-  than live CRAN, so an environment rebuilt months later is the environment you
-  had. Persistent volumes are version-named, so a stack upgrade is a new volume
-  rather than a mutation of the old one.
+- **Pinned R package state.** R resolves against a dated P3M snapshot rather
+  than live CRAN, so an R environment rebuilt months later resolves the same
+  package versions. Python intentionally resolves current packages from PyPI;
+  it is convenient, not lockfile-reproducible. Persistent volumes are
+  interpreter- and platform-versioned, so a stack upgrade starts a new volume
+  rather than mounting incompatible compiled packages.
 
-- **Research-tuned network allowlist.** The firewall's allowlist is curated for
-  economics: FRED, OpenAlex, arXiv, SSRN, WRDS, the Ken French data library,
-  global-q, and JKP factor data are reachable alongside package registries and
-  agent APIs — little else is.
+- **Research-friendly defaults.** A tracked user R profile suppresses stray
+  `Rplots.pdf` files, while the container supplies TeX Live, Biber, LyX, Pandoc,
+  and the native libraries needed by the R and Python stacks.
 
-## 3. Project templates (`template/`)
+- **Research-tuned network allowlist.** The firewall is deny-by-default and
+  allows FRED, OpenAlex, arXiv, SSRN, WRDS, the Ken French data library,
+  global-q, and JKP factor data alongside package registries, code hosting, and
+  agent APIs. Google's published first-party ranges are also allowed, so
+  Google-hosted services resolve; arbitrary GCP customer ranges are not.
+  CDN-fronted package and documentation hosts are added at DNS resolution time
+  so ordinary address rotation does not break installs.
 
-Container-level setup gets you a working environment; templates get you a
-working *project*. Econ research output comes in a few recurring genres, each
-with a stable file layout, build pipeline, and set of agent instructions.
-
-Status: `template/` currently holds real work instances, not generalized
-templates. A common skeleton has converged across the recent ones and is ready
-to be extracted:
-
-- `AGENTS.md` + `CLAUDE.md` — the gig, target file structure, workflow, build
-  commands, forbidden actions
-- `sub/` — the submission as received, plus `paper.md` from `pdf2md.py` so
-  agents can grep the paper rather than re-reading a PDF
-- `dev/journal/` → `notes/` → output — messy notes to clean notes to product
-- `build.sh` / `final-build.sh` / `number_slides.py` — one-command builds,
-  including the rename/touch trick that makes VS Code's PDF viewer refresh
-- `agent-sessions/` with `cc-paper.sh` and `gpt-paper.sh` — fork a session that
-  has already ingested the paper, so the reading cost is paid once
-
-Three templates planned:
-
-- **Live research projects** — the long-running case: data, code, drafts.
-- **Referee reports** — the public version must be built around a **fabricated**
-  manuscript. Real reports and the submissions they discuss are confidential and
-  cannot ship.
-- **Discussions** — conference and webinar discussions. These are the author's
-  own work and can ship real, which makes them the strongest public
-  demonstration: a short, self-contained, deadline-driven genre that exercises
-  OCR, literature lookup, LyX math notes, Beamer builds, and agent session
-  forking end to end.
-
-## 4. Ergonomic research tooling
+## 3. Ergonomic research tooling
 
 The largest share of the work here. Getting into a container, starting an agent,
 finding it again, moving between machines, and turning a PDF into something
 workable should each be one step.
 
-### Every command, by location
+### User-facing commands, by location
 
 | Location | Commands |
 | --- | --- |
@@ -173,7 +148,7 @@ workable should each be one step.
 | `.tools/latex/` | `sync-lyx.sh` |
 | `.tools/lit/` | `cited_by.py` |
 | `.devcontainer/agents/` | `seed-agent-guidelines.sh` (runs at container start) |
-| `.devcontainer/` | `install-packages.sh`, `test-firewall.sh` |
+| `.devcontainer/` | `install-packages.sh`, `test-firewall.sh`, `test-agent-policy.sh` |
 
 Everything in `.tools/` is on `PATH` via `shellrc.sh`, so the filenames are the
 commands.
@@ -183,11 +158,11 @@ commands.
 - **PDF to Markdown (`pdf2md.py`).** Mistral OCR with figure extraction, writing
   a sibling `<stem>_images/` folder. This is what makes a paper greppable by an
   agent instead of re-read as a PDF on every question.
-- **PDF bookmarks (`rebookmark.py`).** Regenerates section bookmarks.
+- **PDF bookmarks (`rebookmark.py`).** Repairs or regenerates clickable outline
+  hierarchies, including section, figure, and table bookmarks.
 - **LyX/TeX sync (`sync-lyx.sh`).** Two-way sync with PDF rebuild.
 - **Citation lookup (`cited_by.py`).** OpenAlex API — stable and structured.
-  A Google Scholar scraper used to sit alongside it, but Scholar CAPTCHA-blocks
-  the container's IP; it is parked, unsupported, in the gitignored `dev/`.
+  Seeds from a DOI, a title, or an OpenAlex W-id.
 
 ### Containers, sessions, and agents
 
@@ -202,7 +177,7 @@ commands.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered
-  (`Live,Risk-vs-Writing#1`), so `dce <dir>` then `cchat-yolo` is the whole
+  (`My-Project#1`), so `dce <dir>` then `cchat-yolo` is the whole
   workflow and every session is identifiable without being named by hand.
 
 - **Fleet control.** Every session starts under `--remote-control`, so host-side
@@ -221,13 +196,22 @@ commands.
 - **AIChatRender VS Code extension.** The transcript panel formerly bundled
   here is now maintained separately in the
   [AIChatRender repository](https://github.com/chenandrewy/aichatrender) and is
-  installed independently of this devcontainer.
+  installed automatically from the VS Code Marketplace by this devcontainer.
 
-- **Agent config as code (`.devcontainer/agents/`).** The single source of truth
-  for Claude/Codex guidance and settings, re-seeded on every container start:
-  guidance is symlinked so edits apply live; settings are copied so drift resets
-  to canonical. These are preferences and workflow defaults — model, effort
-  level, statusline, remote control at startup — not a security mechanism.
+- **Agent config and skills as code (`.devcontainer/agents/`).** The single
+  source of truth for Claude/Codex guidance, shared LyX and PDF-bookmark skills,
+  and settings is re-seeded on every container start. Guidance and skills are
+  symlinked so edits apply live; writable settings are copied so drift resets to
+  canonical. Separately, root-owned managed policy files enforce the connector
+  and plugin restrictions described above. Preferences such as model, effort
+  level, statusline, and remote control remain workflow defaults, not a security
+  mechanism.
+
+- **Host-aware workspace settings.** Startup captures a stable host name and
+  detects the host time zone, while `SANDBOX.toml` provides agent-visible paths
+  for the research library and macOS screenshots. That lets agents resolve
+  phrases such as “this screenshot” without clipboard access and use the right
+  zone for human-facing timestamps.
 
 - **Persistent agent auth.** Named volumes keep Claude and Codex login state
   across rebuilds; VS Code forwards host Git credentials so in-container work

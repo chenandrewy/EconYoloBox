@@ -80,8 +80,20 @@
   "remoteUser": "node",
   "mounts": [
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
-    "source=${localWorkspaceFolderBasename}-claude-config,target=/home/node/.claude,type=volume",
-    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/node/.codex,type=volume",
+    // Every volume below is keyed by ${devcontainerId}, not by folder name
+    // alone. anthropics/claude-code fixed this exact bug in July 2025 ("Fix
+    // devcontainer volume security vulnerability"): two workspaces that share
+    // a basename would otherwise mount the SAME volume, silently sharing the
+    // Claude/Codex auth tokens and - via npm-global - the very executables
+    // both containers run. The readable prefix is kept only so `docker volume
+    // ls` stays scannable; the id is what makes the name unique.
+    //
+    // Cost of the id: it is derived from the host path, so moving or renaming
+    // the project folder orphans these volumes (re-login + install-packages.sh).
+    // Orphans are then unidentifiable by name; find them with
+    // `docker volume ls -f dangling=true`.
+    "source=${localWorkspaceFolderBasename}-claude-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    "source=${localWorkspaceFolderBasename}-codex-config-${devcontainerId},target=/home/node/.codex,type=volume",
     // Credentials stay out of Docker's Config.Env and are read on demand.
     // inject-credentials.py creates this host-side file before Docker starts.
     "source=/tmp/devcontainer-credentials.env,target=/run/secrets/credentials.env,type=bind,readonly",
@@ -98,15 +110,15 @@
     // filled under bookworm must never be mounted into an Ubuntu container.
     // Changing the token is what makes the base migration start clean volumes
     // automatically instead of failing at load time with ABI errors.
-    "source=${localWorkspaceFolderBasename}-r-site-library-noble-4.5.3,target=/opt/R/4.5.3/lib/R/site-library,type=volume",
-    "source=${localWorkspaceFolderBasename}-venv-noble-py3.12,target=/opt/venv,type=volume",
+    "source=${localWorkspaceFolderBasename}-r-site-library-noble-4.5.3-${devcontainerId},target=/opt/R/4.5.3/lib/R/site-library,type=volume",
+    "source=${localWorkspaceFolderBasename}-venv-noble-py3.12-${devcontainerId},target=/opt/venv,type=volume",
     // The AI CLIs live here rather than in an image layer, so that updating
     // Codex in a running container is not undone by the next rebuild (a baked
     // `@latest` layer freezes at first cache; see the Dockerfile note). Codex
     // ships native per-platform binaries, so the name carries the distro AND
     // the node major - bump the token with NODE_MAJOR to start a clean volume
     // rather than serving binaries built against the wrong runtime.
-    "source=${localWorkspaceFolderBasename}-npm-global-noble-node24,target=/usr/local/share/npm-global,type=volume"
+    "source=${localWorkspaceFolderBasename}-npm-global-noble-node24-${devcontainerId},target=/usr/local/share/npm-global,type=volume"
   ],
   "containerEnv": {
     // TZ is intentionally absent: write-local-env.sh detects the host zone into

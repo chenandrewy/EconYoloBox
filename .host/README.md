@@ -42,13 +42,13 @@ manual "Reopen in Container" and no navigating after attach.
 To start Claude on a project folder in this repo:
 
 ```zsh
-dce Live,Risk-vs-Writing   # shell in the container, in that folder
+dce My-Project             # shell in the container, in that folder
 cchat-yolo                 # Claude, remote-controlled, named for the folder
 ```
 
 `cchat-yolo` is defined in `.devcontainer/shellrc.sh`, so it is available in
 every container shell. It always passes `--remote-control` and derives the
-session name from the working directory (`Live,Risk-vs-Writing#1`), numbering
+session name from the working directory (`My-Project#1`), numbering
 each session so a second one in the same folder stays distinguishable. Override
 the base name with `CC_SESSION_NAME`.
 

@@ -27,7 +27,7 @@ Key features:
    - Use a container image designed for fast R and Python package installation.
    - Chat with AI about math with equations rendered by a custom VS Code
      extension.
-   - Search the literature with custom Google Scholar and OpenAlex tools.
+   - Search the literature with a custom OpenAlex citation-lookup tool.
    - Convert PDFs to Markdown with high fidelity using a tool built on Mistral
      OCR (h/t Don Bowen).
 

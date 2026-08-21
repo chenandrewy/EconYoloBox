@@ -50,13 +50,24 @@ Edit only under `$release_dir`.
 - **README** — name it `EconYoloBox`, keep the setup instructions that apply to
   public users, drop private-workspace commentary, and link `docs/features.md`
   for the feature tour.
-- **`.gitignore`** — the project-folder block, marked by its comments, lists the
-  real private prefixes. Replace them with `My-Project/`.
+- **`.gitignore`** — the project-folder block, marked by its comments, lists
+  the real private prefixes. Replace them with `My-Project/`.
 - **Examples** — replace real project names and hostnames with `My-Project` and
   a generic host, wherever they appear in prose or comments.
-- **Journal references** — the journal is excluded, not scrubbed, so every link
-  or path pointing into it dangles in the export. Reword them to state the fact
-  without the citation; an entry's filename can name private work by itself.
+- **Journal references** — nothing to do here as long as the private tree stays
+  clean; the links and paths pointing into `docs/journal/` were reworded
+  upstream. The journal is excluded rather than scrubbed, so any new one dangles
+  in the export, and an entry's filename can name private work by itself. The
+  audit in step 3 greps for `docs/journal`; if a hit turns up, reword it upstream
+  rather than scrubbing it here.
+- **Private commit hashes** — the public repository is a fresh snapshot, so a
+  short hash cited in prose resolves to nothing there. Reword to state the change
+  without the citation.
+- **Google Scholar** — nothing to do here as long as the private tree stays
+  clean; the Scholar scraper and every mention of it were removed upstream. The
+  audit in step 3 greps for its fingerprints so a reintroduced mention cannot
+  reach the export unnoticed. If one turns up, remove it upstream rather than
+  scrubbing it here.
 - **Keep** the author's name in `LICENSE` and the README byline. The repository
   is published under it deliberately.
 
@@ -68,31 +79,46 @@ Stage the snapshot so it can be reviewed as a diff, then search it.
 git -C "$release_dir" init -b main
 git -C "$release_dir" add -A
 
-git -C "$release_dir" grep --cached -n -F \
-  -e 'chen1678' -e '/Users/' -e 'Dropbox' -e 'MacBook' -e 'docs/journal' -- .
+git -C "$release_dir" grep --cached -n -i -F \
+  -e 'chen1678' -e '/Users/' -e 'Dropbox' -e 'MacBook' -e 'docs/journal' \
+  -e 'scholar' -e 'gs_captcha' -e 'cites=' -e 'as_sdt' -e 'cluster=' \
+  -e '--cluster' -- .
 
-git show "$release_commit:.gitignore" \
-  | sed -n 's#^\([^#[:space:]]*\)\*/$#\1#p' \
-  | while IFS= read -r prefix; do
-      printf '\n== %s ==\n' "$prefix"
-      git -C "$release_dir" grep --cached -n -F -e "$prefix" -- .
-    done
+private_names="$(
+  { git show "$release_commit:.gitignore" \
+      | sed -n 's#^\([^#[:space:]]*\)\*/$#\1#p'
+    ls -d1 /workspace/Live,*/ | sed 's#^.*/Live,##; s#/$##'
+  } | sort -u
+)"
+test -n "$private_names"
+printf '%s\n' "$private_names"          # eyeball before trusting a quiet result
+
+printf '%s\n' "$private_names" | while IFS= read -r name; do
+    printf '\n== %s ==\n' "$name"
+    git -C "$release_dir" grep --cached -n -F -e "$name" -- .
+done
 
 git -C "$release_dir" ls-files
 git -C "$release_dir" diff --cached
 ```
 
-Prefixes are derived from `.gitignore` rather than listed here, so the audit
-stays correct as they change; confirm the derived list is non-empty before
-trusting a quiet result. Judge each hit on context — generic Dropbox references
-are fine, and a short prefix can occur in ordinary English — but do not publish
-with an unexplained match. Confirm `credentials-map.json` still holds only
-slug-to-environment-variable mappings.
+Private names are derived rather than listed here, so the audit stays correct
+as projects come and go. Two sources: the prefixes come from `.gitignore`,
+which enumerates them by design, and the bare project names come from globbing
+`Live,*/`. The second matters because a name is revealing without its prefix —
+a document that says "GoogleScholar" and never says "Live," would otherwise
+pass. Confirm the printed list is non-empty and looks right before trusting a
+quiet result. Judge each hit on context —
+generic Dropbox references are fine, and a short name can occur in ordinary
+English — but do not publish with an unexplained match. Confirm
+`credentials-map.json` still holds only slug-to-environment-variable mappings.
 
 ## 4. Test
 
-AIChatRender is maintained and tested in its own repository; it is not part of
-this release audit.
+The AIChatRender extension is out of scope. Nothing in this snapshot builds or
+bundles it — `docs/features.md` only points at its own repository, and the
+devcontainer installs it from the Marketplace — so it is tested there, not
+here.
 
 Add whatever else the changes warrant, and rebuild the exported devcontainer if
 its configuration moved.

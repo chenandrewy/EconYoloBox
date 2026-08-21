@@ -15,9 +15,6 @@ LIBRARY/
 dev/
 DONE/
 
-# messy templates
-template/
-
 # local-only Claude Code permissions (recreated by Claude when working from ./)
 .claude/settings.local.json
 

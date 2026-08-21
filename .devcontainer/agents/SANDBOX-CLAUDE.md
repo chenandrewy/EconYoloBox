@@ -33,10 +33,10 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
   - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
-    (`goog.json`) — which covers Scholar and the rest of Google's first-party
-    fleet. GCP customer ranges (`cloud.json`) are deliberately **not** allowed.
+    (`goog.json`), which cover Google's first-party fleet. GCP customer ranges
+    (`cloud.json`) are deliberately **not** allowed.
   - **Data**: WRDS, FRED, Ken French's data library
-    (`mba.tuck.dartmouth.edu`), `global-q.org`, `www.agr.com`.
+    (`mba.tuck.dartmouth.edu`) and `global-q.org`.
   - There is still no general web access — assume a fetch of an arbitrary URL
     will fail. A package install that dies on an unlisted **redirect** host is
     the common surprise; report the host so it can be added.
@@ -50,7 +50,7 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
   `/etc/codex/requirements.toml`. Do not try to bypass or re-enable them; ask
   the user for the unavailable mail, calendar, or other private data instead.
   These are client controls rather than a complete OS security boundary; see
-  `.devcontainer/README.md` under `Security Warnings` for the threat model.
+  `docs/features.md` under `Safe YOLO agents` for the threat model.
 - Installing *packages* from the allowlisted sources (pip, `install.packages()`,
   or `install-packages.sh`) is fine and does not need permission. New **system**
   libraries (`apt-get`, `-dev` packages) do — see `USER PERMISSION REQUIRED`.
@@ -98,15 +98,6 @@ Read `/workspace/SANDBOX.toml` for project-specific settings regarding
 
 ## Documentation
 
-## Journaling
-
-- Journaling refers to taking messy notes.
-- Journal notes should be in `docs/journal/` folders within the appropriate project folder.
-- A journal entry is a snapshot of what was going on when it was written, not a document to maintain.
-  - Do not maintain `docs/journal/` folders as if they are proper documentation.
-- Use `timestamp_timezone` for human-facing timestamps. Its default is
-  `America/New_York`.
-
 ## Script headers
 
 - At the top of every script, document how to run it, its inputs, and its outputs.
@@ -118,7 +109,7 @@ Custom tools live in `/workspace/.tools/`, organized by topic. Check these folde
 - `.tools/pdf/`: `pdf2md.py` (PDF to markdown), `rebookmark.py` (bookmarks PDFs)
 - `.tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
 - `.tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork`); see its README
-- `.tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README. **Google Scholar does not work from this sandbox** (its IP is CAPTCHA-blocked) and there is no Scholar fallback here
+- `.tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README
 
 ## USER PERMISSION REQUIRED
 
