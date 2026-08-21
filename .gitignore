@@ -1,0 +1,21 @@
+# sync items
+.DS_Store
+__pycache__/
+*.py[cod]
+
+# Project folders share this sandbox but have their own Git repositories.
+# Add exact folder names or prefix globs as needed.
+My-Project/
+Other/
+LIBRARY/
+dev/
+DONE/
+
+# local-only Claude Code permissions (recreated by Claude when working from ./)
+.claude/settings.local.json
+
+# editor state is personal, not shared container config
+.vscode/
+
+# agent session transcripts are a local-only cache, never committed
+.tools/ai-sesh/data/

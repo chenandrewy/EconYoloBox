@@ -1,0 +1,146 @@
+{
+  "name": "${localWorkspaceFolderBasename}",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "args": {
+      "TZ": "${localEnv:TZ:America/New_York}",
+      "GIT_VERSION": "2.49.0",
+      // Node is installed from NodeSource now that the base is ubuntu:24.04
+      // rather than node:20, so its version is pinned here like the rest.
+      // Keep NODE_MAJOR in step with NODE_VERSION: it selects the apt repo.
+      "NODE_MAJOR": "24",
+      "NODE_VERSION": "24.18.0-1nodesource1",
+      "GIT_DELTA_VERSION": "0.18.2",
+      "ZSH_IN_DOCKER_VERSION": "1.2.0"
+    }
+  },
+  "userEnvProbe": "none",
+  "initializeCommand": "bash -c 'bash .devcontainer/write-local-env.sh && source .devcontainer/find-python.sh && $PYTHON .devcontainer/inject-credentials.py'",
+  "runArgs": [
+    "--cap-add=NET_ADMIN",
+    "--cap-add=NET_RAW",
+    "--env-file=/tmp/devcontainer-local.env"
+  ],
+  "customizations": {
+    "vscode": {
+      // New publisher here => add its <publisher>.gallerycdn.vsassets.io
+      // entry to init-firewall.sh, or the install silently fails.
+      "extensions": [
+        "anthropic.claude-code",
+        "GitHub.copilot",
+        "GitHub.copilot-chat",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "tomoki1207.pdf",
+        "james-yu.latex-workshop",
+        "donjayamanne.githistory",
+        "mhutchie.git-graph",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "ikuyadeu.r-pack",
+        "reditorsupport.r",
+        "chenandrewy.aichatrender"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "[markdown]": {
+          "editor.formatOnSave": false
+        },
+        "[python]": {
+          "editor.formatOnSave": false
+        },
+        "[latex]": {
+          "editor.formatOnSave": false
+        },
+        "[tex]": {
+          "editor.formatOnSave": false
+        },
+        "[bibtex]": {
+          "editor.formatOnSave": false
+        },
+        "python.defaultInterpreterPath": "/opt/venv/bin/python",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        "window.title": "<${rootName}>${separator}${dirty}${activeEditorShort}",
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "bash": {
+            "path": "bash",
+            "icon": "terminal-bash"
+          },
+          "zsh": {
+            "path": "zsh"
+          }
+        }
+      }
+    }
+  },
+  "remoteUser": "node",
+  "mounts": [
+    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+    // Every volume below is keyed by ${devcontainerId}, not by folder name
+    // alone. anthropics/claude-code fixed this exact bug in July 2025 ("Fix
+    // devcontainer volume security vulnerability"): two workspaces that share
+    // a basename would otherwise mount the SAME volume, silently sharing the
+    // Claude/Codex auth tokens and - via npm-global - the very executables
+    // both containers run. The readable prefix is kept only so `docker volume
+    // ls` stays scannable; the id is what makes the name unique.
+    //
+    // Cost of the id: it is derived from the host path, so moving or renaming
+    // the project folder orphans these volumes (re-login + install-packages.sh).
+    // Orphans are then unidentifiable by name; find them with
+    // `docker volume ls -f dangling=true`.
+    "source=${localWorkspaceFolderBasename}-claude-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    "source=${localWorkspaceFolderBasename}-codex-config-${devcontainerId},target=/home/node/.codex,type=volume",
+    // Credentials stay out of Docker's Config.Env and are read on demand.
+    // inject-credentials.py creates this host-side file before Docker starts.
+    "source=/tmp/devcontainer-credentials.env,target=/run/secrets/credentials.env,type=bind,readonly",
+    // Compiled-package volumes: installs stay at runtime
+    // so image builds stay fast, but packages survive container recreation.
+    // Names carry the interpreter version so an upgrade starts a fresh volume
+    // instead of serving stale binaries - bump them together with R_VERSION in
+    // the Dockerfile / the base image's python3. The R target must match
+    // R_VERSION too (devcontainer.json cannot read Dockerfile ARGs). R picks
+    // up site-library automatically because the directory exists in the image.
+    //
+    // The `noble` token is the distro, and it is load-bearing: these packages
+    // are compiled against the base image's shared libraries, so a volume
+    // filled under bookworm must never be mounted into an Ubuntu container.
+    // Changing the token is what makes the base migration start clean volumes
+    // automatically instead of failing at load time with ABI errors.
+    "source=${localWorkspaceFolderBasename}-r-site-library-noble-4.5.3-${devcontainerId},target=/opt/R/4.5.3/lib/R/site-library,type=volume",
+    "source=${localWorkspaceFolderBasename}-venv-noble-py3.12-${devcontainerId},target=/opt/venv,type=volume",
+    // The AI CLIs live here rather than in an image layer, so that updating
+    // Codex in a running container is not undone by the next rebuild (a baked
+    // `@latest` layer freezes at first cache; see the Dockerfile note). Codex
+    // ships native per-platform binaries, so the name carries the distro AND
+    // the node major - bump the token with NODE_MAJOR to start a clean volume
+    // rather than serving binaries built against the wrong runtime.
+    "source=${localWorkspaceFolderBasename}-npm-global-noble-node24-${devcontainerId},target=/usr/local/share/npm-global,type=volume"
+  ],
+  "containerEnv": {
+    // TZ is intentionally absent: write-local-env.sh detects the host zone into
+    // /tmp/devcontainer-local.env. containerEnv becomes `docker run --env`, which
+    // outranks --env-file, so setting it here would clobber the detected value.
+    // Fallback if detection finds nothing: the Dockerfile's baked-in ARG TZ.
+    "NODE_OPTIONS": "--max-old-space-size=4096",
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    "AI_SESH_MACHINE": "${localEnv:AI_SESH_MACHINE}",
+    "CODEX_HOME": "/home/node/.codex",
+    "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
+    "LC_ALL": "C.UTF-8",
+    "LANG": "C.UTF-8"
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
+  "workspaceFolder": "/workspace",
+  // === FINAL COMMANDS ===
+  // To open the firewall, uncomment the temporary final command, comment the armed final command
+  // Warning: DO NOT COMMIT AN OPEN FIREWALL FINAL COMMAND
+  // TEMPORARY FINAL COMMANDS: skip firewall, seed agent guidelines
+  // "postStartCommand": "touch /tmp/FIREWALL-WINDOW-OPEN && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; }",
+  // ARMED FINAL COMMANDS: raise firewall, seed agent guidelines, test
+  "postStartCommand": "rm -f /tmp/FIREWALL-WINDOW-OPEN && sudo /usr/local/bin/init-firewall.sh && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; }",
+  "waitFor": "postStartCommand"
+}

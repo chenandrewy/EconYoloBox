@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Manual reset for the synced session stores. Rarely needed: the agents' own
+# ~30-day purges self-trim each machine's store.
+#
+#   sesh-wipe               # list per-machine stores
+#   sesh-wipe --divergent   # delete *.divergent-* quarantine copies
+#   sesh-wipe MACHINE       # delete data/MACHINE entirely
+#
+# Deleting a machine's store deletes its LIVE sessions, and Dropbox
+# propagates the deletion to that machine — hence the typed confirmation.
+set -euo pipefail
+
+source "$(dirname -- "${BASH_SOURCE[0]}")/_common.sh"
+resolve_machine || machine_id=""
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage:
+  sesh-wipe               List per-machine stores.
+  sesh-wipe --divergent   Delete quarantined *.divergent-* copies.
+  sesh-wipe MACHINE       Delete data/MACHINE entirely (typed confirmation).
+EOF
+  exit 0
+fi
+
+if [ $# -eq 0 ]; then
+  found=false
+  for d in "$data_root"/*/; do
+    [ -d "$d" ] || continue
+    found=true
+    m="$(basename "$d")"
+    size="$(du -sh "$d" | cut -f1)"
+    n="$(find "$d" -type f -name '*.jsonl' | wc -l)"
+    q="$(find "$d" -type f -name '*.divergent-*' | wc -l)"
+    marker=""
+    [ "$m" = "$machine_id" ] && marker="  (this machine)"
+    printf '%-16s %6s  %4d session file(s), %d quarantined%s\n' "$m" "$size" "$n" "$q" "$marker"
+  done
+  [ "$found" = true ] || echo "No machine stores under $data_root"
+  exit 0
+fi
+
+if [ "$1" = "--divergent" ]; then
+  files=()
+  while IFS= read -r f; do
+    files+=("$f")
+  done < <(find "$data_root" -type f -name '*.divergent-*' 2>/dev/null | sort)
+  if [ "${#files[@]}" -eq 0 ]; then
+    echo "No quarantined copies under $data_root"
+    exit 0
+  fi
+  printf '%s\n' "${files[@]}"
+  printf 'Delete these %d quarantined cop(ies)? [y/N] ' "${#files[@]}"
+  read -r answer
+  if [ "$answer" != "y" ] && [ "$answer" != "Y" ]; then
+    echo "Aborted; nothing deleted."
+    exit 1
+  fi
+  rm -f -- "${files[@]}"
+  echo "Deleted."
+  exit 0
+fi
+
+target="$1"
+if [ ! -d "$data_root/$target" ]; then
+  echo "No store for machine: $target (see sesh-wipe with no arguments)" >&2
+  exit 1
+fi
+echo "This deletes ALL of $target's sessions ($(du -sh "$data_root/$target" | cut -f1))."
+if [ "$target" = "$machine_id" ]; then
+  echo "That is THIS machine's live store."
+else
+  echo "Dropbox will propagate the deletion to $target itself."
+fi
+printf "Type '%s' to confirm: " "$target"
+read -r answer
+if [ "$answer" != "$target" ]; then
+  echo "Aborted; nothing deleted."
+  exit 1
+fi
+rm -rf -- "${data_root:?}/$target"
+echo "Deleted $data_root/$target."

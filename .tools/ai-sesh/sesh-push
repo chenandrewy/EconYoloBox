@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Install other machines' sessions into this machine's home stores.
+#
+# How to run (from anywhere, after Dropbox has settled):
+#   sesh-push
+#
+# Own sessions are already live in data/<self>/ (see sesh-init); this walks
+# every other machine's store and installs each session file using the
+# size/prefix ladder: equal size -> skip, byte-prefix -> fast-forward,
+# neither a prefix -> keep both (quarantined as *.jsonl.divergent-<machine>)
+# and warn. Never a blind copy; mtime is never consulted.
+set -euo pipefail
+
+source "$(dirname -- "${BASH_SOURCE[0]}")/_common.sh"
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  cat <<'EOF'
+Usage:
+  sesh-push
+
+Environment:
+  AI_SESH_MACHINE       Override this machine's id (default: LOCAL_HOSTNAME).
+  CLAUDE_PROJECTS_DIR   Override the Claude projects root.
+  CODEX_SESSIONS_DIR    Override the Codex sessions store.
+EOF
+  exit 0
+fi
+
+resolve_machine
+
+synced=0 current=0 diverged=0 saw_machine=false
+
+report() { # action tool rel machine
+  case "$1" in
+    skip|ahead) current=$((current + 1)) ;;
+    install|fast-forward)
+      synced=$((synced + 1))
+      printf '%-13s %-7s %-10s %s\n' "$1" "$2" "$4" "$3"
+      ;;
+    DIVERGED)
+      diverged=$((diverged + 1))
+      printf '%-13s %-7s %-10s %s\n' "$1" "$2" "$4" "$3"
+      ;;
+  esac
+}
+
+for machine in $(other_machines); do
+  saw_machine=true
+  src_root="$data_root/$machine"
+  while IFS= read -r src; do
+    rel="${src#"$src_root"/claude/}"
+    report "$(sync_file "$src" "$claude_projects_root/$rel" "$machine")" claude "$rel" "$machine"
+  done < <(find "$src_root/claude" -type f -name '*.jsonl' 2>/dev/null | sort)
+  while IFS= read -r src; do
+    rel="${src#"$src_root"/codex/}"
+    report "$(sync_file "$src" "$codex_store/$rel" "$machine")" codex "$rel" "$machine"
+  done < <(find "$src_root/codex" -type f -name '*.jsonl' 2>/dev/null | sort)
+done
+
+if [ "$saw_machine" = false ]; then
+  echo "No other machine stores under $data_root (nothing to sync)."
+  exit 0
+fi
+
+echo "$synced installed/fast-forwarded, $current already current, $diverged diverged."
+if [ "$diverged" -gt 0 ]; then
+  echo "WARNING: divergent copies kept as *.jsonl.divergent-<machine> next to" >&2
+  echo "the local version — same session ran on both machines, or a resume" >&2
+  echo "happened before Dropbox settled. Resolve by hand." >&2
+fi

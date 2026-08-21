@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+# List other machines' Claude sessions for the current project and fork one.
+# (Own sessions are already in the home store — fork those with
+# claude --resume --fork-session directly.)
+#
+# How to run (from the project directory):
+#   cc-fork --list
+#   cc-fork                # prompts
+#   cc-fork 1              # by number
+#   cc-fork d066efc8       # by id prefix
+#
+# Installs the selected seed into the home store first (size/prefix ladder),
+# then runs claude --resume ID --fork-session.
+set -euo pipefail
+
+source "$(dirname -- "${BASH_SOURCE[0]}")/_common.sh"
+require_project_cwd
+resolve_machine
+
+# ${VAR-default} (no colon) so an explicitly empty value disables the flag.
+yolo_flag="${CLAUDE_FORK_PERMISSION_FLAG---dangerously-skip-permissions}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  cc-fork
+  cc-fork --list
+  cc-fork SESSION_ID_OR_NUMBER [claude args...]
+
+Environment:
+  AI_SESH_MACHINE              Override this machine's id.
+  CLAUDE_PROJECT_DIR           Override the Claude project-session store.
+  CLAUDE_FORK_PERMISSION_FLAG  Override permission flag; set empty to omit.
+EOF
+}
+
+if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
+  usage
+  exit 0
+fi
+
+key="$(claude_key_for_rel "$project_rel")"
+machines=()
+while IFS= read -r m; do
+  machines+=("$m")
+done < <(other_machines)
+
+if [ "${#machines[@]}" -eq 0 ]; then
+  echo "No other machine stores under $data_root" >&2
+  exit 1
+fi
+
+tmp_sessions="$(mktemp)"
+trap 'rm -f "$tmp_sessions"' EXIT
+
+# One line per session: id, short description, timestamp, machine, path.
+python3 - "$data_root" "$key" "${machines[@]}" > "$tmp_sessions" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+data_root = Path(sys.argv[1])
+key = sys.argv[2]
+machines = sys.argv[3:]
+
+def clean(text):
+    return " ".join(str(text).split())
+
+def shorten(text, n=72):
+    text = clean(text)
+    return text if len(text) <= n else text[: n - 3] + "..."
+
+for machine in machines:
+    for path in sorted((data_root / machine / "claude" / key).glob("*.jsonl")):
+        session_id = path.stem
+        title = None
+        first_prompt = None
+        timestamp = None
+
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+
+                session_id = obj.get("sessionId") or session_id
+                if obj.get("type") == "ai-title" and obj.get("aiTitle"):
+                    title = clean(obj["aiTitle"])
+
+                msg = obj.get("message")
+                if (
+                    first_prompt is None
+                    and obj.get("type") == "user"
+                    and not obj.get("isMeta")
+                    and isinstance(msg, dict)
+                    and msg.get("role") == "user"
+                    and isinstance(msg.get("content"), str)
+                ):
+                    content = clean(msg["content"])
+                    if content and not content.startswith("<"):
+                        first_prompt = content
+                        timestamp = obj.get("timestamp") or timestamp
+
+        description = title or first_prompt or "(no prompt found)"
+        print("\t".join(
+            [session_id, shorten(description), timestamp or "", machine, str(path)]
+        ))
+PY
+
+if [ ! -s "$tmp_sessions" ]; then
+  echo "No sessions for this project in other machines' stores" >&2
+  echo "(looked for data/<machine>/claude/$key/*.jsonl)" >&2
+  exit 1
+fi
+
+print_sessions() {
+  awk -F '\t' '{ printf "%2d  %-12s %s  %s\n", NR, $4, $1, $2 }' "$tmp_sessions"
+}
+
+if [ "${1:-}" = "--list" ] || [ "${1:-}" = "-l" ]; then
+  print_sessions
+  exit 0
+fi
+
+selection="${1:-}"
+if [ -n "$selection" ]; then
+  shift
+else
+  print_sessions
+  printf "Fork which session? "
+  read -r selection
+fi
+
+selected_row=""
+if printf '%s\n' "$selection" | grep -Eq '^[0-9]+$'; then
+  selected_row="$(awk -F '\t' -v n="$selection" 'NR == n { print }' "$tmp_sessions")"
+else
+  selected_row="$(awk -F '\t' -v s="$selection" 'index($1, s) == 1 { print; exit }' "$tmp_sessions")"
+fi
+
+if [ -z "$selected_row" ]; then
+  echo "No session matches: $selection" >&2
+  exit 1
+fi
+
+IFS=$'\t' read -r session_id _description _timestamp src_machine file <<< "$selected_row"
+
+action="$(sync_file "$file" "$claude_store/$(basename "$file")" "$src_machine")"
+if [ "$action" = "DIVERGED" ]; then
+  echo "Local copy of $session_id has DIVERGED from $src_machine's version;" >&2
+  echo "kept both (see *.divergent-$src_machine in $claude_store). Resolve" >&2
+  echo "by hand before forking." >&2
+  exit 1
+fi
+
+cmd=(claude --resume "$session_id" --fork-session)
+if [ -n "$yolo_flag" ]; then
+  cmd+=("$yolo_flag")
+fi
+cmd+=("$@")
+
+exec "${cmd[@]}"

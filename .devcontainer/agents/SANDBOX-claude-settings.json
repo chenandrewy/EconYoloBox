@@ -1,0 +1,20 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash /workspace/.devcontainer/agents/SANDBOX-claude-statusline.sh"
+  },
+  "model": "opus",
+  "effortLevel": "medium",
+  "tui": "default",
+  "theme": "dark",
+  "skipDangerousModePermissionPrompt": true,
+  "agentPushNotifEnabled": true,
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  },
+  "remoteControlAtStartup": true,
+  "autoMemoryEnabled": false,
+  "disableClaudeAiConnectors": true
+}

@@ -1,0 +1,42 @@
+# ABOUTME: System-enforced Codex requirements for the sandbox.
+# ABOUTME: Baked into /etc/codex/requirements.toml by the Dockerfile.
+#
+# Requirements are the admin-enforced layer. They outrank managed_config.toml,
+# CLI `--config` / `--enable` overrides, profiles, project `.codex/config.toml`,
+# and user `~/.codex/config.toml`. That is what makes this different from
+# setting the same values in a user config, which an agent can simply override
+# on the command line.
+#
+# Verify with .devcontainer/test-agent-policy.sh after a rebuild. Do not assume
+# this file works because it exists: a key Codex does not recognize can take the
+# whole requirements layer out of service, and nothing warns you.
+
+# `features` is the canonical serialized name; `feature_requirements` is an
+# accepted alias for the same constraint table. Use the explicit alias here to
+# distinguish requirements from ordinary config defaults. Flag names are the
+# ones `codex features list` prints.
+[feature_requirements]
+apps = false
+plugins = false
+remote_plugin = false
+
+# Not a security control, unlike the three above: this keeps Codex's @
+# autocomplete dedicated to files (Skills stay reachable via $). It lives here
+# because a static preference belongs in a static file. It used to be a
+# `codex features disable mentions_v2` call in seed-agent-guidelines.sh, which
+# broke the moment the CLIs moved out of the image into a volume that starts
+# empty - postStartCommand then died with 127 before it finished seeding.
+#
+# The cost of the enforced layer is that it is no longer flippable: `--enable
+# mentions_v2` is refused, and changing your mind means editing this file and
+# rebuilding. Accepted deliberately - it is a settled preference, and the
+# alternative homes all reintroduce an ordering dependency on the CLI existing.
+mentions_v2 = false
+
+# Belt and braces: even with the feature off, refuse every marketplace source.
+# `restrict_to_allowed_sources` activates the allowlist, and an empty map then
+# permits nothing. The separate `plugins` requirements table is only for
+# per-plugin MCP server identities, not marketplace-source restrictions.
+[marketplaces]
+restrict_to_allowed_sources = true
+allowed_sources = {}

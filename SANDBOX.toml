@@ -1,0 +1,5 @@
+# User-Specific setting for the Workspace Sandbox
+
+research_library = "/workspace/LIBRARY/"
+timestamp_timezone = "America/New_York"
+screenshot_directory = "/workspace/dev/screenshots/"
