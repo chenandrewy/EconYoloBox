@@ -5,12 +5,22 @@ private projects, journal notes, host paths, or private history.
 
 Three rules make the rest routine:
 
-- The public checkout lives at `/workspace/Other/EconYoloBox/`, ignored by the
-  private repository and holding its own `.git`. Never add a public remote to
+- The public checkout lives outside the private repository's tracked tree,
+  ignored by it and holding its own `.git`. Its path is defined once below and
+  referenced as `$release_dir` everywhere after. Never add a public remote to
   the private repository.
 - Export with `git archive` from a commit, never by copying the working tree.
 - Scrub the export only. The private tree keeps its real values, so the scrubs
   are redone on every release.
+
+## 0. Where the release lives
+
+Set this before any other step; every block below assumes it. This is the one
+place the path appears, so moving the checkout is a one-line change here.
+
+```bash
+release_dir="/workspace/Live,AIWorkFlow/EconYoloBox"
+```
 
 ## 1. Export
 
@@ -18,7 +28,6 @@ The release is always `HEAD`. Pin it so every later step reads one tree.
 
 ```bash
 release_commit="$(git rev-parse HEAD)"
-release_dir="/workspace/Other/EconYoloBox"
 
 test -z "$(git status --porcelain)"
 test ! -e "$release_dir"
@@ -141,7 +150,6 @@ Reuse the same checkout. Export the new commit to a temporary directory, scrub
 and audit and test it there, then swap it in.
 
 ```bash
-release_dir="/workspace/Other/EconYoloBox"
 release_commit="$(git -C /workspace rev-parse HEAD)"
 next_snapshot="$(mktemp -d)"
 
