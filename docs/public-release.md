@@ -115,8 +115,10 @@ English — but do not publish with an unexplained match. Confirm
 
 ## 4. Test
 
-AIChatRender is maintained and tested in its own repository; it is not part of
-this release audit.
+The AIChatRender extension is out of scope. Nothing in this snapshot builds or
+bundles it — `docs/features.md` only points at its own repository, and the
+devcontainer installs it from the Marketplace — so it is tested there, not
+here.
 
 Add whatever else the changes warrant, and rebuild the exported devcontainer if
 its configuration moved.
