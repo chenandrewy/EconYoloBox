@@ -177,7 +177,7 @@ commands.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered
-  (`Live/My-Project#1`), so `dce <dir>` then `cchat-yolo` is the whole
+  (`My-Project#1`), so `dce <dir>` then `cchat-yolo` is the whole
   workflow and every session is identifiable without being named by hand.
 
 - **Fleet control.** Every session starts under `--remote-control`, so host-side

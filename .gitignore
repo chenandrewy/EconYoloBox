@@ -5,11 +5,15 @@ __pycache__/
 
 # Project folders share this sandbox but have their own Git repositories.
 # Add exact folder names or prefix globs as needed.
+My-Project/
+Ref,*/
+Disc,*/
+Travel,*/
+Live,*/
 Other/
 LIBRARY/
 dev/
 DONE/
-Live/
 
 # local-only Claude Code permissions (recreated by Claude when working from ./)
 .claude/settings.local.json

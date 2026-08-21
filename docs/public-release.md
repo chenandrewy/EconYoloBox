@@ -5,7 +5,7 @@ private projects, journal notes, host paths, or private history.
 
 Three rules make the rest routine:
 
-- The public checkout lives at `/workspace/Live/EconYoloBox/`, ignored by the
+- The public checkout lives at `/workspace/Other/EconYoloBox/`, ignored by the
   private repository and holding its own `.git`. Never add a public remote to
   the private repository.
 - Export with `git archive` from a commit, never by copying the working tree.
@@ -18,7 +18,7 @@ The release is always `HEAD`. Pin it so every later step reads one tree.
 
 ```bash
 release_commit="$(git rev-parse HEAD)"
-release_dir="/workspace/Live/EconYoloBox"
+release_dir="/workspace/Other/EconYoloBox"
 
 test -z "$(git status --porcelain)"
 test ! -e "$release_dir"
@@ -51,8 +51,7 @@ Edit only under `$release_dir`.
   public users, drop private-workspace commentary, and link `docs/features.md`
   for the feature tour.
 - **`.gitignore`** — the project-folder block, marked by its comments, lists
-  the real private folders (`Live/` and friends). Replace that block with a
-  single `My-Project/`.
+  the real private prefixes. Replace them with `My-Project/`.
 - **Examples** — replace real project names and hostnames with `My-Project` and
   a generic host, wherever they appear in prose or comments.
 - **Journal references** — nothing to do here as long as the private tree stays
@@ -87,8 +86,8 @@ git -C "$release_dir" grep --cached -n -i -F \
 
 private_names="$(
   { git show "$release_commit:.gitignore" \
-      | sed -n 's#^\([A-Za-z][^#[:space:]]*\)/$#\1#p'
-    ls -1 /workspace/Live | grep -vx EconYoloBox   # the release names itself
+      | sed -n 's#^\([^#[:space:]]*\)\*/$#\1#p'
+    ls -d1 /workspace/Live,*/ | sed 's#^.*/Live,##; s#/$##'
   } | sort -u
 )"
 test -n "$private_names"
@@ -104,11 +103,12 @@ git -C "$release_dir" diff --cached
 ```
 
 Private names are derived rather than listed here, so the audit stays correct
-as projects come and go: the ignored top-level folders come from `.gitignore`,
-and the individual project names come from listing `Live/`. The second source
-matters — a folder name can be revealing on its own, and nothing in
-`.gitignore` spells those names out. Confirm the printed list is non-empty and
-looks right before trusting a quiet result. Judge each hit on context —
+as projects come and go. Two sources: the prefixes come from `.gitignore`,
+which enumerates them by design, and the bare project names come from globbing
+`Live,*/`. The second matters because a name is revealing without its prefix —
+a document that says "GoogleScholar" and never says "Live," would otherwise
+pass. Confirm the printed list is non-empty and looks right before trusting a
+quiet result. Judge each hit on context —
 generic Dropbox references are fine, and a short name can occur in ordinary
 English — but do not publish with an unexplained match. Confirm
 `credentials-map.json` still holds only slug-to-environment-variable mappings.
@@ -139,7 +139,7 @@ Reuse the same checkout. Export the new commit to a temporary directory, scrub
 and audit and test it there, then swap it in.
 
 ```bash
-release_dir="/workspace/Live/EconYoloBox"
+release_dir="/workspace/Other/EconYoloBox"
 release_commit="$(git -C /workspace rev-parse HEAD)"
 next_snapshot="$(mktemp -d)"
 
