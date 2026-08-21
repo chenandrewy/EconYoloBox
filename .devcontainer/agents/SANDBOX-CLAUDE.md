@@ -36,7 +36,7 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
     (`goog.json`), which cover Google's first-party fleet. GCP customer ranges
     (`cloud.json`) are deliberately **not** allowed.
   - **Data**: WRDS, FRED, Ken French's data library
-    (`mba.tuck.dartmouth.edu`), `global-q.org`, `www.agr.com`.
+    (`mba.tuck.dartmouth.edu`) and `global-q.org`.
   - There is still no general web access — assume a fetch of an arbitrary URL
     will fail. A package install that dies on an unlisted **redirect** host is
     the common surprise; report the host so it can be added.
@@ -50,7 +50,7 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
   `/etc/codex/requirements.toml`. Do not try to bypass or re-enable them; ask
   the user for the unavailable mail, calendar, or other private data instead.
   These are client controls rather than a complete OS security boundary; see
-  `.devcontainer/README.md` under `Security Warnings` for the threat model.
+  `docs/features.md` under `Safe YOLO agents` for the threat model.
 - Installing *packages* from the allowlisted sources (pip, `install.packages()`,
   or `install-packages.sh`) is fine and does not need permission. New **system**
   libraries (`apt-get`, `-dev` packages) do — see `USER PERMISSION REQUIRED`.
@@ -97,15 +97,6 @@ Read `/workspace/SANDBOX.toml` for project-specific settings regarding
 - When running R scripts non-interactively (`Rscript`), add `pdf(NULL)` near the top to suppress the stray `Rplots.pdf` that R creates whenever a transient graphics device is opened (e.g. by `ggsave()` on a `gridExtra::arrangeGrob` output).
 
 ## Documentation
-
-## Journaling
-
-- Journaling refers to taking messy notes.
-- Journal notes should be in `docs/journal/` folders within the appropriate project folder.
-- A journal entry is a snapshot of what was going on when it was written, not a document to maintain.
-  - Do not maintain `docs/journal/` folders as if they are proper documentation.
-- Use `timestamp_timezone` for human-facing timestamps. Its default is
-  `America/New_York`.
 
 ## Script headers
 

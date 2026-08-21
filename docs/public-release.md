@@ -55,9 +55,15 @@ Edit only under `$release_dir`.
   single `My-Project/`.
 - **Examples** — replace real project names and hostnames with `My-Project` and
   a generic host, wherever they appear in prose or comments.
-- **Journal references** — the journal is excluded, not scrubbed, so every link
-  or path pointing into it dangles in the export. Reword them to state the fact
-  without the citation; an entry's filename can name private work by itself.
+- **Journal references** — nothing to do here as long as the private tree stays
+  clean; the links and paths pointing into `docs/journal/` were reworded
+  upstream. The journal is excluded rather than scrubbed, so any new one dangles
+  in the export, and an entry's filename can name private work by itself. The
+  audit in step 3 greps for `docs/journal`; if a hit turns up, reword it upstream
+  rather than scrubbing it here.
+- **Private commit hashes** — the public repository is a fresh snapshot, so a
+  short hash cited in prose resolves to nothing there. Reword to state the change
+  without the citation.
 - **Google Scholar** — nothing to do here as long as the private tree stays
   clean; the Scholar scraper and every mention of it were removed upstream. The
   audit in step 3 greps for its fingerprints so a reintroduced mention cannot

@@ -64,8 +64,6 @@ tooling those changes exist to support is described in
 
 ### Credential handling
 
-This part is not inherited, so it has to stand on its own argument.
-
 WRDS and LLM API keys have to reach a container that a YOLO agent is running
 inside. The design: secrets live in the **host** credential store (macOS
 Keychain / Windows Credential Manager), mapped by `credentials-map.json`.
@@ -74,8 +72,6 @@ and writes a mode-`600` file that is bind-mounted **read-only** at
 `/run/secrets/credentials.env`. Nothing is passed with `--env-file`. Scripts
 call `get-credentials.py`, which reads the file on demand and returns the one
 value asked for.
-
-Three properties follow, in decreasing order of how much they matter.
 
 - **Credentials are not injected into the ambient process environment.** They
   are not in PID 1's `environ`, so they are not inherited by every shell, agent,
@@ -91,13 +87,6 @@ Three properties follow, in decreasing order of how much they matter.
   readable by anyone who can reach the Docker socket. The bind mount has no such
   copy.
 
-- **The store is the OS's, not ours.** Keychain enforces per-app ACLs and can
-  prompt. A container-side store would have to be unlocked by a passphrase
-  arriving from outside at startup — the same injection problem one level down,
-  and a store auto-unlocked at boot is a plaintext file with extra steps.
-  Accordingly `get-credentials.py` does not attempt store lookups on Linux;
-  in-container resolution is file-and-env only, by design.
-
 **What this does not do.** It is not a boundary against the agent. Anything
 running as `node` can read `/run/secrets/credentials.env` — it must, or WRDS
 queries would not work. Nor does it stop the host user, who can always
@@ -105,13 +94,7 @@ queries would not work. Nor does it stop the host user, who can always
 default, the injected secret exists in one place inside the container, in one
 file, readable on demand — instead of being copied into every process
 environment and into Docker's own metadata, where it outlives the thing it was
-scoped to and spreads to places nobody thinks to check. Given that the agent is
-deliberately unsupervised, minimizing the number of places a credential can be
-picked up incidentally is the part actually worth engineering.
-
-See [`docs/journal/0725c,credential-env-file.md`](journal/0725c,credential-env-file.md)
-for the analysis this replaced, including why the earlier auto-delete timer was
-security theatre.
+scoped to and spreads to places nobody thinks to check.
 
 ## 2. Economics research
 
@@ -233,22 +216,3 @@ commands.
 - **Persistent agent auth.** Named volumes keep Claude and Codex login state
   across rebuilds; VS Code forwards host Git credentials so in-container work
   can push branches and open PRs.
-
-### Project conventions the tooling assumes
-
-The commands above are shaped by a layout that has converged across recent
-projects. None of it is enforced — it is the working style the tools were built
-to serve, and it explains why they exist:
-
-- `AGENTS.md` + `CLAUDE.md` at the project root — the gig, target file
-  structure, workflow, build commands, forbidden actions.
-- `sub/` holds the source document as received, plus a `paper.md` from
-  `pdf2md.py`, so agents grep the paper rather than re-reading a PDF on every
-  question.
-- `dev/journal/` → `notes/` → output — messy notes to clean notes to product,
-  with the journal treated as dated snapshots rather than maintained docs.
-- `build.sh` / `final-build.sh` — one-command builds, including the rename and
-  touch trick that makes the VS Code PDF viewer refresh instead of showing a
-  stale render.
-- A forked agent session that has already ingested the paper (`cc-fork`,
-  `gpt-fork`), so the reading cost is paid once rather than at every restart.
