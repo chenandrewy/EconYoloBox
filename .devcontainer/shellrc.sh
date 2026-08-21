@@ -9,7 +9,7 @@
 #   latex:   sync-lyx.sh
 #   lit:     citation lookup (cited_by.py, via OpenAlex)
 #   ai-sesh: sesh-init, sesh-push, sesh-wipe, cc-fork, gpt-fork
-export PATH="/workspace/.tools/pdf:/workspace/.tools/latex:/workspace/.tools/lit:/workspace/.tools/ai-sesh:/workspace/.tools/chat:$PATH"
+export PATH="/workspace/.tools/pdf:/workspace/.tools/latex:/workspace/.tools/lit:/workspace/.tools/ai-sesh:$PATH"
 
 # ai-sesh: keep the home session stores symlinked into the Dropbox-synced
 # tree (idempotent; silent once the links exist — see .tools/ai-sesh/README.md)
