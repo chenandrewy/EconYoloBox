@@ -1,0 +1,15 @@
+# Keep shared project trees visible to Codex and other tools that honor
+# gitignore-style .ignore files. These negations override matching entries in
+# .gitignore without changing what Git tracks.
+!Live,*/
+!Live,*/**
+!Other/
+!Other/**
+!LIBRARY/
+!LIBRARY/**
+!dev/
+!dev/**
+!DONE/
+!DONE/**
+!Ref,*/
+!Ref,*/**
