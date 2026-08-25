@@ -136,6 +136,24 @@ Windows and Linux support is partially wired but has not been tested.
 The minimal setup works without these steps. Add the pieces needed for your
 workflow after the container is running.
 
+### Set up an ergonomic command-line workflow
+
+To make it easy to open a project in the YoloBox, add `dccode` and the related
+zsh functions to your shell:
+
+```zsh
+echo 'source "$HOME/EconYoloBox/.host/devcontainer.zsh"' >> ~/.zshrc
+```
+
+Then open a new Terminal window and use `dccode My-Project` to open
+`My-Project` inside its devcontainer in VS Code.
+
+`dccode` walks up from the given project directory (or the current directory
+when none is given) until it finds the enclosing
+`.devcontainer/devcontainer.json`, then asks VS Code to open the original
+directory using a devcontainer URI. This makes it easy to open several nested
+projects without returning to the YoloBox root each time.
+
 ### Give the Mac a short name
 
 A short computer name keeps Claude session names readable: `MacBook25` is
@@ -169,30 +187,6 @@ cd /workspace
 .devcontainer/install-packages.sh r        # R only
 .devcontainer/install-packages.sh cli      # AI CLIs only (step 6 above)
 .devcontainer/install-packages.sh --force  # reinstall even if present
-```
-
-## Optional command-line workflow
-
-The VS Code workflow above is sufficient. To start and enter EconYoloBox from
-the Mac's Terminal instead, install the `devcontainer` CLI and the VS Code
-`code` CLI, then load the included shell helpers:
-
-```zsh
-npm install -g @devcontainers/cli
-echo 'source "$HOME/EconYoloBox/.host/devcontainer.zsh"' >> ~/.zshrc
-exec zsh
-type dcu dce dccode
-```
-
-Run `dcu` from the EconYoloBox root to start the container. Then use
-`dccode My-Project` to open a project in VS Code or `dce My-Project` to enter it
-in a terminal.
-
-Optional: the container picks up the Mac's timezone automatically. To force a
-different one, export it on the host before the container starts.
-
-```bash
-export TZ=America/Chicago
 ```
 
 ## Devcontainer storage
