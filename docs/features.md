@@ -126,10 +126,8 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 - **Research-tuned network allowlist.** The firewall is deny-by-default and
   allows FRED, OpenAlex, arXiv, SSRN, WRDS, the Ken French data library,
   global-q, and JKP factor data alongside package registries, code hosting, and
-  agent APIs. Google's published first-party ranges are also allowed, so
-  Google-hosted services resolve; arbitrary GCP customer ranges are not.
-  CDN-fronted package and documentation hosts are added at DNS resolution time
-  so ordinary address rotation does not break installs.
+  agent APIs. CDN-fronted package and documentation hosts are added at DNS
+  resolution time so ordinary address rotation does not break installs.
 
 ## 3. Ergonomic research tooling
 

@@ -5,7 +5,7 @@ IFS=$'\n\t'       # Stricter word splitting
 # NOT re-runnable: this script only takes a container from clean (fresh netns,
 # ACCEPT policies) to armed, once per container lifetime. A mid-session re-run
 # inherits the DROP policies of the previous run - iptables -F flushes rules
-# but not policies - so its own bootstrap fetches (GitHub meta, goog.json) get
+# but not policies - so its own bootstrap fetches (GitHub meta) get
 # blackholed before any ACCEPT rule exists, and the fail-closed trap then cuts
 # the whole container off. Refuse instead; a restart re-runs this via
 # postStartCommand from a clean state. Exit 0 so launcher chains that hit an
@@ -100,39 +100,6 @@ while read -r cidr; do
     echo "Adding GitHub range $cidr"
     ipset add allowed-domains "$cidr"
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
-
-# Fetch Google's published first-party IP ranges the same way.
-#
-# goog.json ONLY - never cloud.json. cloud.json is GCP *customer* space
-# (arbitrary rented VMs), i.e. a rent-a-C2 endpoint surface; goog.json is
-# Google's own fleet. That boundary is what keeps this defensible.
-#
-# Allowing the published ranges self-heals across Google's anycast rotations
-# instead of needing hand-patched CIDRs. Knowingly accepted: the fleet is routed
-# by SNI, so allowing any Google host necessarily allows Docs/Drive/Forms -
-# programmable first-party sinks that can relay data out. That trade is
-# deliberate: the alternative is hand-patching CIDRs that rotate underneath you.
-echo "Fetching Google IP ranges..."
-goog_ranges=$(curl -s https://www.gstatic.com/ipranges/goog.json)
-if [ -z "$goog_ranges" ]; then
-    echo "ERROR: Failed to fetch Google IP ranges"
-    exit 1
-fi
-
-if ! echo "$goog_ranges" | jq -e '.prefixes | length > 0' >/dev/null; then
-    echo "ERROR: Google ipranges response missing prefixes"
-    exit 1
-fi
-
-echo "Processing Google IPs..."
-while read -r cidr; do
-    if [[ ! "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
-        echo "ERROR: Invalid CIDR range from goog.json: $cidr"
-        exit 1
-    fi
-    echo "Adding Google range $cidr"
-    ipset add allowed-domains "$cidr" -exist
-done < <(echo "$goog_ranges" | jq -r '.prefixes[].ipv4Prefix | select(. != null)' | aggregate -q)
 
 # Resolve and add other allowed domains.
 # The *.gallerycdn.vsassets.io entries are the per-publisher VS Code extension

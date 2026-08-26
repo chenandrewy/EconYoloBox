@@ -32,9 +32,7 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
     a new entry or its install silently fails).
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
-  - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
-    (`goog.json`), which cover Google's first-party fleet. GCP customer ranges
-    (`cloud.json`) are deliberately **not** allowed.
+  - **Research**: arXiv, SSRN, and OpenAlex.
   - **Data**: WRDS, FRED, Ken French's data library
     (`mba.tuck.dartmouth.edu`) and `global-q.org`.
   - There is still no general web access — assume a fetch of an arbitrary URL
