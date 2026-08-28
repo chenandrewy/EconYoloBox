@@ -144,7 +144,7 @@ About → Name**. Reopen the container afterward so it picks up the new name.
 
 ### Save credentials for research tools
 
-These credentials support WRDS, Mistral, OpenRouter, and OpenAlex tools; they
+These credentials support WRDS, Mistral, and OpenRouter tools; they
 are not needed to authenticate Claude or Codex. In the Mac's Terminal, run:
 
 ```bash
