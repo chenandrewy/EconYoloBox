@@ -125,14 +125,17 @@ managed agent policy inside the container:
 - `SANDBOX-claude-settings.json` — canonical user-level Claude Code settings
 - `SANDBOX-claude-statusline.sh` — status line script referenced by the settings
 - `SANDBOX-claude-managed-settings.json` — system-enforced Claude Code policy, baked to `/etc/claude-code/managed-settings.json`
+- `SANDBOX-codex-config.toml` — stable Codex defaults, baked to `/etc/codex/config.toml`
 - `SANDBOX-codex-requirements.toml` — system-enforced Codex Apps and Plugins policy, baked to `/etc/codex/requirements.toml`
 - `skills/` — canonical shared Agent Skills, linked into both Claude Code and Codex user-level skill directories
 - `seed-agent-guidelines.sh` — applies the user-level guidance and Claude settings on every container start (`postStartCommand`)
 
-The two baked policy files are **not** handled by the seed script. They are
-`COPY`ed into the image as root-owned `0444`, so changing either requires a
-rebuild — that is what puts them out of reach of an agent running as `node`.
-`../.devcontainer/test-agent-policy.sh` verifies they are actually in force.
+The three baked system files are **not** handled by the seed script. They are
+`COPY`ed into the image as root-owned `0444`, so changing one requires a
+rebuild. The Codex system config provides stable, user-overridable defaults;
+the two policy files enforce settings that user config cannot override.
+`../.devcontainer/test-agent-policy.sh` verifies that the default is installed
+and that the policies are actually in force.
 
 The seed script handles guidance and settings differently:
 
@@ -141,6 +144,9 @@ The seed script handles guidance and settings differently:
   `~/.agents/skills/`. This keeps one portable source while preserving unrelated
   personal skills in either directory.
 - Settings are **copied** to `~/.claude/settings.json`, not symlinked, because Claude Code writes to its settings file (`/config`, `/model`, permission grants). Those writes land in the volume copy and are overwritten by the canonical file on the next container start. To keep a setting permanently, put it in `SANDBOX-claude-settings.json`.
+- Codex's `~/.codex/config.toml` remains node-owned and volatile because it
+  mixes model choices, project trust, and other runtime state. Stable defaults
+  belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
 
 Some user-specific agent settings live in the visible root-level `SANDBOX.toml`.
 It contains the research-library location and the timezone agents use for

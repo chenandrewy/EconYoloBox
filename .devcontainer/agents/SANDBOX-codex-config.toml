@@ -1,0 +1,16 @@
+# ABOUTME: System-level Codex defaults for the sandbox.
+# ABOUTME: Baked into /etc/codex/config.toml by the Dockerfile.
+#
+# Keep only stable defaults here. Codex owns ~/.codex/config.toml and uses it
+# for volatile state such as model choices, reasoning effort, project trust,
+# and onboarding state. User config has higher precedence than this file, so a
+# deliberate user preference still wins.
+
+[tui]
+status_line = [
+    "model-with-reasoning",
+    "current-dir",
+    "context-remaining",
+    "five-hour-limit",
+    "weekly-limit",
+]

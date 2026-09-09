@@ -1,10 +1,11 @@
 #!/bin/bash
-# ABOUTME: Verifies the baked Claude Code and Codex connector policy is actually
-# ABOUTME: in force, rather than merely present on disk.
+# ABOUTME: Verifies baked Claude Code and Codex config and policy.
+# ABOUTME: Checks the Codex default file and observable policy behavior.
 #
 # Run:     test-agent-policy.sh [--warn-only]
-# Inputs:  /etc/claude-code/managed-settings.json, /etc/codex/requirements.toml
-#          (both baked by the Dockerfile), plus the `claude` and `codex` CLIs.
+# Inputs:  /etc/claude-code/managed-settings.json, /etc/codex/config.toml,
+#          /etc/codex/requirements.toml (all baked by the Dockerfile), plus the
+#          `claude` and `codex` CLIs.
 #          The CLIs are installed at runtime (install-packages.sh cli), so
 #          either may legitimately be absent; its checks SKIP rather than fail.
 # Output:  PASS/FAIL/SKIP per check on stdout; exit 1 if any check fails
@@ -91,7 +92,30 @@ fi
 
 # --- Codex ------------------------------------------------------------------
 
+CODEX_CONFIG=/etc/codex/config.toml
 CODEX_POLICY=/etc/codex/requirements.toml
+
+if [[ -f $CODEX_CONFIG ]]; then
+    pass "Codex system config present: $CODEX_CONFIG"
+    if python3 -c "
+import sys, tomllib
+d = tomllib.load(open('$CODEX_CONFIG', 'rb'))
+expected = [
+    'model-with-reasoning',
+    'current-dir',
+    'context-remaining',
+    'five-hour-limit',
+    'weekly-limit',
+]
+sys.exit(0 if d.get('tui', {}).get('status_line') == expected else 1)
+" 2>/dev/null; then
+        pass "Codex system config sets the canonical status line"
+    else
+        fail "Codex system config is invalid or has the wrong status line"
+    fi
+else
+    fail "Codex system config absent: $CODEX_CONFIG (rebuild the image)"
+fi
 
 if [[ -f $CODEX_POLICY ]]; then
     pass "Codex requirements present: $CODEX_POLICY"
