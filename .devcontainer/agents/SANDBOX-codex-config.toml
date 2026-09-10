@@ -14,3 +14,4 @@ status_line = [
     "five-hour-limit",
     "weekly-limit",
 ]
+animations = false
