@@ -1,5 +1,9 @@
 # Host-side toolkit
 
+`.host/` is session navigation, [`.setup/`](../.setup/README.md) is host machine
+setup and maintenance (including the TeX Live volume), and `.devcontainer/`
+defines the container.
+
 Shell functions that run on your **Mac** (not inside the container) to navigate
 the dev containers in this repo. Everything the container needs at runtime lives
 in `.devcontainer/`; this folder is only the host-side convenience layer, kept

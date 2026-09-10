@@ -49,11 +49,12 @@ optimal
   a temporary directory and import it headlessly:
 
 ```bash
-QT_QPA_PLATFORM=offscreen lyx -batch -f all \
-  -i latex /tmp/table.tex /tmp/table.lyx
+tex2lyx -f /tmp/table.tex /tmp/table.lyx
 ```
 
-  LyX requires the output `.lyx` filename for a batch import. Transplant only
+  `tex2lyx` accepts an explicit output `.lyx` filename. LyX's own `-i` option
+  takes the input filename only; an extra filename is treated as a document to
+  open, not an output path. Transplant only
   the needed float or tabular inset; do not copy `\begin_body` or `\end_body`.
 - Inspect imported ERT before using it. In particular, LaTeX group commands
   such as `\begingroup` and `\endgroup` can interact badly with LyX-generated
