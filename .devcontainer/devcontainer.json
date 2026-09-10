@@ -79,8 +79,10 @@
   },
   "remoteUser": "node",
   "mounts": [
+    // Host-managed TeX installation, deliberately shared across projects.
+    "source=texlive-2026-noble,target=/usr/local/texlive,type=volume,readonly",
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
-    // Every volume below is keyed by ${devcontainerId}, not by folder name
+    // Every project-owned volume below is keyed by ${devcontainerId}, not by folder name
     // alone. anthropics/claude-code fixed this exact bug in July 2025 ("Fix
     // devcontainer volume security vulnerability"): two workspaces that share
     // a basename would otherwise mount the SAME volume, silently sharing the
@@ -139,8 +141,8 @@
   // To open the firewall, uncomment the temporary final command, comment the armed final command
   // Warning: DO NOT COMMIT AN OPEN FIREWALL FINAL COMMAND
   // TEMPORARY FINAL COMMANDS: skip firewall, seed agent guidelines
-  // "postStartCommand": "touch /tmp/FIREWALL-WINDOW-OPEN && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; }",
+  // "postStartCommand": "touch /tmp/FIREWALL-WINDOW-OPEN && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; } && { tex-refresh || { echo \"TeX/LyX refresh failed; see the message above\" >&2; true; }; }",
   // ARMED FINAL COMMANDS: raise firewall, seed agent guidelines, test
-  "postStartCommand": "rm -f /tmp/FIREWALL-WINDOW-OPEN && sudo /usr/local/bin/init-firewall.sh && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; }",
+  "postStartCommand": "rm -f /tmp/FIREWALL-WINDOW-OPEN && sudo /usr/local/bin/init-firewall.sh && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; } && { tex-refresh || { echo \"TeX/LyX refresh failed; see the message above\" >&2; true; }; }",
   "waitFor": "postStartCommand"
 }

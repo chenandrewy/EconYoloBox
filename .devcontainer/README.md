@@ -58,6 +58,28 @@ this.
 
 ## Dev Container (`.devcontainer/`)
 
+`.devcontainer/` defines the container, `.host/` is session navigation, and
+[`.setup/`](../.setup/README.md) is host machine setup and maintenance.
+
+### TeX Live and LyX
+
+TeX Live 2026 is installed with `bash .setup/texlive.sh` **on the host**, using
+upstream `install-tl`. The full distribution, including matching biber, lives
+in the shared `texlive-2026-noble` volume, mounted read-only at
+`/usr/local/texlive`. The image puts the matching architecture's binaries on
+PATH; user TeX caches live in the writable home directory. The setup script
+refuses nonempty volumes. It does not manage updates.
+
+`tex-refresh` runs LyX converter detection as `node` in `~/.lyx` at startup,
+after the mandatory firewall step. A missing installation warns without
+preventing other container use. If TeX is installed after startup, run
+`tex-refresh` manually in each consumer and reopen any already-running LyX.
+The user configuration is not persisted across container recreation, so it
+is regenerated at startup. Custom LyX `-userdir` locations are not managed by
+this helper. See the host setup README for installation and failure handling.
+
+### Configuration files
+
 - `inject-credentials.py` — runs on the host before the container starts
   (`initializeCommand`). It writes a `0600` file at
   `/tmp/devcontainer-credentials.env`, bind-mounted read-only at

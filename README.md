@@ -205,6 +205,12 @@ hit repeated slow rebuilds, raising it to 35GB gives headroom. See
 [Devcontainer storage needs](docs/storage-needs.md) for the settings and for how
 to confirm that eviction is the actual problem.
 
+## TeX Live host setup
+
+The devcontainer uses a shared, read-only TeX Live volume. Before TeX/LyX work,
+run `bash .setup/texlive.sh` on the Docker host; see
+[host setup](.setup/README.md) for installation and validation instructions.
+
 ## License
 
 EconYoloBox is released under the [MIT License](LICENSE).

@@ -21,7 +21,12 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
   survives rebuilds rather than being reverted by them. The npm-managed CLIs
   should not be assumed to self-update; re-run the script's `cli` target to
   update both. A rebuild is unnecessary.
-- Latex with `texlive-full` and `biber`.
+- TeX Live (full scheme, including biber) is host-installed with
+  `bash .setup/texlive.sh` into the shared `texlive-2026-noble` Docker volume,
+  mounted read-only at `/usr/local/texlive`. Do not install or update TeX in
+  the devcontainer. Run `tex-refresh` as node after initial host installation;
+  it also runs at container startup. Reopen an already-running LyX afterward.
+  The setup script refuses nonempty volumes; updates are separate manual work.
 - **Network is deny-by-default**, via an IP allowlist built at container start by
   `init-firewall.sh`. Blocked hosts are REJECTed, so they fail fast rather than
   hanging — but suspect the firewall before the code. Allowed:

@@ -8,6 +8,7 @@ ARG NODE_MAJOR=24
 ARG NODE_VERSION=24.18.0-1nodesource1
 ARG PANDOC_VERSION=3.9.0.2
 ARG PANDOC_CROSSREF_VERSION=v0.3.23a
+ARG TEXLIVE_YEAR=2026
 ARG LYX_VERSION=2.4.5
 ARG LYX_SHA256=4667f2759ae6070198c6f25606950a6374fd54863ac3dbf4fdcc05d01fa4bff4
 
@@ -138,8 +139,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   libharfbuzz-dev \
   libfribidi-dev \
   libuv1-dev \
-  texlive-full \
-  biber \
+  ghostscript \
+  libfontconfig-dev \
+  libjpeg-dev \
+  libtiff-dev \
+  libyaml-tiny-perl \
+  libfile-homedir-perl \
+  liblog-log4perl-perl \
+  liblog-dispatch-perl \
+  libunicode-linebreak-perl \
+  librsvg2-bin \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Ensure default node user has access to /usr/local/share.
@@ -330,38 +339,21 @@ RUN ARCH=$(dpkg --print-architecture) && \
   install -m 0755 /tmp/pandoc-crossref /usr/local/bin/pandoc-crossref && \
   rm -rf /tmp/pandoc.tar.gz /tmp/pandoc-crossref.tar.xz /tmp/pandoc-${PANDOC_VERSION} /tmp/pandoc-crossref
 
-# latexindent is installed by TeX Live, but --no-install-recommends can omit
-# Perl modules it needs at runtime.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  libyaml-tiny-perl \
-  libfile-homedir-perl \
-  liblog-log4perl-perl \
-  liblog-dispatch-perl \
-  libunicode-linebreak-perl \
-  librsvg2-bin \
-  && apt-get clean && rm -rf /var/lib/apt/lists/*
+# TeX is installed on the host into texlive-2026-noble and mounted read-only.
+# The symlink intentionally dangles during image build. Keep the year in step
+# with .setup/texlive.sh and the literal devcontainer.json volume mount.
+RUN ARCH=$(dpkg --print-architecture) && \
+  case "$ARCH" in \
+    amd64) TEXLIVE_PLATFORM=x86_64-linux ;; \
+    arm64) TEXLIVE_PLATFORM=aarch64-linux ;; \
+    *) echo "Unsupported TeX architecture: $ARCH" >&2; exit 1 ;; \
+  esac && \
+  ln -s /usr/local/texlive/${TEXLIVE_YEAR}/bin/${TEXLIVE_PLATFORM} /usr/local/texlive-bin
+ENV PATH="/usr/local/texlive-bin:$PATH"
 
-# Headers for the R graphics-device stack that install-packages.sh compiles at
-# runtime: systemfonts needs fontconfig, and ragg needs jpeg and tiff on top of
-# it. (libpng-dev, ragg's fourth requirement, already arrives as a dependency.)
-#
-# Their natural home is the freetype/harfbuzz/fribidi group far above, but that
-# block also carries texlive-full and sits above the LyX source build, so
-# touching it costs a ~30-minute rebuild. Nothing in this Dockerfile links
-# against these - only runtime R installs do - so a late layer is equivalent.
-# Fold them upward whenever something else forces a full rebuild anyway.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-  libfontconfig-dev \
-  libjpeg-dev \
-  libtiff-dev \
-  && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Detect converters (latex, pdflatex, pandoc, ...) once, system-wide. LyX would
-# otherwise run this itself on first export, per user, writing into ~/.lyx -
-# slower, noisier, and lost whenever the home volume is recreated. Runs here,
-# last, because the scan only finds tools already installed: TeX Live above and
-# pandoc immediately preceding it.
-RUN cd /usr/local/share/lyx && python3 ./configure.py
+# Converter detection needs the runtime TeX mount and a writable user directory.
+COPY tex-refresh.sh /usr/local/bin/tex-refresh
+RUN chmod +x /usr/local/bin/tex-refresh
 
 # Copy and set up firewall script
 COPY init-firewall.sh /usr/local/bin/

@@ -3,6 +3,8 @@
 # "source /workspace/.devcontainer/shellrc.sh" to ~/.zshrc, so every
 # interactive shell picks this up. Currently only zsh sources it, but keep
 # the syntax bash/zsh-portable so ~/.bashrc could source it too.
+# Inputs: mounted workspace tools, installed toolchains, and container env.
+# Outputs: shell PATH, aliases/functions, and local setup warnings.
 
 # workspace tools on PATH, organized by topic (see .devcontainer/agents/SANDBOX-CLAUDE.md)
 #   pdf:     pdf2md.py, rebookmark.py
@@ -134,3 +136,9 @@ export R_PROFILE_USER=/workspace/.devcontainer/home/Rprofile
 # alias is the standard fix. Rscript never prompts, so only interactive R is
 # affected; --no-save is accepted before CMD, so `R CMD BATCH` still works.
 alias R='R --no-save'
+
+# No downloads at shell startup: an empty or wrong-platform mount needs host setup.
+if [ ! -x /usr/local/texlive-bin/pdflatex ]; then
+    echo "note: TeX unavailable - on the host run: bash .setup/texlive.sh"
+    echo "      For a nonempty failed install, inspect the volume's install.log first."
+fi
