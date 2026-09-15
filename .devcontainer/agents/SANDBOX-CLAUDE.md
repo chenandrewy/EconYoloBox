@@ -92,6 +92,10 @@ Read `/workspace/SANDBOX.toml` for project-specific settings regarding
 - time zone
 - the macOS screenshot directory
 
+The same file holds `firewall`, the switch that arms (`true`) or disables
+(`false`) the egress firewall at the next container start. Never change it;
+that is the user's decision (see `USER PERMISSION REQUIRED`).
+
 ## Coding and Writing Guidelines
 
 - Latex: Build using pdflatex and biber

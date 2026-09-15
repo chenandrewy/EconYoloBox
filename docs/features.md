@@ -50,8 +50,15 @@ tooling those changes exist to support is described in
   all traffic rather than leaving the container open, and blocked hosts are
   REJECTed so they fail fast instead of hanging.
 
-- **Startup scripts.** `postStartCommand` arms the firewall, seeds canonical
-  agent guidance and shared skills, and checks the enforced agent policy. A
+- **Startup scripts.** `postStartCommand` (`post-start.sh`) arms the firewall,
+  seeds canonical agent guidance and shared skills, and checks the enforced
+  agent policy. Setting `firewall = false` in `SANDBOX.toml` switches the
+  firewall off at the next container start (stop + reopen, or Rebuild
+  Container); every shell warns while it is off, and anything other than a bare
+  `false` arms. The switch is in the tracked, writable workspace - like the
+  startup scripts themselves - so it is a convenience, not a security boundary
+  against an agent that edits the repo; `git diff` before restarting is the
+  review step. A
   fresh container has the system toolchain immediately; the optional Python and
   R stacks and the AI CLIs are installed once into persistent volumes with
   `install-packages.sh`.
@@ -208,8 +215,8 @@ commands.
   mechanism.
 
 - **Host-aware workspace settings.** Startup captures a stable host name and
-  detects the host time zone, while `SANDBOX.toml` provides agent-visible paths
-  for the research library and macOS screenshots. That lets agents resolve
+  the host time zone (overridable in `SANDBOX.toml`), and `SANDBOX.toml` also
+  provides agent-visible paths for the research library and macOS screenshots. That lets agents resolve
   phrases such as “this screenshot” without clipboard access and use the right
   zone for human-facing timestamps.
 

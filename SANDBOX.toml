@@ -1,5 +1,18 @@
-# User-Specific setting for the Workspace Sandbox
+# Sandbox settings. Read live by startup scripts and agents - no rebuild needed
+# for path changes. Values are TOML basic strings: key = "value".
 
+# true raises the deny-by-default egress firewall at container start; false
+# skips it, leaving the container with no network restrictions. Anything but a
+# bare false (including a typo) counts as true. Takes effect at the next
+# container start (Rebuild Container, or stop + reopen). This file is tracked
+# and writable from inside the container, so check `git diff SANDBOX.toml`
+# before restarting if that matters. Every shell warns while it is off.
+firewall = true
+
+# IANA zone for TZ and for human-facing timestamps. Comment out to use the
+# host's detected zone.
+timezone = "America/New_York"
+
+# Container paths. Agents read these directly.
 research_library = "/workspace/LIBRARY/"
-timestamp_timezone = "America/New_York"
 screenshot_directory = "/workspace/dev/screenshots/"

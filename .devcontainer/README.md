@@ -170,11 +170,15 @@ The seed script handles guidance and settings differently:
   mixes model choices, project trust, and other runtime state. Stable defaults
   belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
 
-Some user-specific agent settings live in the visible root-level `SANDBOX.toml`.
-It contains the research-library location and the timezone agents use for
-human-facing timestamps. Relative paths are resolved from the repository root.
-Because agents read this file directly, edits take effect without rebuilding or
-restarting the container.
+User-specific settings live in the root-level `SANDBOX.toml`: `firewall`
+(`true` or `false`), `timezone` (IANA zone; comment out to use the detected
+host zone), `research_library`, and `screenshot_directory`. Paths are container
+paths. Agents read the file directly, so path edits take effect immediately.
+`firewall` is read by `post-start.sh` at every container start (stop + reopen
+or Rebuild Container); `timezone` becomes `TZ` at create time, so it needs a
+rebuild. The reader is `sandbox-setting.sh`, a `sed` over flat `key = "value"`
+/ `key = true|false` lines rather than a TOML parser: keep the file flat, and
+note that a malformed line yields nothing, which for `firewall` means armed.
 
 ### Analysis stacks and AI CLIs (`install-packages.sh`)
 
@@ -232,8 +236,9 @@ In practice, large system installs, source builds, and language package installs
 
 ### Timezone
 
-The container matches your host's timezone automatically. `write-local-env.sh`
-detects it at `initializeCommand` time — `$TZ` if exported, else `timedatectl`,
+`SANDBOX.toml`'s `timezone` wins if set. Otherwise the container matches your
+host's timezone: `write-local-env.sh` detects it at `initializeCommand` time —
+`$TZ` if exported, else `timedatectl`,
 else the target of the `/etc/localtime` symlink (which is how macOS and desktop
 Linux actually record it) — and passes it in via `--env-file`.
 

@@ -37,14 +37,14 @@ if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; th
     echo "note: AI CLIs not installed - run .devcontainer/install-packages.sh cli"
 fi
 
-# Firewall window warning. devcontainer.json can be hand-swapped to a
-# postStartCommand that skips init-firewall.sh, leaving the container on
+# Firewall window warning. post-start.sh skips init-firewall.sh when
+# SANDBOX.toml says firewall = false, leaving the container on
 # Docker's default ACCEPT policies - no network restrictions at all. Nothing
 # else surfaces that state: startup looks entirely normal and the only symptom
 # is that blocked hosts start answering.
 #
-# The open postStartCommand touches this marker and the armed one removes it,
-# so no network probe is needed here. Not inferred from dnsmasq or resolv.conf:
+# post-start.sh touches this marker on the open path and removes it on the
+# armed one, so no network probe is needed here. Not inferred from dnsmasq or resolv.conf:
 # both look "open" on init-firewall.sh's legitimate armed-but-dnsmasq-failed
 # path, and iptables itself needs root. The open side writes the marker rather
 # than the armed side because /tmp is not tmpfs here - a stale "armed" marker
@@ -64,8 +64,8 @@ if [ -f /tmp/FIREWALL-WINDOW-OPEN ]; then
     printf '%s\n' \
         "${_fw_hi} !!  FIREWALL OPEN - this container has no network restrictions  !! ${_fw_off}" \
         "  Everything here can reach the whole internet, agents included." \
-        "  To close: restore the FINAL postStartCommand in .devcontainer/devcontainer.json," \
-        "  Rebuild Container, then confirm with .devcontainer/test-firewall.sh"
+        "  To close: set firewall = true in /workspace/SANDBOX.toml, then" \
+        "  Rebuild Container and confirm with .devcontainer/test-firewall.sh"
     unset _fw_hi _fw_off
 fi
 

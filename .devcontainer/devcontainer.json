@@ -123,8 +123,9 @@
     "source=${localWorkspaceFolderBasename}-npm-global-noble-node24-${devcontainerId},target=/usr/local/share/npm-global,type=volume"
   ],
   "containerEnv": {
-    // TZ is intentionally absent: write-local-env.sh detects the host zone into
-    // /tmp/devcontainer-local.env. containerEnv becomes `docker run --env`, which
+    // TZ is intentionally absent: write-local-env.sh writes SANDBOX.toml's
+    // timezone (or the detected host zone) into /tmp/devcontainer-local.env.
+    // containerEnv becomes `docker run --env`, which
     // outranks --env-file, so setting it here would clobber the detected value.
     // Fallback if detection finds nothing: the Dockerfile's baked-in ARG TZ.
     "NODE_OPTIONS": "--max-old-space-size=4096",
@@ -137,12 +138,8 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
   "workspaceFolder": "/workspace",
-  // === FINAL COMMANDS ===
-  // To open the firewall, uncomment the temporary final command, comment the armed final command
-  // Warning: DO NOT COMMIT AN OPEN FIREWALL FINAL COMMAND
-  // TEMPORARY FINAL COMMANDS: skip firewall, seed agent guidelines
-  // "postStartCommand": "touch /tmp/FIREWALL-WINDOW-OPEN && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; } && { tex-refresh || { echo \"TeX/LyX refresh failed; see the message above\" >&2; true; }; }",
-  // ARMED FINAL COMMANDS: raise firewall, seed agent guidelines, test
-  "postStartCommand": "rm -f /tmp/FIREWALL-WINDOW-OPEN && sudo /usr/local/bin/init-firewall.sh && bash .devcontainer/agents/seed-agent-guidelines.sh && { command -v test-agent-policy.sh >/dev/null && test-agent-policy.sh --warn-only || true; } && { tex-refresh || { echo \"TeX/LyX refresh failed; see the message above\" >&2; true; }; }",
+  // Arms the firewall (unless SANDBOX.toml says firewall = false), seeds
+  // agent guidelines, checks policy, refreshes TeX.
+  "postStartCommand": "bash .devcontainer/post-start.sh",
   "waitFor": "postStartCommand"
 }
