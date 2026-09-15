@@ -116,6 +116,22 @@ Because the name appears in every session, a short one is worth setting.
 
 ### Codex sandbox modes and launchers
 
+Docker's outer seccomp policy is selected directly in `devcontainer.json`:
+
+```jsonc
+"--security-opt=seccomp=unconfined",
+// "--security-opt=seccomp=builtin",
+```
+
+Keep exactly one line uncommented. `unconfined` is currently selected and
+disables the outer filter for every process in the container. Swap the comments
+to select `builtin`, Docker's built-in default protection.
+
+Changing this setting requires **container recreation**, not an image change.
+A plain restart or reopening an existing container does not apply it. Reuse
+the existing image when recreating; named volumes and the bind-mounted workspace
+persist, but files only in the old container's writable layer do not.
+
 Codex has two independent axes: an *approval policy* (when it stops to ask you)
 and a *sandbox* (what a command may touch — filesystem + network). Network-off
 is a property of the sandbox, not of approvals, and on Linux it is enforced by
@@ -134,18 +150,14 @@ A bare `codex` also runs sandboxed: `/etc/codex/config.toml` (from
 `agents/SANDBOX-codex-config.toml`) sets `approval_policy`/`sandbox_mode` to the
 same "Approve for me" defaults, upgrading Codex's own read-only default.
 
-**Why this needs a seccomp relaxation.** Codex's sandbox is bubblewrap, which
-builds user/mount/network namespaces via `unshare()`. Docker's *default* seccomp
-profile blocks those syscalls, so inside a plain devcontainer bwrap dies with
-`EPERM` ("no permissions to create new namespace") and every sandboxed `codex`
-fails — leaving YOLO as the only mode that runs. `devcontainer.json` therefore
-passes `--security-opt=seccomp=unconfined`. The deliberate cost: this lifts
-Docker's syscall filter for **every** process in the container, YOLO included;
-the trade buys back Codex's inner filesystem/network isolation for ordinary
-sessions. bwrap uses `--unshare-user` so it needs no ambient `SYS_ADMIN` — if a
-future base image still blocks it, add `--cap-add=SYS_ADMIN/SYS_CHROOT/SETUID/
-SETGID`. Background and the runtime evidence are in `docs/journal/0915b` and the
-plan in `0915d`.
+**Sandbox compatibility.** Codex's bubblewrap sandbox builds user/mount/network
+namespaces via `unshare()`. Earlier runtime checks found Docker's default filter
+blocked namespace setup with `EPERM` ("no permissions to create new namespace").
+Selecting `builtin` may restore that failure for sandboxed sessions. Selecting
+`unconfined` allowed the inner sandbox to work, at the cost of removing Docker's
+outer syscall filter for every process, including unsandboxed sessions.
+Background and runtime evidence are in `docs/journal/0915b`; the plan is in
+`0915d`.
 
 ### Persistent auth state
 

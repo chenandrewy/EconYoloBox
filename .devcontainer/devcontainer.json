@@ -19,17 +19,12 @@
   "runArgs": [
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
-    // Codex's sandbox (bubblewrap) builds its own user+mount+net namespaces via
-    // unshare(); Docker's default seccomp profile blocks those syscalls, so an
-    // ordinary `codex` (workspace-write / "approve for me") dies with EPERM
-    // "no permissions to create new namespace". Relaxing seccomp lets bwrap run
-    // and, once it does, --unshare-net enforces per-command network-off natively
-    // (see docs/journal/0915b, 0915d). Cost, accepted deliberately: this lifts
-    // Docker's syscall filter for EVERY process in the container, including YOLO.
-    // bwrap uses --unshare-user precisely so it needs no ambient SYS_ADMIN, so
-    // seccomp alone should suffice; add --cap-add=SYS_ADMIN/SYS_CHROOT/SETUID/
-    // SETGID only if a rebuild probe still fails.
+    // Seccomp toggle: keep exactly one of the following two lines uncommented.
+    // unconfined disables Docker's outer filter so Codex/bubblewrap can create namespaces.
+    // builtin enables Docker's default protection but may block that setup (see README).
+    // Changes require container recreation, not an image rebuild or plain restart.
     "--security-opt=seccomp=unconfined",
+    // "--security-opt=seccomp=builtin",
     "--env-file=/tmp/devcontainer-local.env"
   ],
   "customizations": {

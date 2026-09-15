@@ -9,6 +9,13 @@
 # before restarting if that matters. Every shell warns while it is off.
 firewall = true
 
+# Seccomp is toggled in .devcontainer/devcontainer.json, not in this file.
+# Swap the commented/uncommented --security-opt=seccomp lines there:
+# unconfined disables Docker's outer filter (allows Codex/bubblewrap setup);
+# builtin enables Docker's default protection (may block that setup).
+# Keep exactly one line active. Changes require container recreation, not an
+# image rebuild or plain restart.
+
 # IANA zone for TZ and for human-facing timestamps. Comment out to use the
 # host's detected zone.
 timezone = "America/New_York"
