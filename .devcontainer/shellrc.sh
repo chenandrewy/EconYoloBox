@@ -138,7 +138,14 @@ export R_PROFILE_USER=/workspace/.devcontainer/home/Rprofile
 alias R='R --no-save'
 
 # No downloads at shell startup: an empty or wrong-platform mount needs host setup.
+# During migration, a container built from the old image may still have distro
+# TeX on PATH even though the new mounted installation is not active.
 if [ ! -x /usr/local/texlive-bin/pdflatex ]; then
-    echo "note: TeX unavailable - on the host run: bash .setup/texlive.sh"
-    echo "      For a nonempty failed install, inspect the volume's install.log first."
+    if command -v pdflatex >/dev/null 2>&1; then
+        echo "note: mounted TeX Live 2026 is not active; using $(command -v pdflatex)"
+        echo "      Rebuild this container to activate the recent TeX-volume change."
+    else
+        echo "note: TeX unavailable - on the host run: bash .setup/texlive.sh"
+        echo "      For a nonempty failed install, inspect the volume's install.log first."
+    fi
 fi
