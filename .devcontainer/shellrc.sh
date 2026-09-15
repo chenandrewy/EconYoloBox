@@ -55,17 +55,15 @@ fi
 # and leaves the container open with whatever marker was there before.
 if [ -f /tmp/FIREWALL-WINDOW-OPEN ]; then
     if [ -t 1 ]; then
-        _fw_hi=$'\033[1;37;41m'
+        _fw_hi=$'\033[1;3;38;5;214m'
         _fw_off=$'\033[0m'
     else
         _fw_hi=''
         _fw_off=''
     fi
     printf '%s\n' \
-        "${_fw_hi} !!  FIREWALL OPEN - this container has no network restrictions  !! ${_fw_off}" \
-        "  Everything here can reach the whole internet, agents included." \
-        "  To close: set firewall = true in /workspace/SANDBOX.toml, then" \
-        "  Rebuild Container and confirm with .devcontainer/test-firewall.sh"
+        "${_fw_hi}Warning: Firewall Open${_fw_off}" \
+        "To close: set firewall = true in /workspace/SANDBOX.toml, then rebuild container"
     unset _fw_hi _fw_off
 fi
 
