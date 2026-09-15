@@ -171,6 +171,7 @@ for domain in \
     "github.gallerycdn.vsassets.io" \
     "dbaeumer.gallerycdn.vsassets.io" \
     "esbenp.gallerycdn.vsassets.io" \
+    "tamasfe.gallerycdn.vsassets.io" \
     "tomoki1207.gallerycdn.vsassets.io" \
     "james-yu.gallerycdn.vsassets.io" \
     "donjayamanne.gallerycdn.vsassets.io" \

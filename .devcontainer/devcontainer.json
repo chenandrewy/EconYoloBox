@@ -37,6 +37,7 @@
         "GitHub.copilot-chat",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
+        "tamasfe.even-better-toml",
         "tomoki1207.pdf",
         "james-yu.latex-workshop",
         "donjayamanne.githistory",
