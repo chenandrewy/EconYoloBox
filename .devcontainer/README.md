@@ -114,6 +114,39 @@ MacBook25:My-Project#1
 
 Because the name appears in every session, a short one is worth setting.
 
+### Codex sandbox modes and launchers
+
+Codex has two independent axes: an *approval policy* (when it stops to ask you)
+and a *sandbox* (what a command may touch — filesystem + network). Network-off
+is a property of the sandbox, not of approvals, and on Linux it is enforced by
+bubblewrap unsharing a fresh network namespace — not by the container firewall.
+
+Four launchers in `shellrc.sh`:
+
+- `gptchat` / `gptmini` — the everyday, sandboxed mode ("Approve for me"):
+  on-request approval + workspace-write sandbox, network off. They set this
+  explicitly with `-c` overrides, so it holds regardless of `~/.codex`.
+- `gptchat-yolo` / `gptmini-yolo` — `--dangerously-bypass-approvals-and-sandbox`:
+  no approvals, no sandbox. The container (and, when armed, the firewall) is the
+  only blast-radius boundary.
+
+A bare `codex` also runs sandboxed: `/etc/codex/config.toml` (from
+`agents/SANDBOX-codex-config.toml`) sets `approval_policy`/`sandbox_mode` to the
+same "Approve for me" defaults, upgrading Codex's own read-only default.
+
+**Why this needs a seccomp relaxation.** Codex's sandbox is bubblewrap, which
+builds user/mount/network namespaces via `unshare()`. Docker's *default* seccomp
+profile blocks those syscalls, so inside a plain devcontainer bwrap dies with
+`EPERM` ("no permissions to create new namespace") and every sandboxed `codex`
+fails — leaving YOLO as the only mode that runs. `devcontainer.json` therefore
+passes `--security-opt=seccomp=unconfined`. The deliberate cost: this lifts
+Docker's syscall filter for **every** process in the container, YOLO included;
+the trade buys back Codex's inner filesystem/network isolation for ordinary
+sessions. bwrap uses `--unshare-user` so it needs no ambient `SYS_ADMIN` — if a
+future base image still blocks it, add `--cap-add=SYS_ADMIN/SYS_CHROOT/SETUID/
+SETGID`. Background and the runtime evidence are in `docs/journal/0915b` and the
+plan in `0915d`.
+
 ### Persistent auth state
 
 The template mounts persistent volumes for:
