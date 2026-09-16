@@ -125,7 +125,9 @@ Docker's outer seccomp policy is selected directly in `devcontainer.json`:
 
 Keep exactly one line uncommented. `unconfined` is currently selected and
 disables the outer filter for every process in the container. Swap the comments
-to select `builtin`, Docker's built-in default protection.
+to select `builtin`, Docker's built-in default protection. Every interactive
+shell warns when container PID 1's live `/proc` state shows that seccomp is
+unconfined.
 
 Changing this setting requires **container recreation**, not an image change.
 A plain restart or reopening an existing container does not apply it. Reuse
