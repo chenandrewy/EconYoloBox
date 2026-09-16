@@ -93,9 +93,11 @@ fi
 # working directory rather than asked for, so starting a session is still one
 # word: on host "MacBook.local", /workspace/My-Project becomes
 # "MacBook:My-Project#1". /workspace itself uses the host folder's
-# name. Set CC_SESSION_NAME to override the project portion. Yolo is
-# unconditional here because the container is the blast radius — host-side
-# launchers that target a container pass the flag themselves.
+# name. Set CC_SESSION_NAME to override the project portion. Yolo needs no
+# flag here because the container is the blast radius — host-side launchers
+# that target a container pass the flag themselves. That premise fails with the
+# firewall open, so the -yolo launchers refuse on the same marker as the
+# warning above rather than hand an agent the whole network.
 _cc_session_name() {
     local base host n=1 running
     base="${CC_SESSION_NAME:-${PWD#/workspace}}"
@@ -122,6 +124,7 @@ _cc_session_name() {
 }
 
 cchat-yolo() {
+    [ -f /tmp/FIREWALL-WINDOW-OPEN ] && { echo 'cchat-yolo: firewall is open, refusing (see shell warning)' >&2; return 1; }
     claude --dangerously-skip-permissions --remote-control "$(_cc_session_name)" "$@"
 }
 
@@ -146,10 +149,12 @@ gptmini() {
 }
 
 gptchat-yolo() {
+    [ -f /tmp/FIREWALL-WINDOW-OPEN ] && { echo 'gptchat-yolo: firewall is open, refusing (see shell warning)' >&2; return 1; }
     codex --dangerously-bypass-approvals-and-sandbox "$@"
 }
 
 gptmini-yolo() {
+    [ -f /tmp/FIREWALL-WINDOW-OPEN ] && { echo 'gptmini-yolo: firewall is open, refusing (see shell warning)' >&2; return 1; }
     codex --model gpt-5.4-mini --dangerously-bypass-approvals-and-sandbox "$@"
 }
 

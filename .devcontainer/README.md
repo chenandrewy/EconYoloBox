@@ -145,8 +145,11 @@ Four launchers in `shellrc.sh`:
   on-request approval + workspace-write sandbox, network off. They set this
   explicitly with `-c` overrides, so it holds regardless of `~/.codex`.
 - `gptchat-yolo` / `gptmini-yolo` — `--dangerously-bypass-approvals-and-sandbox`:
-  no approvals, no sandbox. The container (and, when armed, the firewall) is the
-  only blast-radius boundary.
+  no approvals, no sandbox. The container and the firewall are the only
+  blast-radius boundary, so these (and `cchat-yolo`) refuse to start while the
+  firewall is open (`/tmp/FIREWALL-WINDOW-OPEN`, the same marker behind the
+  shell warning). Use the sandboxed launchers or set `firewall = true` and
+  rebuild.
 
 A bare `codex` also runs sandboxed: `/etc/codex/config.toml` (from
 `agents/SANDBOX-codex-config.toml`) sets `approval_policy`/`sandbox_mode` to the
