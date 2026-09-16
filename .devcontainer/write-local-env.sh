@@ -57,7 +57,10 @@ detect_hostname() {
 # one setting is read on the host rather than in post-start.sh.
 resolve_tz() {
     local tz
-    tz=$(bash "$SCRIPT_DIR/sandbox-setting.sh" timezone)
+    tz=$(bash "$SCRIPT_DIR/sandbox-setting.sh" timezone) || {
+        echo "write-local-env.sh: could not read SANDBOX.toml - using the host zone" >&2
+        tz=
+    }
     [ -n "$tz" ] || tz=$(detect_tz)
     printf '%s' "$tz"
 }

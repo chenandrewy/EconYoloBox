@@ -7,6 +7,8 @@
 # Outputs: the value on stdout - a basic string's contents, or the bare word
 #          true/false - or nothing if the key is absent, commented out, or
 #          malformed. Exit 0 either way; a missing file is treated as empty.
+#          Exits non-zero only if sed itself fails on a file that exists
+#          (e.g. a Dropbox-evicted copy); callers must treat that as empty.
 #
 # Deliberately not a TOML parser: the file is flat `key = "value"` lines, and
 # this has to run on the host (macOS bash 3.2, no guaranteed Python) and in the

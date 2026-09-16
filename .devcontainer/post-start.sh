@@ -20,7 +20,12 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 # The open side writes the marker and the armed side removes it; shellrc.sh
 # warns on every shell while it exists. See the comment there for why the
 # marker, not the kernel state, is what gets checked.
-firewall=$(bash .devcontainer/sandbox-setting.sh firewall)
+# A reader failure (sed cannot read the file - a Dropbox-evicted copy, say)
+# must arm, not abort the script before init-firewall.sh runs.
+firewall=$(bash .devcontainer/sandbox-setting.sh firewall) || {
+    echo "post-start.sh: could not read SANDBOX.toml - arming" >&2
+    firewall=
+}
 case "${firewall:-true}" in
     false)
         touch /tmp/FIREWALL-WINDOW-OPEN
