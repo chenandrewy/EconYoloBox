@@ -20,11 +20,12 @@
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
     // Seccomp toggle: keep exactly one of the following two lines uncommented.
-    // unconfined disables Docker's outer filter so Codex/bubblewrap can create namespaces.
-    // builtin enables Docker's default protection but may block that setup (see README).
+    // Keep builtin for now; reassess compatibility and approval overhead later (see README).
+    // Bubblewrap setup currently fails here, but approved execution outside it can work.
+    // unconfined removes Docker's outer syscall filter for every container process.
     // Changes require container recreation, not an image rebuild or plain restart.
-    "--security-opt=seccomp=unconfined",
-    // "--security-opt=seccomp=builtin",
+    // "--security-opt=seccomp=unconfined",
+    "--security-opt=seccomp=builtin",
     "--env-file=/tmp/devcontainer-local.env"
   ],
   "customizations": {

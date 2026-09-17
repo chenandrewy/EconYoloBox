@@ -1,20 +1,9 @@
-# Sandbox settings. Read live by startup scripts and agents - no rebuild needed
-# for path changes. Values are TOML basic strings: key = "value".
+# Big Sandbox settings
+# Rebuild after editing
 
-# true raises the deny-by-default egress firewall at container start; false
-# skips it, leaving the container with no network restrictions. Anything but a
-# bare false (including a typo) counts as true. Takes effect at the next
-# container start (Rebuild Container, or stop + reopen). This file is tracked
-# and writable from inside the container, so check `git diff SANDBOX.toml`
-# before restarting if that matters. Every shell warns while it is off.
+# true raises the deny-by-default egress firewall at container start
+# false skips the firewall setup.
 firewall = true
-
-# Seccomp is toggled in .devcontainer/devcontainer.json, not in this file.
-# Swap the commented/uncommented --security-opt=seccomp lines there:
-# unconfined disables Docker's outer filter (allows Codex/bubblewrap setup);
-# builtin enables Docker's default protection (may block that setup).
-# Keep exactly one line active. Changes require container recreation, not an
-# image rebuild or plain restart.
 
 # IANA zone for TZ and for human-facing timestamps. Comment out to use the
 # host's detected zone.
@@ -23,3 +12,10 @@ timezone = "America/New_York"
 # Container paths. Agents read these directly.
 research_library = "/workspace/LIBRARY/"
 screenshot_directory = "/workspace/dev/screenshots/"
+
+# Heads up: seccomp is toggled in .devcontainer/devcontainer.json, not in this file.
+# Keep seccomp = "builtin" for now: Docker's default syscall protection.
+# Bubblewrap setup currently fails here; approved commands can run outside it.
+# "Approve for me" reviews those requests; it does not require disabling seccomp.
+# seccomp = "unconfined" removes the outer filter for every container process.
+# See .devcontainer/README.md for the tradeoff and reassessment criteria.

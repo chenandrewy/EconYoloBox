@@ -119,13 +119,14 @@ Because the name appears in every session, a short one is worth setting.
 Docker's outer seccomp policy is selected directly in `devcontainer.json`:
 
 ```jsonc
-"--security-opt=seccomp=unconfined",
-// "--security-opt=seccomp=builtin",
+// "--security-opt=seccomp=unconfined",
+"--security-opt=seccomp=builtin",
 ```
 
-Keep exactly one line uncommented. `unconfined` is currently selected and
-disables the outer filter for every process in the container. Swap the comments
-to select `builtin`, Docker's built-in default protection. Every interactive
+Keep exactly one line uncommented. Keep `builtin`, Docker's default syscall
+protection, selected for now. `unconfined` disables the outer filter for every
+process in the container. Reassess if Codex or Docker changes improve sandbox
+compatibility, or repeated escalations become disruptive. Every interactive
 shell warns when container PID 1's live `/proc` state shows that seccomp is
 unconfined.
 
@@ -134,35 +135,73 @@ A plain restart or reopening an existing container does not apply it. Reuse
 the existing image when recreating; named volumes and the bind-mounted workspace
 persist, but files only in the old container's writable layer do not.
 
-Codex has two independent axes: an *approval policy* (when it stops to ask you)
-and a *sandbox* (what a command may touch — filesystem + network). Network-off
-is a property of the sandbox, not of approvals, and on Linux it is enforced by
-bubblewrap unsharing a fresh network namespace — not by the container firewall.
+Codex separates the sandbox (filesystem and network limits), approval policy
+(when approval is requested), and reviewer (a person or automatic review).
+"Approve for me" selects automatic review of eligible escalation requests; it
+does not replace the sandbox or grant network access by itself.
 
-Four launchers in `shellrc.sh`:
+Workspace-write disables command networking by default. Bubblewrap can enforce
+that through a separate network namespace (`--unshare-net`), but it can also
+preserve networking while restricting filesystem access. To enable command
+networking in a working workspace-write sandbox, Codex supports:
 
-- `gptchat` / `gptmini` — the everyday, sandboxed mode ("Approve for me"):
-  on-request approval + workspace-write sandbox, network off. They set this
-  explicitly with `-c` overrides, so it holds regardless of `~/.codex`.
-- `gptchat-yolo` / `gptmini-yolo` — `--dangerously-bypass-approvals-and-sandbox`:
-  no approvals, no sandbox. The container and the firewall are the only
-  blast-radius boundary, so these (and `cchat-yolo`) refuse to start while the
-  firewall is open (`/tmp/FIREWALL-WINDOW-OPEN`, the same marker behind the
-  shell warning). Use the sandboxed launchers or set `firewall = true` and
-  rebuild.
+```toml
+[sandbox_workspace_write]
+network_access = true
+```
 
-A bare `codex` also runs sandboxed: `/etc/codex/config.toml` (from
+The container firewall is a separate outer restriction. Lowering it does not
+enable networking inside a sandbox whose policy keeps it off. Enabling sandbox
+networking does not necessarily resolve bubblewrap's namespace setup failure.
+
+Use standard `codex` for everyday work. Select a model with `/model` or
+`codex --model <model>`; separate chat and mini wrappers are unnecessary.
+
+A bare `codex` defaults to requesting sandboxing: `/etc/codex/config.toml` (from
 `agents/SANDBOX-codex-config.toml`) sets `approval_policy`/`sandbox_mode` to the
-same "Approve for me" defaults, upgrading Codex's own read-only default.
+on-request/workspace-write defaults. User configuration can override them.
+These two settings alone do not select automatic review.
+
+We recommend "Approve for me". Set the following at the top level of your
+`~/.codex/config.toml`, before any table headers (update existing keys rather
+than adding duplicates):
+
+```toml
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+approvals_reviewer = "auto_review"
+```
+
+Then launch `codex` normally. Automatic review remains a user preference; the
+container does not enforce it or rewrite your user config. For a single session,
+use `codex --approve-for-me` (available in the inspected CLI 0.154.0).
+
+The explicit `gptchat-yolo` / `gptmini-yolo` wrappers remain in `shellrc.sh`.
+They use `--dangerously-bypass-approvals-and-sandbox`, and refuse to start while
+the firewall is open (`/tmp/FIREWALL-WINDOW-OPEN`, also checked by `cchat-yolo`).
+Standard `codex` remains available with the firewall open, subject to the
+sandbox compatibility and approval limits below.
 
 **Sandbox compatibility.** Codex's bubblewrap sandbox builds user/mount/network
-namespaces via `unshare()`. Earlier runtime checks found Docker's default filter
-blocked namespace setup with `EPERM` ("no permissions to create new namespace").
-Selecting `builtin` may restore that failure for sandboxed sessions. Selecting
-`unconfined` allowed the inner sandbox to work, at the cost of removing Docker's
-outer syscall filter for every process, including unsandboxed sessions.
-Background and runtime evidence are in `docs/journal/0915b`; the plan is in
-`0915d`.
+namespaces via `unshare()`. With builtin seccomp selected, the September 17
+session failed to create a namespace, consistent with the earlier `EPERM`
+investigation. A subsequent read-only command requested execution outside the
+inner sandbox, passed automatic review, and succeeded. Thus this setup blocks
+bubblewrap here, but does not prevent all work with "Approve for me". This is
+an approved escalation path, not a working replacement sandbox; individual
+requests can be denied and not every tool's fallback has been verified.
+
+Commands executed outside the inner sandbox retain Docker's restrictions but
+have the container user's filesystem and network access. With the firewall
+down, that includes outbound internet access. Live workspace files and accessible
+credentials remain exposed to those commands. Automatic review is a safeguard,
+not an OS-level restriction on every operation of an approved subprocess.
+
+See the [September 17 decision](../docs/journal/0917a,seccomp-builtin-and-codex-auto-review.md),
+which revises the earlier `0915d` plan to relax seccomp, and OpenAI's
+[auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review) and
+[network settings](https://learn.chatgpt.com/docs/agent-approvals-security#network-access)
+documentation.
 
 ### Persistent auth state
 

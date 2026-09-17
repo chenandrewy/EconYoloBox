@@ -5,28 +5,41 @@ economics research, and the daily workflow around all of it is short.
 
 ## 1. Safe YOLO agents
 
-Agents run with permissions skipped. That is the point, and it is only tenable
-because the container — not the prompt — is the boundary.
+The container provides the outer execution boundary. Explicit YOLO launchers
+skip permissions and refuse to start with the firewall open. Use standard
+`codex` for everyday work; the system defaults request workspace-write
+sandboxing and on-request approval. We recommend setting
+`approvals_reviewer = "auto_review"` in your user config for "Approve for me".
+This remains a user preference rather than an enforced container setting.
+
+Keep Docker's builtin seccomp for now. Bubblewrap namespace setup currently
+fails here, but a command approved to execute outside that inner sandbox can
+still run within Docker. This was observed with automatic review on September
+17; it does not establish that every command or tool has a working fallback.
+Reassess when compatibility improves or repeated escalations become disruptive.
+See [sandbox modes and launchers](../.devcontainer/README.md#codex-sandbox-modes-and-launchers)
+for configuration and the distinction between sandbox networking and the firewall.
 
 ### Inherited from Anthropic
 
 The container design descends from the reference devcontainer in
-[anthropics/claude-code](https://github.com/anthropics/claude-code), so the
-security posture is theirs rather than something invented here: an isolated
-container holding the workspace, `NET_ADMIN`/`NET_RAW` granted only so that
-startup can install a default-deny egress firewall, and the agent then run
-without permission prompts inside that boundary.
+[anthropics/claude-code](https://github.com/anthropics/claude-code). The original
+design uses an isolated container holding the workspace, `NET_ADMIN`/`NET_RAW`
+granted so startup can install a default-deny egress firewall, and an agent
+running without permission prompts inside that boundary.
 
-Keeping the upstream shape is deliberate. It is a design many people have
-reviewed, and it means the safety argument does not rest on this repo's own
-judgment. Traces of the lineage are still visible — the container user is
-`node`, and the shell-history volume is still named
+The current configuration and the files and credentials exposed inside the
+container determine its protection. Traces of the lineage remain — the
+container user is `node`, and the shell-history volume is still named
 `claude-code-bashhistory-*`.
 
 The consequence is worth stating plainly: ordinary agent preferences are not
 the boundary. The container isolates the process and the firewall bounds its
-network reach; files deliberately bind-mounted into `/workspace` remain live
-host files and must be treated accordingly.
+network reach when enabled; files deliberately bind-mounted into `/workspace`
+remain live host files. With the firewall down, commands approved to run outside
+the inner sandbox have the container's internet access and can affect or transmit
+accessible data. Automatic review is a safeguard, not an OS-level restriction
+on each operation performed by an approved script or subprocess.
 
 ### Adapted for economics research
 

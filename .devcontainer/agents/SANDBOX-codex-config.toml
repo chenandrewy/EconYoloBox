@@ -6,14 +6,15 @@
 # and onboarding state. User config has higher precedence than this file, so a
 # deliberate user preference still wins.
 
-# "Approve for me" posture as the container default: the model asks before
-# acting (on-request) and shell commands run in Codex's workspace-write sandbox
-# with network off. Network-off is enforced by bubblewrap's --unshare-net, which
-# only works because devcontainer.json relaxes Docker's seccomp filter - without
-# that, bwrap can't build its namespaces and codex errors instead of running
-# (see docs/journal/0915b, 0915d). Codex's own default is read-only, so this is
-# what upgrades a bare `codex` to a useful-but-sandboxed session. YOLO
-# (gptchat-yolo) still bypasses both axes explicitly.
+# Request workspace-write sandboxing with on-request approval. Network access
+# defaults off but can be configured independently. These settings do not select
+# automatic review: "Approve for me" also uses approvals_reviewer="auto_review".
+# Recommend that reviewer in the user's ~/.codex/config.toml (see README.md);
+# leave it as a user preference rather than setting it here. Launch with codex.
+# Keep Docker's builtin seccomp for now. Bubblewrap setup currently fails here;
+# approved escalations can execute outside the inner sandbox, within Docker.
+# See .devcontainer/README.md and docs/journal/0917a for the decision and limits.
+# YOLO (gptchat-yolo) bypasses both sandboxing and approvals explicitly.
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 

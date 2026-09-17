@@ -131,23 +131,9 @@ cchat-yolo() {
 alias hostname-local='echo "$LOCAL_HOSTNAME"'
 alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'
 
-# gptchat / gptmini [codex args...]
-# The sandboxed counterparts to the -yolo launchers: Codex's "Approve for me"
-# posture - on-request approval + workspace-write sandbox (network off, enforced
-# by bubblewrap's --unshare-net). Requires the seccomp relaxation in
-# devcontainer.json; without it bwrap can't create its namespaces and codex
-# errors instead of running. Set explicitly via -c overrides rather than the
-# newer --approve-for-me / --not-so-yolo flags, which may postdate the installed
-# codex (0.154.0). These override any config.toml, so the mode is guaranteed
-# regardless of the per-container ~/.codex volume's contents.
-gptchat() {
-    codex -c approval_policy="on-request" -c sandbox_mode="workspace-write" "$@"
-}
-
-gptmini() {
-    codex --model gpt-5.4-mini -c approval_policy="on-request" -c sandbox_mode="workspace-write" "$@"
-}
-
+# Use standard codex for everyday work; see README.md for the recommended
+# approvals_reviewer="auto_review" user preference. Only YOLO needs a wrapper
+# here, to refuse startup while the container firewall is open.
 gptchat-yolo() {
     [ -f /tmp/FIREWALL-WINDOW-OPEN ] && { echo 'gptchat-yolo: firewall is open, refusing (see shell warning)' >&2; return 1; }
     codex --dangerously-bypass-approvals-and-sandbox "$@"

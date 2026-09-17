@@ -10,10 +10,10 @@ Key features:
 
 1. **Safe YOLO agents**
 
-   - Don't waste time approving agent actions.
-   - Rely on a sandbox design that follows
-     [`anthropics/claude-code`](https://github.com/anthropics/claude-code)
-     security practices.
+   - Use Codex's automatic approval review, or explicit YOLO launchers when
+     the container firewall is enabled.
+   - Keep Docker's builtin seccomp for now; reassess inner sandbox compatibility
+     later. See [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
 
 2. **Ergonomic container and AI access**
 
@@ -125,11 +125,18 @@ Windows and Linux support is partially wired but has not been tested.
 
    ```bash
    cd /workspace/My-Project
-   gptchat-yolo
+   codex
    ```
 
-   Both commands intentionally run their agent without permission prompts; the
-   container and its firewall provide the safety boundary.
+   For Codex, we recommend `approvals_reviewer = "auto_review"` in your
+   `~/.codex/config.toml`, alongside on-request approval and workspace-write
+   sandboxing. See [Codex setup and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers)
+   for the configuration. To try it for one session, run `codex --approve-for-me`.
+   Use `/model` or `codex --model <model>` to choose a model.
+
+   `cchat-yolo` skips permission prompts and requires the container firewall to
+   be enabled. The explicit Codex YOLO wrappers have the same firewall check;
+   they are separate from the recommended everyday `codex` command.
 
 ## Recommended additions
 
