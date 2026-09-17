@@ -10,12 +10,17 @@ Key features:
 
 1. **Chaperoned agents, with easy YOLO switch**
 
-   - We recommend "chaperoned" agents for everyday work: Claude's auto mode or
-     Codex's automatic approval review. The container firewall defaults off
-     (`firewall = false`) for internet access.
-   - Switch to `firewall = true` before using the YOLO launchers for trusted,
-     unattended tasks. The firewall limits network access; mounted files remain
-     writable by the agent.
+   - **Everyday work:** use "chaperoned" agents (Claude's auto mode or Codex's
+     automatic approval review) with `firewall = false` for internet access and
+     `seccomp=unconfined` for Codex's Bubblewrap compatibility. These are the
+     container defaults; Docker's outer syscall filter is disabled for every
+     process.
+   - **YOLO-only work:** for trusted, unattended tasks, enable `firewall = true`
+     in `SANDBOX.toml` and preferably restore `seccomp=builtin` in
+     `.devcontainer/devcontainer.json`, then recreate the container. The YOLO
+     launchers require the firewall; builtin seccomp is recommended extra
+     protection. Keep `unconfined` if also using Codex's sandboxed modes, since
+     builtin currently blocks Bubblewrap setup here.
    - See [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
 
 2. **Ergonomic container and AI access**
@@ -81,8 +86,11 @@ Windows and Linux support is partially wired but has not been tested.
    the lower-left corner when it is ready.
 
    The container firewall defaults off; a shell warning confirms that posture.
-   Docker's builtin seccomp remains enabled. To use the network allowlist,
-   set `firewall = true` in `SANDBOX.toml` before starting the container.
+   Docker's outer seccomp filter is disabled for Codex/Bubblewrap compatibility.
+   This affects every container process, not just Codex;
+   see [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
+   To use the network allowlist, set `firewall = true` in `SANDBOX.toml` before
+   starting the container.
 
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
    Project folders are listed in `.gitignore` so the outer EconYoloBox

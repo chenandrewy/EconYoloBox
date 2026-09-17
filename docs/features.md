@@ -16,11 +16,12 @@ sandboxing and on-request approval. We recommend setting
 `approvals_reviewer = "auto_review"` in your user config for "Approve for me".
 This remains a user preference rather than an enforced container setting.
 
-Keep Docker's builtin seccomp for now. Bubblewrap namespace setup currently
-fails here, but a command approved to execute outside that inner sandbox can
-still run within Docker. This was observed with automatic review on September
-17; it does not establish that every command or tool has a working fallback.
-Reassess when compatibility improves or repeated escalations become disruptive.
+Docker seccomp is configured `unconfined` for Codex/Bubblewrap compatibility.
+Builtin seccomp blocked Bubblewrap setup, and automatic review could not reliably
+recover native editing tools. Container recreation and validation of ordinary
+execution, native editing, and sandbox restrictions are still required.
+Unconfined removes Docker's outer syscall filter for every process, including
+Claude and unsandboxed commands.
 See [sandbox modes and launchers](../.devcontainer/README.md#codex-sandbox-modes-and-launchers)
 for configuration and the distinction between sandbox networking and the firewall.
 

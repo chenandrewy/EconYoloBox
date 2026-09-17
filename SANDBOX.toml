@@ -14,8 +14,8 @@ research_library = "/workspace/LIBRARY/"
 screenshot_directory = "/workspace/dev/screenshots/"
 
 # Heads up: seccomp is toggled in .devcontainer/devcontainer.json, not in this file.
-# Keep seccomp = "builtin" for now: Docker's default syscall protection.
-# Bubblewrap setup currently fails here; approved commands can run outside it.
-# "Approve for me" reviews those requests; it does not require disabling seccomp.
-# seccomp = "unconfined" removes the outer filter for every container process.
-# See .devcontainer/README.md for the tradeoff and reassessment criteria.
+# seccomp = "unconfined" is selected for Bubblewrap compatibility.
+# It removes Docker's outer syscall filter for every container process.
+# Builtin currently blocks sandbox setup; automatic review cannot repair it.
+# Recreate the container, then validate native execution and editing.
+# See .devcontainer/README.md for validation checks and the security tradeoff.

@@ -11,9 +11,10 @@
 # automatic review: "Approve for me" also uses approvals_reviewer="auto_review".
 # Recommend that reviewer in the user's ~/.codex/config.toml (see README.md);
 # leave it as a user preference rather than setting it here. Launch with codex.
-# Keep Docker's builtin seccomp for now. Bubblewrap setup currently fails here;
-# approved escalations can execute outside the inner sandbox, within Docker.
-# See .devcontainer/README.md and docs/journal/0917a for the decision and limits.
+# Docker seccomp is configured unconfined for Bubblewrap compatibility.
+# It needs container recreation and native tool validation; automatic
+# review alone did not provide reliable recovery from sandbox setup failures.
+# See .devcontainer/README.md and docs/journal/0917c for the decision and limits.
 # YOLO (gptchat-yolo) bypasses both sandboxing and approvals explicitly.
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"

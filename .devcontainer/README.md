@@ -119,16 +119,22 @@ Because the name appears in every session, a short one is worth setting.
 Docker's outer seccomp policy is selected directly in `devcontainer.json`:
 
 ```jsonc
-// "--security-opt=seccomp=unconfined",
-"--security-opt=seccomp=builtin",
+"--security-opt=seccomp=unconfined",
+// "--security-opt=seccomp=builtin",
 ```
 
-Keep exactly one line uncommented. Keep `builtin`, Docker's default syscall
-protection, selected for now. `unconfined` disables the outer filter for every
-process in the container. Reassess if Codex or Docker changes improve sandbox
-compatibility, or repeated escalations become disruptive. Every interactive
-shell warns when container PID 1's live `/proc` state shows that seccomp is
-unconfined.
+Keep exactly one line uncommented. `unconfined` is the chosen configuration
+because builtin seccomp blocks Bubblewrap setup here and
+automatic review did not provide reliable recovery for all native tools.
+Validation after container recreation is still required; this setting alone is
+not evidence that the inner sandbox works.
+
+`unconfined` removes Docker's outer syscall filter for every container process,
+including Claude, YOLO sessions, and commands approved to run outside Codex's
+sandbox. A working Codex sandbox does not restore that outer protection for
+other processes. Every interactive shell warns when container PID 1's live
+`/proc` state shows that seccomp is unconfined.
+See [Docker's seccomp documentation](https://docs.docker.com/engine/security/seccomp/).
 
 Changing this setting requires **container recreation**, not an image change.
 A plain restart or reopening an existing container does not apply it. Reuse
@@ -182,14 +188,37 @@ the firewall is open (`/tmp/FIREWALL-WINDOW-OPEN`, also checked by `cchat-yolo`)
 Standard `codex` remains available with the firewall open, subject to the
 sandbox compatibility and approval limits below.
 
-**Sandbox compatibility.** Codex's bubblewrap sandbox builds user/mount/network
-namespaces via `unshare()`. With builtin seccomp selected, the September 17
-session failed to create a namespace, consistent with the earlier `EPERM`
-investigation. A subsequent read-only command requested execution outside the
-inner sandbox, passed automatic review, and succeeded. Thus this setup blocks
-bubblewrap here, but does not prevent all work with "Approve for me". This is
-an approved escalation path, not a working replacement sandbox; individual
-requests can be denied and not every tool's fallback has been verified.
+**Sandbox compatibility.** With builtin seccomp active, ordinary commands and
+the native `apply_patch` helper failed during Bubblewrap namespace creation.
+Shell escalation could recover, and invoking the installed patch helper by its
+absolute path through an escalated shell worked in one session. The native
+editing tool still failed. These tool-specific recovery paths are not a reliable
+substitute for a working sandbox; this prompted the switch to unconfined.
+
+**Validation after recreation.** Run these harmless probes as `node`:
+
+```bash
+bwrap --unshare-user --ro-bind / / /bin/true
+codex sandbox linux /bin/true
+```
+
+Then start a normal Codex workspace-write session and verify:
+
+- An ordinary shell command runs without namespace errors or escalation.
+- The native `apply_patch` tool can create, edit, and remove a disposable file
+  inside the workspace without an escalated shell fallback.
+- A workspace write succeeds, while a write to a disposable, user-owned test
+  location outside all writable roots is denied without escalation. Verify the
+  location is writable by `node` outside the sandbox so the check tests sandbox
+  enforcement rather than ordinary Unix permissions.
+- Command networking matches the chosen policy: default workspace-write stays
+  offline; explicitly enabled networking can reach an intended public endpoint,
+  subject to the container firewall if enabled.
+
+Record the results before calling the compatibility fix validated. If a check
+fails, inspect that failure before adding capabilities or relaxing other
+controls. Re-enabling builtin requires another recreation and is expected to
+restore the observed namespace failure until compatibility is addressed.
 
 Commands executed outside the inner sandbox retain Docker's restrictions but
 have the container user's filesystem and network access. With the firewall
@@ -197,8 +226,8 @@ down, that includes outbound internet access. Live workspace files and accessibl
 credentials remain exposed to those commands. Automatic review is a safeguard,
 not an OS-level restriction on every operation of an approved subprocess.
 
-See the [September 17 decision](../docs/journal/0917a,seccomp-builtin-and-codex-auto-review.md),
-which revises the earlier `0915d` plan to relax seccomp, and OpenAI's
+See the [September 17 reassessment](../docs/journal/0917c,bwrap-auto-review-friction.md),
+which supersedes the builtin recommendation in `0917a`, and OpenAI's
 [auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review) and
 [network settings](https://learn.chatgpt.com/docs/agent-approvals-security#network-access)
 documentation.
@@ -274,7 +303,8 @@ agent approval checks. Select automatic review separately; the firewall switch
 does not configure either agent's approval mode. Set `firewall = true` to use
 the allowlist and the YOLO wrappers. Apply changes through Dev Containers:
 editing the file does not change live rules, and a bare `docker restart` skips
-the startup hook. Docker's builtin seccomp remains selected in either mode.
+the startup hook. The unconfined seccomp choice is independent of
+either firewall mode; enabling the firewall does not restore syscall filtering.
 
 ### Analysis stacks and AI CLIs (`install-packages.sh`)
 
