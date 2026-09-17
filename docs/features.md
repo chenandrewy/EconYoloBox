@@ -5,7 +5,11 @@ economics research, and the daily workflow around all of it is short.
 
 ## 1. Safe YOLO agents
 
-The container provides the outer execution boundary. Explicit YOLO launchers
+The container provides the outer execution boundary. The checked-in default
+is `firewall = false`, leaving container networking open for everyday work
+with agent approval checks. Claude's `claude --permission-mode auto` and
+Codex's automatic review must be selected separately; the firewall setting
+does not configure them. Explicit YOLO launchers
 skip permissions and refuse to start with the firewall open. Use standard
 `codex` for everyday work; the system defaults request workspace-write
 sandboxing and on-request approval. We recommend setting
@@ -63,7 +67,7 @@ tooling those changes exist to support is described in
   all traffic rather than leaving the container open, and blocked hosts are
   REJECTed so they fail fast instead of hanging.
 
-- **Startup scripts.** `postStartCommand` (`post-start.sh`) arms the firewall,
+- **Startup scripts.** `postStartCommand` (`post-start.sh`) configures the firewall,
   seeds canonical agent guidance and shared skills, and checks the enforced
   agent policy. Setting `firewall = false` in `SANDBOX.toml` switches the
   firewall off at the next container start (stop + reopen, or Rebuild
@@ -128,9 +132,10 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   empty; the script is the explicit, one-time setup step and can be rerun to add
   or repair packages.
 
-  Note that installs run *behind the firewall*, which makes them tricky: package
-  hosts and their redirect mirrors must be allowlisted, and `docker build`
-  having open network is no evidence a command works in a running container.
+  With `firewall = true`, installs run behind the allowlist: package hosts and
+  their redirect mirrors must be allowed, and `docker build` having open network
+  is no evidence a command works in a running container. The default
+  `firewall = false` leaves these downloads unrestricted by the container.
 
 - **Pinned R package state.** R resolves against a dated P3M snapshot rather
   than live CRAN, so an R environment rebuilt months later resolves the same
@@ -143,7 +148,7 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   `Rplots.pdf` files, while the container supplies TeX Live, Biber, LyX, Pandoc,
   and the native libraries needed by the R and Python stacks.
 
-- **Research-tuned network allowlist.** The firewall is deny-by-default and
+- **Research-tuned network allowlist.** When enabled, the firewall is deny-by-default and
   allows FRED, OpenAlex, arXiv, SSRN, WRDS, the Ken French data library,
   global-q, and JKP factor data alongside package registries, code hosting, and
   agent APIs. Google's published first-party ranges are also allowed, so

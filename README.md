@@ -8,12 +8,15 @@ actual research work).
 
 Key features:
 
-1. **Safe YOLO agents**
+1. **Chaperoned agents, with easy YOLO switch**
 
-   - Use Codex's automatic approval review, or explicit YOLO launchers when
-     the container firewall is enabled.
-   - Keep Docker's builtin seccomp for now; reassess inner sandbox compatibility
-     later. See [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
+   - We recommend "chaperoned" agents for everyday work: Claude's auto mode or
+     Codex's automatic approval review. The container firewall defaults off
+     (`firewall = false`) for internet access.
+   - Switch to `firewall = true` before using the YOLO launchers for trusted,
+     unattended tasks. The firewall limits network access; mounted files remain
+     writable by the agent.
+   - See [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
 
 2. **Ergonomic container and AI access**
 
@@ -77,6 +80,10 @@ Windows and Linux support is partially wired but has not been tested.
    for the first build to finish. VS Code reloads with `Dev Container` shown in
    the lower-left corner when it is ready.
 
+   The container firewall defaults off; a shell warning confirms that posture.
+   Docker's builtin seccomp remains enabled. To use the network allowlist,
+   set `firewall = true` in `SANDBOX.toml` before starting the container.
+
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
    Project folders are listed in `.gitignore` so the outer EconYoloBox
    repository deliberately ignores them. Each project must therefore be its own
@@ -114,12 +121,16 @@ Windows and Linux support is partially wired but has not been tested.
    distro/Node version token changes in `devcontainer.json`.
 
 7. **Start an AI agent from the project directory.** The first launch may ask
-   you to authenticate. Start Claude with:
+   you to authenticate. Start Claude with auto mode selected:
 
    ```bash
    cd /workspace/My-Project
-   cchat-yolo
+   claude --permission-mode auto
    ```
+
+   This uses Claude's automatic permission checks where
+   [auto mode is available](https://code.claude.com/docs/en/permissions#permission-modes).
+   If unavailable for your account or model, use `claude` with manual approvals.
 
    Or start Codex with:
 
@@ -134,9 +145,24 @@ Windows and Linux support is partially wired but has not been tested.
    for the configuration. To try it for one session, run `codex --approve-for-me`.
    Use `/model` or `codex --model <model>` to choose a model.
 
-   `cchat-yolo` skips permission prompts and requires the container firewall to
-   be enabled. The explicit Codex YOLO wrappers have the same firewall check;
-   they are separate from the recommended everyday `codex` command.
+   Automatic review is a user choice; disabling the firewall does not enable
+   it. Codex also has its own command network policy, so an open container
+   firewall does not guarantee that every sandboxed command can reach the web.
+
+### Switching firewall modes
+
+`SANDBOX.toml` controls the container's outbound network allowlist. `false`
+leaves the container network open; `true` enables the research and package
+allowlist. After changing it, stop the container and reopen it through VS Code
+Dev Containers, or use **Dev Containers: Rebuild Container**. Editing the file
+does not change the running firewall, and a bare `docker restart` skips the
+startup hook that reads the setting.
+
+The `cchat-yolo`, `gptchat-yolo`, and `gptmini-yolo` launchers skip permission
+checks and refuse to start while the firewall is open. Enable the firewall and
+restart through Dev Containers before using them. Keep ordinary approval modes
+for tasks that need review; neither a firewall nor automatic review guarantees
+the safety of mounted files or accessible credentials.
 
 ## Recommended additions
 

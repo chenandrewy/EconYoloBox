@@ -3,7 +3,7 @@
 
 # true raises the deny-by-default egress firewall at container start
 # false skips the firewall setup.
-firewall = true
+firewall = false
 
 # IANA zone for TZ and for human-facing timestamps. Comment out to use the
 # host's detected zone.

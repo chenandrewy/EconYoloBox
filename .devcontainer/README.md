@@ -71,7 +71,7 @@ PATH; user TeX caches live in the writable home directory. The setup script
 refuses nonempty volumes. It does not manage updates.
 
 `tex-refresh` runs LyX converter detection as `node` in `~/.lyx` at startup,
-after the mandatory firewall step. A missing installation warns without
+after the firewall configuration step. A missing installation warns without
 preventing other container use. If TeX is installed after startup, run
 `tex-refresh` manually in each consumer and reopen any already-running LyX.
 The user configuration is not persisted across container recreation, so it
@@ -89,7 +89,7 @@ this helper. See the host setup README for installation and failure handling.
   overwritten, manually removed, or cleaned up by the host OS.
 - `devcontainer.json` — container configuration.
 - `Dockerfile` — container image definition.
-- `init-firewall.sh` — network firewall rules applied post-create.
+- `init-firewall.sh` — network firewall rules applied by `post-start.sh` when enabled.
 - `install-packages.sh` — installs the optional Python and R analysis stacks and
   the AI CLIs into a running container (see "Analysis stacks and AI CLIs" below).
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
@@ -269,6 +269,13 @@ rebuild. The reader is `sandbox-setting.sh`, a `sed` over flat `key = "value"`
 / `key = true|false` lines rather than a TOML parser: keep the file flat, and
 note that a malformed line yields nothing, which for `firewall` means armed.
 
+The checked-in default is `firewall = false`, for everyday internet access with
+agent approval checks. Select automatic review separately; the firewall switch
+does not configure either agent's approval mode. Set `firewall = true` to use
+the allowlist and the YOLO wrappers. Apply changes through Dev Containers:
+editing the file does not change live rules, and a bare `docker restart` skips
+the startup hook. Docker's builtin seccomp remains selected in either mode.
+
 ### Analysis stacks and AI CLIs (`install-packages.sh`)
 
 The Python and R packages are **not** in the image. A freshly built container
@@ -306,10 +313,10 @@ snapshot pinned in `Rprofile.site`, and system dependencies needing root
 What changes is that the stack costs minutes per container instead of being a
 cached image layer.
 
-Note that `docker build` runs with the **network open** while the firewall only
-exists at runtime, so a command working in the Dockerfile is no evidence it
-works in a started container. Moving installs to runtime puts them behind the
-allowlist — which is why `rspm-sync.rstudio.com` (P3M's payload host) and
+Note that `docker build` runs with the **network open**. When `firewall = true`,
+runtime installs use the allowlist, so a command working in the Dockerfile is
+no evidence it works in a started container. This is why
+`rspm-sync.rstudio.com` (P3M's payload host) and
 `cran.r-project.org` (archived sources) had to be added to `init-firewall.sh`.
 Expect further redirect hosts to surface; they cannot be enumerated in advance.
 
