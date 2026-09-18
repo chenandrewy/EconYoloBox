@@ -33,9 +33,15 @@ its own path, so another checkout cannot redirect its helpers.
 All modes walk up from `dir` (default: the current directory), resolve the
 sandbox once, call `devcontainer up`, and inspect the exact returned container.
 Reuse warns if Docker's recorded seccomp policy differs from `SANDBOX.toml`.
-After either rebuild mode, a mismatch or failed inspection stops before
-attachment. `--shell` and `--code` are mutually exclusive, as are the rebuild
-flags; an action can be combined with either rebuild mode.
+Before either rebuild mode, the launcher refuses if a VS Code window is
+connected to any container for the folder (the Dev Containers extension would
+otherwise race `devcontainer up` and recreate a `builtin` container), then
+removes every container labeled for the folder so no duplicate survives. The
+check looks for a live connection to the in-container VS Code server, which
+itself lingers after the window closes. After a rebuild, a mismatch or failed
+inspection stops before attachment. `--shell` and `--code` are mutually
+exclusive, as are the rebuild flags; an action can be combined with either
+rebuild mode.
 
 Changes to `seccomp` require `bbox --rebuild`; plain `bbox` may reuse a running
 container. Direct **Dev Containers: Rebuild Container** in VS Code does not

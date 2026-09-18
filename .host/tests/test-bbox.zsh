@@ -9,6 +9,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 log=$tmp/calls
 typeset -g MOCK_POLICY=unconfined
+typeset -g MOCK_CONTAINERS='' MOCK_VSCODE=0
 
 alias dcu='devcontainer up --workspace-folder .'
 source "$root/.host/devcontainer.zsh"
@@ -29,6 +30,11 @@ docker() {
     esac
   elif [[ "$1 $2" == 'context show' ]]; then
     print -r -- desktop-linux
+  elif [[ "$1" == ps ]]; then
+    if [[ -n "$MOCK_CONTAINERS" ]]; then print -l -- ${=MOCK_CONTAINERS}; fi
+  elif [[ "$1" == exec ]]; then
+    (( MOCK_VSCODE )) && return 0
+    return 1
   fi
 }
 code() { print -r -- "code|$*" >>$log; }
@@ -102,6 +108,20 @@ pass 'shell attachment follows the shared bring-up'
 bbox --code "$root" >/dev/null
 grep -q '^code|--new-window --folder-uri ' $log || fail 'code attachment'
 pass 'editor attachment follows the shared bring-up'
+
+MOCK_CONTAINERS='old-1 old-2'
+: >$log
+bbox --rebuild "$root" >/dev/null
+grep -q 'docker|rm -f old-1' $log && grep -q 'docker|rm -f old-2' $log || fail 'rebuild removes every labeled container'
+pass 'rebuild removes every container labeled for the folder'
+MOCK_VSCODE=1
+: >$log
+if err=$(bbox --rebuild "$root" 2>&1); then fail 'rebuild with VS Code attached should fail'; fi
+[[ "$err" == *'VS Code is attached'* ]] || fail 'VS Code attached message'
+grep -q 'docker|rm -f' $log && fail 'must not remove containers while VS Code is attached'
+grep -q '|up --workspace-folder' $log && fail 'must not run devcontainer up while VS Code is attached'
+pass 'rebuild refuses while VS Code is attached'
+MOCK_VSCODE=0 MOCK_CONTAINERS=''
 
 grep -q "'(\-\-rebuild-without-cache)--rebuild" "$root/.host/_bbox" || fail 'completion rebuild exclusion'
 grep -q "'(\-\-code)--shell" "$root/.host/_bbox" || fail 'completion action exclusion'

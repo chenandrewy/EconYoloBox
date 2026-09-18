@@ -62,6 +62,43 @@ _bbox_verify_policy() {
   return 0
 }
 
+# _bbox_vscode_attached <container>
+# True when a VS Code window is connected. The in-container server lingers
+# after the window closes, so test for an established TCP connection owned by
+# the server process rather than for the process itself.
+_bbox_vscode_attached() {
+  docker exec "$1" sh -c '
+    pids=$(pgrep -f "vscode-server/.*/server-main.js" | paste -sd "|" -)
+    [ -n "$pids" ] || exit 1
+    ss -Htnp state established 2>/dev/null | grep -qE "pid=($pids),"
+  ' >/dev/null 2>&1
+}
+
+# _bbox_clear_containers <root>
+# On rebuild, refuse while VS Code is attached to any container for this
+# folder (the Dev Containers extension would recreate one with default
+# runArgs, racing devcontainer up), then remove every labeled container so
+# no duplicate survives --remove-existing-container.
+_bbox_clear_containers() {
+  local root="$1" container listed
+  local -a containers
+
+  listed=$(docker ps -aq --filter "label=devcontainer.local_folder=$root") || return 1
+  containers=(${(f)listed})
+  for container in "${containers[@]}"; do
+    [[ -n "$container" ]] || continue
+    if _bbox_vscode_attached "$container"; then
+      print -u2 -- "bbox: ERROR: VS Code is attached to container $container for $root."
+      print -u2 -- 'bbox: close that VS Code window (or Dev Containers: Close Remote Connection), then rerun the rebuild.'
+      return 1
+    fi
+  done
+  for container in "${containers[@]}"; do
+    [[ -n "$container" ]] || continue
+    docker rm -f "$container" >/dev/null || return 1
+  done
+}
+
 # bbox [--rebuild|--rebuild-without-cache] [--shell|--code] [DIRECTORY]
 bbox() {
   local action='' project_dir='.' rebuild=0 positional_seen=0 arg resolved root remote_path
@@ -112,6 +149,7 @@ bbox() {
   seccomp=$(bash "$root/.devcontainer/seccomp-setting.sh" "$root/SANDBOX.toml") || return 1
 
   if (( rebuild )); then
+    _bbox_clear_containers "$root" || return 1
     print -- "bbox: recreating $root with seccomp=$seccomp"
   fi
   up_output=$(SANDBOX_SECCOMP="$seccomp" devcontainer up --workspace-folder "$root" "${up_args[@]}") || return 1

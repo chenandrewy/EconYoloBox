@@ -230,9 +230,13 @@ options(Ncpus = 2)
 EOF
 
 # Git defaults
+# safe.directory '*': the bind-mounted /workspace root intermittently reports
+# uid 0 under Docker Desktop's virtiofs, which trips git's ownership check for
+# the sandbox repo and every project repo nested under it.
 RUN git config --system merge.ff false && \
   git config --system pager.branch cat && \
-  git config --system core.editor nano
+  git config --system core.editor nano && \
+  git config --system --add safe.directory '*'
 
 # Persist bash history.
 RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
