@@ -36,7 +36,7 @@ rc file or testing, use `bash .host/setup.sh --rc-file PATH`.
 | File               | Contents                                                    |
 |--------------------|-------------------------------------------------------------|
 | `setup.sh`         | host prerequisite checks and shell registration             |
-| `devcontainer.zsh` | `bbox`, compatibility wrappers, bring-up, and verification |
+| `devcontainer.zsh` | `bbox`, short wrappers, bring-up, and verification        |
 | `_bbox`            | side-effect-free native zsh completion                     |
 | `dc-resolve.py`    | container-path, CLI-output, and folder-URI helpers          |
 
@@ -72,8 +72,9 @@ inherit the launcher's environment and therefore uses the safe `builtin`
 default, even if `SANDBOX.toml` selects `unconfined`. Use `bbox --code` for the
 TOML-driven creation and attachment path.
 
-`dcu`, `dce`, and `dccode` remain as deprecated wrappers around `bbox`,
-`bbox --shell`, and `bbox --code`. They contain no separate bring-up logic.
+`bbu`, `bbe`, and `bbcode` are short wrappers around `bbox`, `bbox --shell`,
+and `bbox --code`. They contain no separate bring-up logic. The former
+`dcu`, `dce`, and `dccode` names are removed on load.
 
 `devcontainer.zsh` sources `_bbox`. Source it after your zsh completion setup;
 if `compdef` was unavailable at that point, source `.host/_bbox` again after

@@ -12,6 +12,7 @@ typeset -g MOCK_POLICY=unconfined
 typeset -g MOCK_CONTAINERS='' MOCK_VSCODE=0
 
 alias dcu='devcontainer up --workspace-folder .'
+dccode() { :; }
 source "$root/.host/devcontainer.zsh"
 
 devcontainer() {
@@ -44,8 +45,9 @@ typeset -gi tests=0
 pass() { (( ++tests )); print -r -- "ok $tests - $1"; }
 
 (( ! $+aliases[dcu] )) || fail 'legacy dcu alias survived reload'
-(( $+functions[dcu] )) || fail 'dcu wrapper missing after reload'
-pass 'reload replaces the legacy dcu alias with the validated wrapper'
+(( ! $+functions[dccode] )) || fail 'legacy dccode function survived reload'
+(( $+functions[bbu] && $+functions[bbe] && $+functions[bbcode] )) || fail 'short wrappers missing after reload'
+pass 'reload removes legacy dcu/dce/dccode names and defines bbu/bbe/bbcode'
 
 : >$log
 bbox "$root"

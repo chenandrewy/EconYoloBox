@@ -21,7 +21,7 @@
 #     Input:   Docker inspect's HostConfig.SecurityOpt JSON array.
 #     Output:  builtin, unconfined, or an unverified description.
 #
-# Called by _dc_resolve/dccode in devcontainer.zsh; not meant to be run by hand.
+# Called by _dc_resolve/bbox in devcontainer.zsh; not meant to be run by hand.
 
 import json
 import pathlib

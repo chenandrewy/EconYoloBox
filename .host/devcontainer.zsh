@@ -4,7 +4,7 @@
 #   source /path/to/EconYoloBox/.host/devcontainer.zsh
 #
 # Inputs:  SANDBOX.toml and an optional project directory.
-# Outputs: bbox plus deprecated dcu/dce/dccode wrappers. Requires docker,
+# Outputs: bbox plus the bbu/bbe/bbcode wrappers. Requires docker,
 #   devcontainer, python3, and (for --code) code.
 
 # zsh sets $0 to the sourced file while evaluating it. Resolve siblings now so
@@ -168,13 +168,14 @@ bbox() {
   esac
 }
 
-# Deprecated compatibility names. All creation and resolution stays in bbox.
-# The previous launcher shipped dcu as an alias. Remove legacy aliases first so
-# this file can be sourced again in an already-running host shell.
-unalias dcu dce dccode 2>/dev/null || true
-dcu() { bbox "$@"; }
-dce() { bbox --shell "$@"; }
-dccode() { bbox --code "$@"; }
+# Short names. All creation and resolution stays in bbox.
+# Earlier launchers shipped dcu/dce/dccode as aliases or functions. Remove them
+# first so this file can be sourced again in an already-running host shell.
+unalias dcu dce dccode bbu bbe bbcode 2>/dev/null || true
+unfunction dcu dce dccode 2>/dev/null || true
+bbu() { bbox "$@"; }
+bbe() { bbox --shell "$@"; }
+bbcode() { bbox --code "$@"; }
 
 # Completion initialization belongs to the user's zsh setup.
 source "$_DC_HOST_DIR/_bbox"

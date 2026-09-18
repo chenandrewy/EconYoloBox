@@ -168,7 +168,7 @@ workable should each be one step.
 
 | Location | Commands |
 | --- | --- |
-| `.host/devcontainer.zsh` (host shell) | `bbox` (`dcu`, `dce`, and `dccode` are deprecated wrappers) |
+| `.host/devcontainer.zsh` (host shell) | `bbox` (`bbu`, `bbe`, and `bbcode` are short wrappers) |
 | `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
 | `.tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork` |
 | `.tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
