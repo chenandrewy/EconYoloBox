@@ -86,14 +86,15 @@ Windows and Linux support is partially wired but has not been tested.
 
    ```zsh
    npm install -g @devcontainers/cli
-   printf 'source %q\n' "$PWD/.host/devcontainer.zsh" >> ~/.zshrc
-   source .host/devcontainer.zsh
+   bash .host/setup.sh
+   exec zsh
    bbox --code
    ```
 
    This records your actual checkout path for future shells; no particular
-   folder name or location is required. If you later move or rename the checkout
-   folder, update that source line in `~/.zshrc`.
+   folder name or location is required. Setup checks prerequisites and backs up
+   existing shell configuration before editing it. If you later move or rename
+   the checkout folder, rerun setup to update the saved path.
 
    Wait for the first build to finish. VS Code reloads with `Dev Container`
    shown in the lower-left corner when it is ready.
@@ -235,8 +236,8 @@ following from the checkout root in a host zsh terminal:
 
 ```zsh
 npm install -g @devcontainers/cli
-printf 'source %q\n' "$PWD/.host/devcontainer.zsh" >> ~/.zshrc
-source .host/devcontainer.zsh
+bash .host/setup.sh
+exec zsh
 type bbox
 ```
 

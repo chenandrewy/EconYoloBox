@@ -9,10 +9,33 @@ reads and validates this repo's `SANDBOX.toml`, passes the selected seccomp
 policy to the Dev Containers CLI, and then optionally opens a shell or editor.
 Launching and managing Claude Code sessions remains a separate personal concern.
 
+## Setup
+
+From the checkout root on the host, run:
+
+```zsh
+bash .host/setup.sh
+exec zsh
+bbox --code
+```
+
+Setup locates its own checkout and registers the launcher in
+`${ZDOTDIR:-$HOME}/.zshrc`. It backs up existing configuration before changing
+it, preserves unrelated shell configuration, and replaces its managed block
+when rerun, including after a checkout move or rename. Simple source lines for
+this launcher from the previous README are migrated into the managed block.
+The block is appended after existing completion setup.
+
+It checks for Python 3, zsh, Docker, the Dev Containers CLI, and the VS Code
+`code` command, reporting missing prerequisites without installing software or
+starting containers. Python 3 is required to edit the registration. For a custom
+rc file or testing, use `bash .host/setup.sh --rc-file PATH`.
+
 ## Layout
 
 | File               | Contents                                                    |
 |--------------------|-------------------------------------------------------------|
+| `setup.sh`         | host prerequisite checks and shell registration             |
 | `devcontainer.zsh` | `bbox`, compatibility wrappers, bring-up, and verification |
 | `_bbox`            | side-effect-free native zsh completion                     |
 | `dc-resolve.py`    | container-path, CLI-output, and folder-URI helpers          |
