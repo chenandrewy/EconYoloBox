@@ -1,86 +1,142 @@
-# devcontainer.zsh — bring dev containers up and open a shell or editor inside
-# the one enclosing a given directory.
+# devcontainer.zsh — create, verify, and enter this repo's dev container.
 #
-# Source this from your interactive shell rc (zsh):
-#   source /path/to/1-SANDBOX/.host/devcontainer.zsh
+# Source from an interactive host zsh:
+#   source /path/to/EconYoloBox/.host/devcontainer.zsh
 #
-# Inputs:  none — no configuration, and nothing is exported.
-# Outputs: dcu, dce, dccode. Requires: docker, the `devcontainer` CLI,
-#   python3 (for dc-resolve.py), and the `code` CLI for dccode.
-#
-# Scope: navigation only. Launching and managing Claude Code sessions is a
-# separate, personal concern that lives in the machine-settings repo
-# (MacUser/Shell-rc/cc-remotes.zsh); nothing here knows about it.
+# Inputs:  SANDBOX.toml and an optional project directory.
+# Outputs: bbox plus deprecated dcu/dce/dccode wrappers. Requires docker,
+#   devcontainer, python3, and (for --code) code.
 
-# Directory holding this toolkit. Derived unconditionally from $0 — this file's
-# own path at load time — so a second checkout sourced into the same shell can
-# never make this one read the other's dc-resolve.py. Derived state, not config:
-# do not switch this to `:=`. dc-resolve.py is a sibling of this file.
+# zsh sets $0 to the sourced file while evaluating it. Resolve siblings now so
+# another checkout sourced later cannot redirect this toolkit's helpers.
 _DC_HOST_DIR="${0:A:h}"
 _DC_RESOLVE_PY="$_DC_HOST_DIR/dc-resolve.py"
 
-# == Bring one up ==
-alias dcu='devcontainer up --workspace-folder .'
-
-# == Dev container path resolution ==
 # _dc_resolve [project_dir]
-# Walks up from project_dir to find the enclosing .devcontainer/devcontainer.json,
-# then prints two lines: the devcontainer root dir, and the container-side path
-# corresponding to project_dir. Shared by dce and dccode.
+# Prints the enclosing sandbox root and corresponding container path.
 _dc_resolve() {
   local project_dir devcontainer_dir devcontainer_json relative_dir remote_path
 
   project_dir="${1:-.}"
   project_dir="${project_dir:A}"
   devcontainer_dir="$project_dir"
-
   while [[ "$devcontainer_dir" != "/" && ! -f "$devcontainer_dir/.devcontainer/devcontainer.json" ]]; do
     devcontainer_dir="${devcontainer_dir:h}"
   done
-
   if [[ ! -f "$devcontainer_dir/.devcontainer/devcontainer.json" ]]; then
-    echo "Error: No enclosing .devcontainer/devcontainer.json found for $project_dir" >&2
+    echo "bbox: no enclosing .devcontainer/devcontainer.json found for $project_dir" >&2
     return 1
   fi
 
   if [[ "$project_dir" == "$devcontainer_dir" ]]; then
     relative_dir=""
-  elif [[ "$project_dir" == "$devcontainer_dir/"* ]]; then
-    relative_dir="${project_dir#$devcontainer_dir/}"
   else
-    echo "Error: $project_dir is not inside devcontainer root $devcontainer_dir" >&2
-    return 1
+    relative_dir="${project_dir#$devcontainer_dir/}"
   fi
-
   devcontainer_json="$devcontainer_dir/.devcontainer/devcontainer.json"
   remote_path=$(python3 "$_DC_RESOLVE_PY" remote-path "$devcontainer_json" "$relative_dir") || return 1
-
   print -r -- "$devcontainer_dir"
   print -r -- "$remote_path"
 }
 
-# dce [project_dir]
-# Opens an interactive zsh inside the enclosing dev container, cd'd into the
-# subdirectory that corresponds to project_dir (default: current directory).
-dce() {
-  local resolved devcontainer_dir remote_path
-  resolved=$(_dc_resolve "${1:-.}") || return 1
-  devcontainer_dir="${resolved%%$'\n'*}"
-  remote_path="${resolved#*$'\n'}"
+_bbox_verify_policy() {
+  local container_id="$1" requested="$2" recreated="$3" root="$4"
+  local security_options actual
 
-  devcontainer exec --workspace-folder "$devcontainer_dir" zsh -c "cd ${(q)remote_path} && exec zsh"
+  if ! security_options=$(docker inspect --format '{{json .HostConfig.SecurityOpt}}' "$container_id"); then
+    actual='unverified (docker inspect failed)'
+  else
+    actual=$(python3 "$_DC_RESOLVE_PY" security-policy "$security_options") || actual='unverified (inspection output could not be parsed)'
+  fi
+
+  if [[ "$actual" == "$requested" ]]; then
+    return 0
+  fi
+  if (( recreated )); then
+    print -u2 -- "bbox: ERROR: recreated container requested seccomp=$requested; actual policy is $actual."
+    print -u2 -- 'bbox: refusing attachment because recreation could not be validated.'
+    return 1
+  fi
+  print -u2 -- "bbox: WARNING: requested seccomp=$requested; running container policy is $actual."
+  print -u2 -- "bbox: seccomp is fixed at creation; on the host run: bbox --rebuild ${(q)root}"
+  return 0
 }
 
-# dccode [project_dir]
-# Opens the subdirectory that corresponds to project_dir inside the enclosing
-# dev container in VS Code (default: current directory).
-dccode() {
-  local resolved devcontainer_dir remote_path folder_uri docker_context
-  resolved=$(_dc_resolve "${1:-.}") || return 1
-  devcontainer_dir="${resolved%%$'\n'*}"
-  remote_path="${resolved#*$'\n'}"
-  docker_context=$(docker context show) || return 1
+# bbox [--rebuild|--rebuild-without-cache] [--shell|--code] [DIRECTORY]
+bbox() {
+  local action='' project_dir='.' rebuild=0 positional_seen=0 arg resolved root remote_path
+  local seccomp up_output container_id docker_context folder_uri
+  local -a up_args
 
-  folder_uri=$(python3 "$_DC_RESOLVE_PY" folder-uri "$devcontainer_dir" "$remote_path" "$docker_context") || return 1
-  code --new-window --folder-uri "$folder_uri"
+  while (( $# )); do
+    arg="$1"
+    shift
+    case "$arg" in
+      --rebuild)
+        (( rebuild )) && { print -u2 -- 'bbox: rebuild flags are mutually exclusive'; return 2; }
+        rebuild=1
+        up_args+=(--remove-existing-container)
+        ;;
+      --rebuild-without-cache)
+        (( rebuild )) && { print -u2 -- 'bbox: rebuild flags are mutually exclusive'; return 2; }
+        rebuild=1
+        up_args+=(--remove-existing-container --build-no-cache)
+        ;;
+      --shell|--code)
+        [[ -n "$action" ]] && { print -u2 -- 'bbox: --shell and --code are mutually exclusive'; return 2; }
+        action="${arg#--}"
+        ;;
+      --)
+        (( $# > 1 )) && { print -u2 -- 'bbox: expected at most one directory'; return 2; }
+        if (( $# == 1 )); then
+          (( positional_seen )) && { print -u2 -- 'bbox: expected at most one directory'; return 2; }
+          project_dir="$1"
+        fi
+        break
+        ;;
+      -*)
+        print -u2 -- "bbox: unknown option: $arg"
+        return 2
+        ;;
+      *)
+        (( positional_seen )) && { print -u2 -- 'bbox: expected at most one directory'; return 2; }
+        project_dir="$arg"
+        positional_seen=1
+        ;;
+    esac
+  done
+
+  resolved=$(_dc_resolve "$project_dir") || return 1
+  root="${resolved%%$'\n'*}"
+  remote_path="${resolved#*$'\n'}"
+  seccomp=$(bash "$root/.devcontainer/seccomp-setting.sh" "$root/SANDBOX.toml") || return 1
+
+  if (( rebuild )); then
+    print -- "bbox: recreating $root with seccomp=$seccomp"
+  fi
+  up_output=$(SANDBOX_SECCOMP="$seccomp" devcontainer up --workspace-folder "$root" "${up_args[@]}") || return 1
+  container_id=$(print -r -- "$up_output" | python3 "$_DC_RESOLVE_PY" up-container-id) || return 1
+  _bbox_verify_policy "$container_id" "$seccomp" "$rebuild" "$root" || return 1
+
+  case "$action" in
+    shell)
+      devcontainer exec --workspace-folder "$root" zsh -c "cd ${(q)remote_path} && exec zsh"
+      ;;
+    code)
+      docker_context=$(docker context show) || return 1
+      folder_uri=$(python3 "$_DC_RESOLVE_PY" folder-uri "$root" "$remote_path" "$docker_context") || return 1
+      code --new-window --folder-uri "$folder_uri"
+      ;;
+  esac
 }
+
+# Deprecated compatibility names. All creation and resolution stays in bbox.
+# The previous launcher shipped dcu as an alias. Remove legacy aliases first so
+# this file can be sourced again in an already-running host shell.
+unalias dcu dce dccode 2>/dev/null || true
+dcu() { bbox "$@"; }
+dce() { bbox --shell "$@"; }
+dccode() { bbox --code "$@"; }
+
+# Completion initialization belongs to the user's zsh setup.
+source "$_DC_HOST_DIR/_bbox"

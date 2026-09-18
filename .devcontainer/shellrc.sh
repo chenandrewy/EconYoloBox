@@ -68,24 +68,12 @@ if [ -f /tmp/FIREWALL-WINDOW-OPEN ]; then
 fi
 
 # Docker's outer seccomp filter is a separate safety boundary from the
-# firewall. Check the live process state rather than devcontainer.json: config
-# edits do not affect an already-created container, while PID 1 reports the
-# container's outer policy. Checking this shell instead could miss the warning
-# when an inner agent sandbox has installed its own filter. Linux reports 0 for
-# disabled and 2 for filter mode.
-if grep -Eq '^Seccomp:[[:space:]]+0[[:space:]]*$' /proc/1/status 2>/dev/null; then
-    if [ -t 1 ]; then
-        _seccomp_hi=$'\033[1;3;38;5;214m'
-        _seccomp_off=$'\033[0m'
-    else
-        _seccomp_hi=''
-        _seccomp_off=''
-    fi
-    printf '%s\n' \
-        "${_seccomp_hi}Warning: Seccomp Unconfined${_seccomp_off}" \
-        "To close: select seccomp=builtin in /workspace/.devcontainer/devcontainer.json, then recreate container"
-    unset _seccomp_hi _seccomp_off
-fi
+# firewall. Each interactive shell compares current SANDBOX.toml with PID 1;
+# config edits cannot alter an already-created container. PID 1 is used because
+# an inner agent sandbox may add a filter to the checking process itself.
+case $- in
+    *i*) bash /workspace/.devcontainer/check-seccomp.sh ;;
+esac
 
 # cchat-yolo [claude args...]
 # Start Claude in the container, always under --remote-control so the session is

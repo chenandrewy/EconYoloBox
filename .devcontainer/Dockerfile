@@ -353,7 +353,7 @@ ENV PATH="/usr/local/texlive-bin:$PATH"
 
 # Converter detection needs the runtime TeX mount and a writable user directory.
 COPY tex-refresh.sh /usr/local/bin/tex-refresh
-RUN chmod +x /usr/local/bin/tex-refresh
+RUN chmod 0755 /usr/local/bin/tex-refresh
 
 # Copy and set up firewall script
 COPY init-firewall.sh /usr/local/bin/
@@ -386,7 +386,7 @@ RUN chmod 0444 /etc/claude-code/managed-settings.json \
 # Policy verification, run manually or from postStartCommand. Copied rather than
 # invoked from /workspace so a check of the policy is not itself node-writable.
 COPY test-agent-policy.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/test-agent-policy.sh
+RUN chmod 0755 /usr/local/bin/test-agent-policy.sh
 
 # Debian installs fd as fdfind to avoid a package-name collision. Provide the
 # conventional command name after all expensive build layers are complete.

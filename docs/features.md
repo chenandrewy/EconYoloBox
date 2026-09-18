@@ -16,7 +16,8 @@ sandboxing and on-request approval. We recommend setting
 `approvals_reviewer = "auto_review"` in your user config for "Approve for me".
 This remains a user preference rather than an enforced container setting.
 
-Docker seccomp is configured `unconfined` for Codex/Bubblewrap compatibility.
+Docker seccomp defaults to `unconfined` in `SANDBOX.toml` for
+Codex/Bubblewrap compatibility.
 Builtin seccomp blocked Bubblewrap setup, and automatic review could not reliably
 recover native editing tools. Container recreation and validation of ordinary
 execution, native editing, and sandbox restrictions are still required.
@@ -167,7 +168,7 @@ workable should each be one step.
 
 | Location | Commands |
 | --- | --- |
-| `.host/devcontainer.zsh` (host shell) | `dcu`, `dce`, `dccode` (`dc-resolve.py` backs them) |
+| `.host/devcontainer.zsh` (host shell) | `bbox` (`dcu`, `dce`, and `dccode` are deprecated wrappers) |
 | `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
 | `.tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork` |
 | `.tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
@@ -193,17 +194,14 @@ commands.
 ### Containers, sessions, and agents
 
 - **One-command project opening (`.host/`).** Source `devcontainer.zsh` in your
-  `~/.zshrc` and any project folder is one command away: `dccode [dir]` walks up
-  from any subfolder to the enclosing devcontainer and opens that exact
-  subfolder in VS Code inside the container; `dce [dir]` does the same but drops
-  you into an in-container zsh. No manual "Reopen in Container" and no
-  navigating after attach. The toolkit takes no configuration and names no
-  personal paths, so it works against any repo with a devcontainer and ports
-  across machines unchanged.
+  `~/.zshrc` and use `bbox --code [dir]` to validate `SANDBOX.toml`, bring up
+  the enclosing devcontainer, verify the live seccomp policy, and open that
+  exact subfolder in VS Code. `bbox --shell [dir]` follows the same bring-up
+  path and enters zsh. `bbox --rebuild` applies changed creation-time settings.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered
-  (`My-Project#1`), so `dce <dir>` then `cchat-yolo` is the whole
+  (`My-Project#1`), so `bbox --shell <dir>` then `cchat-yolo` is the whole
   workflow and every session is identifiable without being named by hand.
 
 - **Fleet control.** Every session starts under `--remote-control`, so host-side

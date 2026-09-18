@@ -19,14 +19,9 @@
   "runArgs": [
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
-    // Seccomp toggle: keep exactly one of the following two lines uncommented.
-    // Use unconfined for Codex/Bubblewrap compatibility; validate after recreation.
-    // Builtin blocks Bubblewrap setup here; automatic review does not fix every tool.
-    // Unconfined removes Docker's outer syscall filter for ALL container processes.
-    // This is the chosen configuration; see README for the tradeoff and checks.
-    // Changes require container recreation, not an image rebuild or plain restart.
-    "--security-opt=seccomp=unconfined",
-    // "--security-opt=seccomp=builtin",
+    // Set only by the bbox host launcher after strict SANDBOX.toml validation.
+    // Direct VS Code creation safely defaults to builtin.
+    "--security-opt=seccomp=${localEnv:SANDBOX_SECCOMP:builtin}",
     "--env-file=/tmp/devcontainer-local.env"
   ],
   "customizations": {

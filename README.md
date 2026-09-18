@@ -12,12 +12,12 @@ Key features:
 
    - **Everyday work:** use "chaperoned" agents (Claude's auto mode or Codex's
      automatic approval review) with `firewall = false` for internet access and
-     `seccomp=unconfined` for Codex's Bubblewrap compatibility. These are the
+     `seccomp = "unconfined"` for Codex's Bubblewrap compatibility. These are the
      container defaults; Docker's outer syscall filter is disabled for every
      process.
    - **YOLO-only work:** for trusted, unattended tasks, enable `firewall = true`
-     in `SANDBOX.toml` and preferably restore `seccomp=builtin` in
-     `.devcontainer/devcontainer.json`, then recreate the container. The YOLO
+     in `SANDBOX.toml` and preferably select `seccomp = "builtin"` there, then
+     run `bbox --rebuild`. The YOLO
      launchers require the firewall; builtin seccomp is recommended extra
      protection. Keep `unconfined` if also using Codex's sandboxed modes, since
      builtin currently blocks Bubblewrap setup here.
@@ -77,13 +77,26 @@ Windows and Linux support is partially wired but has not been tested.
    https://github.com/chenandrewy/EconYoloBox.git
    ```
 
-   Choose your home folder as the destination, then click **Open** when VS Code
+   Choose a destination folder, then click **Open** when VS Code
    asks whether to open the cloned repository.
 
-4. **Build and open the container.** Open the Command Palette with
-   **Shift–Command–P**, select **Dev Containers: Reopen in Container**, and wait
-   for the first build to finish. VS Code reloads with `Dev Container` shown in
-   the lower-left corner when it is ready.
+4. **Build and open the container.** In the cloned repository's VS Code window,
+   select **Terminal → New Terminal**. In this host zsh terminal, make sure you
+   are at the repository root (the folder containing `SANDBOX.toml`), then run:
+
+   ```zsh
+   npm install -g @devcontainers/cli
+   printf 'source %q\n' "$PWD/.host/devcontainer.zsh" >> ~/.zshrc
+   source .host/devcontainer.zsh
+   bbox --code
+   ```
+
+   This records your actual checkout path for future shells; no particular
+   folder name or location is required. If you later move or rename the checkout
+   folder, update that source line in `~/.zshrc`.
+
+   Wait for the first build to finish. VS Code reloads with `Dev Container`
+   shown in the lower-left corner when it is ready.
 
    The container firewall defaults off; a shell warning confirms that posture.
    Docker's outer seccomp filter is disabled for Codex/Bubblewrap compatibility.
@@ -186,10 +199,10 @@ About → Name**. Reopen the container afterward so it picks up the new name.
 ### Save credentials for research tools
 
 These credentials support WRDS, Mistral, and OpenRouter tools; they
-are not needed to authenticate Claude or Codex. In the Mac's Terminal, run:
+are not needed to authenticate Claude or Codex. In the Mac's Terminal, open
+your checkout root and run:
 
 ```bash
-cd "$HOME/EconYoloBox"
 python3 .credentials/setup.py
 python3 .devcontainer/inject-credentials.py
 ```
@@ -212,22 +225,29 @@ cd /workspace
 .devcontainer/install-packages.sh --force  # reinstall even if present
 ```
 
-## Optional command-line workflow
+## Host command workflow
 
-The VS Code workflow above is sufficient. To start and enter EconYoloBox from
-the Mac's Terminal instead, install the `devcontainer` CLI and the VS Code
-`code` CLI, then load the included shell helpers:
+The `bbox` launcher is the supported creation path because it validates
+`SANDBOX.toml` before the Dev Containers CLI asks Docker to create the
+container. Ensure the VS Code `code` CLI is installed if using `--code`.
+If you have not already loaded the launcher during minimal setup, run the
+following from the checkout root in a host zsh terminal:
 
 ```zsh
 npm install -g @devcontainers/cli
-echo 'source "$HOME/EconYoloBox/.host/devcontainer.zsh"' >> ~/.zshrc
-exec zsh
-type dcu dce dccode
+printf 'source %q\n' "$PWD/.host/devcontainer.zsh" >> ~/.zshrc
+source .host/devcontainer.zsh
+type bbox
 ```
 
-Run `dcu` from the EconYoloBox root to start the container. Then use
-`dccode My-Project` to open a project in VS Code or `dce My-Project` to enter it
-in a terminal.
+Run `bbox` to bring the container up, `bbox --code My-Project` to open a project
+in VS Code, or `bbox --shell My-Project` to enter it in a terminal. Use
+`bbox --rebuild` after changing `seccomp` in `SANDBOX.toml`.
+
+VS Code's direct **Rebuild Container** command cannot reliably inherit the
+validated setting from this shell launcher. It therefore gets the secure
+`builtin` default, which can differ from a selected `unconfined` setting. Use
+`bbox --rebuild --code` when applying creation-time settings.
 
 Optional: the container picks up the Mac's timezone automatically. To force a
 different one, export it on the host before the container starts.

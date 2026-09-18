@@ -1,6 +1,12 @@
 # Big Sandbox settings
 # Rebuild after editing
 
+# Docker seccomp is fixed when the container is created. Apply changes with
+# `bbox --rebuild` on the host; a restart or plain `bbox` may reuse old policy.
+# unconfined enables Codex/Bubblewrap, but removes Docker's outer syscall filter
+# from every container process. `builtin` keeps Docker's standard filter.
+seccomp = "unconfined"
+
 # true raises the deny-by-default egress firewall at container start
 # false skips the firewall setup.
 firewall = false
@@ -12,10 +18,3 @@ timezone = "America/New_York"
 # Container paths. Agents read these directly.
 research_library = "/workspace/LIBRARY/"
 screenshot_directory = "/workspace/dev/screenshots/"
-
-# Heads up: seccomp is toggled in .devcontainer/devcontainer.json, not in this file.
-# seccomp = "unconfined" is selected for Bubblewrap compatibility.
-# It removes Docker's outer syscall filter for every container process.
-# Builtin currently blocks sandbox setup; automatic review cannot repair it.
-# Recreate the container, then validate native execution and editing.
-# See .devcontainer/README.md for validation checks and the security tradeoff.

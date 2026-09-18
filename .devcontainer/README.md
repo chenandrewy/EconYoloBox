@@ -116,14 +116,13 @@ Because the name appears in every session, a short one is worth setting.
 
 ### Codex sandbox modes and launchers
 
-Docker's outer seccomp policy is selected directly in `devcontainer.json`:
+Docker's outer seccomp policy is selected in root-level `SANDBOX.toml`:
 
-```jsonc
-"--security-opt=seccomp=unconfined",
-// "--security-opt=seccomp=builtin",
+```toml
+seccomp = "unconfined" # or "builtin"
 ```
 
-Keep exactly one line uncommented. `unconfined` is the chosen configuration
+`unconfined` is the chosen configuration
 because builtin seccomp blocks Bubblewrap setup here and
 automatic review did not provide reliable recovery for all native tools.
 Validation after container recreation is still required; this setting alone is
@@ -132,14 +131,24 @@ not evidence that the inner sandbox works.
 `unconfined` removes Docker's outer syscall filter for every container process,
 including Claude, YOLO sessions, and commands approved to run outside Codex's
 sandbox. A working Codex sandbox does not restore that outer protection for
-other processes. Every interactive shell warns when container PID 1's live
-`/proc` state shows that seccomp is unconfined.
+other processes. Every interactive shell rereads the setting and compares it
+with container PID 1's live `/proc` mode. It always displays **Warning: Seccomp
+Unconfined** when PID 1 is unfiltered, even when that matches the setting.
+It also warns on a mismatch, invalid
+configuration, or an unverifiable mode. Filtered mode is only a runtime mode
+check, not proof of Docker's exact builtin profile.
 See [Docker's seccomp documentation](https://docs.docker.com/engine/security/seccomp/).
 
-Changing this setting requires **container recreation**, not an image change.
-A plain restart or reopening an existing container does not apply it. Reuse
-the existing image when recreating; named volumes and the bind-mounted workspace
-persist, but files only in the old container's writable layer do not.
+Changing this setting requires **container recreation** with `bbox --rebuild`
+on the host, not an image change. A plain restart or plain `bbox` does not apply
+it. Reuse the existing image when recreating; named volumes and the bind-mounted
+workspace persist, but files only in the old container's writable layer do not.
+
+`bbox` inspects the exact container returned by `devcontainer up`. Reuse warns
+about a mismatch and continues; explicit recreation stops before attachment if
+the policy cannot be verified. VS Code's direct **Rebuild Container** path does
+not reliably inherit the launcher's validated environment and safely defaults
+to `builtin`. Use `bbox --rebuild --code` for the TOML-driven path.
 
 Codex separates the sandbox (filesystem and network limits), approval policy
 (when approval is requested), and reviewer (a person or automatic review).
@@ -199,7 +208,7 @@ substitute for a working sandbox; this prompted the switch to unconfined.
 
 ```bash
 bwrap --unshare-user --ro-bind / / /bin/true
-codex sandbox linux /bin/true
+codex sandbox /bin/true
 ```
 
 Then start a normal Codex workspace-write session and verify:
@@ -288,23 +297,27 @@ The seed script handles guidance and settings differently:
   mixes model choices, project trust, and other runtime state. Stable defaults
   belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
 
-User-specific settings live in the root-level `SANDBOX.toml`: `firewall`
-(`true` or `false`), `timezone` (IANA zone; comment out to use the detected
-host zone), `research_library`, and `screenshot_directory`. Paths are container
-paths. Agents read the file directly, so path edits take effect immediately.
+User-specific settings live in the root-level `SANDBOX.toml`: `seccomp`
+(`"builtin"` or `"unconfined"`), `firewall` (`true` or `false`), `timezone`
+(IANA zone; comment out to use the detected host zone), `research_library`, and
+`screenshot_directory`. Paths are container paths. Agents read path settings
+directly, so path edits take effect immediately.
 `firewall` is read by `post-start.sh` at every container start (stop + reopen
 or Rebuild Container); `timezone` becomes `TZ` at create time, so it needs a
-rebuild. The reader is `sandbox-setting.sh`, a `sed` over flat `key = "value"`
+rebuild. General settings use `sandbox-setting.sh`, a `sed` over flat `key = "value"`
 / `key = true|false` lines rather than a TOML parser: keep the file flat, and
 note that a malformed line yields nothing, which for `firewall` means armed.
+Seccomp uses the stricter shared `seccomp-setting.sh`: it rejects tables,
+duplicate keys, malformed lines, and unsupported TOML and falls back to
+`builtin`.
 
 The checked-in default is `firewall = false`, for everyday internet access with
 agent approval checks. Select automatic review separately; the firewall switch
 does not configure either agent's approval mode. Set `firewall = true` to use
 the allowlist and the YOLO wrappers. Apply changes through Dev Containers:
 editing the file does not change live rules, and a bare `docker restart` skips
-the startup hook. The unconfined seccomp choice is independent of
-either firewall mode; enabling the firewall does not restore syscall filtering.
+the startup hook. The seccomp choice is independent of either firewall mode;
+enabling the firewall does not restore syscall filtering.
 
 ### Analysis stacks and AI CLIs (`install-packages.sh`)
 
