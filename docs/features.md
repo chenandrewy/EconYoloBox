@@ -42,7 +42,7 @@ container user is `node`, and the shell-history volume is still named
 
 The consequence is worth stating plainly: ordinary agent preferences are not
 the boundary. The container isolates the process and the firewall bounds its
-network reach when enabled; files deliberately bind-mounted into `/workspace`
+network reach when enabled; files deliberately bind-mounted into `/sandbox`
 remain live host files. With the firewall down, commands approved to run outside
 the inner sandbox have the container's internet access and can affect or transmit
 accessible data. Automatic review is a safeguard, not an OS-level restriction
@@ -171,7 +171,7 @@ workable should each be one step.
 | --- | --- |
 | `.host/devcontainer.zsh` (host shell) | `bbox` (`bbu`, `bbe`, and `bbcode` are short wrappers) |
 | `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
-| `.tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork` |
+| `.tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork` |
 | `.tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
 | `.tools/latex/` | `sync-lyx.sh` |
 | `.tools/lit/` | `cited_by.py` |

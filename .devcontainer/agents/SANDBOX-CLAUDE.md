@@ -2,9 +2,16 @@
 
 ## The Environment
 
-You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
+You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
 
-- The repo is bind-mounted at `/workspace`, so edits are live on the host.
+- The sandbox repo is bind-mounted at `/sandbox`, so edits are live on the
+  host. User projects live under `/sandbox/workspace/`, which is gitignored
+  by the sandbox repo. Terms: **sandbox** = the infrastructure repo at
+  `/sandbox`; **workspace** = user content under `/sandbox/workspace/`;
+  **project** = one working tree inside the workspace.
+- Shared resources that are not projects (the research library, called the
+  cellar; the screenshot drop) have their locations set in `/sandbox/SANDBOX.toml`. Read
+  it; do not assume or hard-code those paths (see Project Configuration).
 - **Python: use bare `python3`/`pip`.** They resolve to the venv at `/opt/venv`,
   which is already active via `PATH` (so `VIRTUAL_ENV` is unset — that's
   expected).
@@ -60,7 +67,7 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
   or `install-packages.sh`) is fine and does not need permission. New **system**
   libraries (`apt-get`, `-dev` packages) do — see `USER PERMISSION REQUIRED`.
 - If you think having access to a blocked resource would be helpful: **ASK THE USER TO ADD IT**
-- **Dropbox online-only files cannot be read in here.** `/workspace` is a
+- **Dropbox online-only files cannot be read in here.** `/sandbox` is a
   VirtioFS mount of a Dropbox folder, and files Dropbox has evicted still stat
   and open normally — only reads fail, with **EDEADLK (errno 35)**, or **SIGBUS**
   under `mmap` (exit code 135). Retrying never works: the refusal does not queue
@@ -75,10 +82,9 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
   unreachable from a Linux container. Installing `xclip` would not help, and the
   integrated terminal only carries text over the pty. So the user hands over
   images by *path* instead. The host writes macOS screenshots into the directory
-  configured as `screenshot_directory` in `/workspace/SANDBOX.toml` (`/dev/` is
-  gitignored).
+  configured as `screenshot_directory` in `/sandbox/SANDBOX.toml`.
   - When the user refers to "this screenshot", "the image", or similar without
-    naming a file, read `screenshot_directory` from `/workspace/SANDBOX.toml`
+    naming a file, read `screenshot_directory` from `/sandbox/SANDBOX.toml`
     and use the newest image in that directory. Confirm which file you picked
     when it is ambiguous.
   - The folder is Dropbox-synced, so old shots can be evicted to online-only and
@@ -86,11 +92,14 @@ You are running inside a devcontainer, defined in `/workspace/.devcontainer/`.
 
 ## Project Configuration
 
-Read `/workspace/SANDBOX.toml` for project-specific settings regarding
+`/sandbox/SANDBOX.toml` is the single source of truth for
 
-- the research library location
+- the research library location (`cellar`)
 - time zone
-- the macOS screenshot directory
+- the macOS screenshot directory (`screenshot_directory`)
+
+Read it when you need one of these; this file deliberately does not repeat
+the values.
 
 The same file holds `firewall`, the switch that arms (`true`) or disables
 (`false`) the egress firewall at the next container start. Never change it;
@@ -112,11 +121,11 @@ that is the user's decision (see `USER PERMISSION REQUIRED`).
 
 ## Custom Tools
 
-Custom tools live in `/workspace/.tools/`, organized by topic. Check these folders when the user asks for using '.tools'. All are on `PATH` (set in `.devcontainer/shellrc.sh`), so the filenames are the commands:
+Custom tools live in `/sandbox/.tools/`, organized by topic. Check these folders when the user asks for using '.tools'. All are on `PATH` (set in `.devcontainer/shellrc.sh`), so the filenames are the commands:
 
 - `.tools/pdf/`: `pdf2md.py` (PDF to markdown), `rebookmark.py` (bookmarks PDFs)
 - `.tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
-- `.tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork`); see its README
+- `.tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork`); see its README
 - `.tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README
 
 ## Permission guidelines

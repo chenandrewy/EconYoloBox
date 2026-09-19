@@ -20,5 +20,9 @@ firewall = false
 timezone = "America/New_York"
 
 # Container paths. Agents read these directly.
-research_library = "/workspace/LIBRARY/"
-screenshot_directory = "/workspace/dev/screenshots/"
+# The cellar is the research library: PDFs of papers, drafts, and other
+# reference material. "Look in the cellar for the Azoulay paper" means here.
+# It is shared reference material, not a project, so it sits beside
+# workspace/ at the sandbox root.
+cellar = "/sandbox/cellar/"
+screenshot_directory = "/sandbox/workspace/dev/screenshots/"

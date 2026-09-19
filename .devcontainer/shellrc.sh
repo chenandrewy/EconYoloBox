@@ -1,6 +1,6 @@
 # Interactive shell setup for the container: PATH, aliases, and functions.
 # Sourced, not executed: the Dockerfile (via zsh-in-docker) appends
-# "source /workspace/.devcontainer/shellrc.sh" to ~/.zshrc, so every
+# "source /sandbox/.devcontainer/shellrc.sh" to ~/.zshrc, so every
 # interactive shell picks this up. Currently only zsh sources it, but keep
 # the syntax bash/zsh-portable so ~/.bashrc could source it too.
 # Inputs: mounted workspace tools, installed toolchains, and container env.
@@ -10,8 +10,8 @@
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
 #   lit:     citation lookup (cited_by.py, via OpenAlex)
-#   ai-sesh: sesh-init, sesh-push, sesh-wipe, cc-fork, gpt-fork
-export PATH="/workspace/.tools/pdf:/workspace/.tools/latex:/workspace/.tools/lit:/workspace/.tools/ai-sesh:$PATH"
+#   ai-sesh: sesh-init, sesh-push, sesh-wipe, gpt-fork
+export PATH="/sandbox/.tools/pdf:/sandbox/.tools/latex:/sandbox/.tools/lit:/sandbox/.tools/ai-sesh:$PATH"
 
 # ai-sesh: keep the home session stores symlinked into the Dropbox-synced
 # tree (idempotent; silent once the links exist — see .tools/ai-sesh/README.md)
@@ -63,7 +63,7 @@ if [ -f /tmp/FIREWALL-WINDOW-OPEN ]; then
     fi
     printf '%s\n' \
         "${_fw_hi}Warning: Firewall Open${_fw_off}" \
-        "To close: set firewall = true in /workspace/SANDBOX.toml, then rebuild container"
+        "To close: set firewall = true in /sandbox/SANDBOX.toml, then rebuild container"
     unset _fw_hi _fw_off
 fi
 
@@ -72,15 +72,15 @@ fi
 # config edits cannot alter an already-created container. PID 1 is used because
 # an inner agent sandbox may add a filter to the checking process itself.
 case $- in
-    *i*) bash /workspace/.devcontainer/check-seccomp.sh ;;
+    *i*) bash /sandbox/.devcontainer/check-seccomp.sh ;;
 esac
 
 # cchat-yolo [claude args...]
 # Start Claude in the container, always under --remote-control so the session is
 # visible to `ccsessions` / `cckill` on the host. The name is derived from the
 # working directory rather than asked for, so starting a session is still one
-# word: on host "MacBook.local", /workspace/My-Project becomes
-# "MacBook:My-Project#1". /workspace itself uses the host folder's
+# word: on host "MacBook.local", /sandbox/workspace/My-Project becomes
+# "MacBook:My-Project#1". The sandbox root itself uses the host folder's
 # name. Set CC_SESSION_NAME to override the project portion. Yolo needs no
 # flag here because the container is the blast radius — host-side launchers
 # that target a container pass the flag themselves. That premise requires both
@@ -88,7 +88,10 @@ esac
 # live container boundaries before bypassing agent permissions.
 _cc_session_name() {
     local base host n=1 running
-    base="${CC_SESSION_NAME:-${PWD#/workspace}}"
+    # Strip the user-workspace prefix first, then the sandbox root, so both
+    # /sandbox/workspace/Foo and /sandbox/.tools reduce to a short name.
+    base="${CC_SESSION_NAME:-${PWD#/sandbox/workspace}}"
+    base="${base#/sandbox}"
     base="${base#/}"
     base="${base:-${LOCAL_CONTAINER_FOLDER##*/}}"
     host="${LOCAL_HOSTNAME:-}"
@@ -112,7 +115,7 @@ _cc_session_name() {
 }
 
 cchat-yolo() {
-    bash /workspace/.devcontainer/check-yolo-boundaries.sh cchat-yolo || return 1
+    bash /sandbox/.devcontainer/check-yolo-boundaries.sh cchat-yolo || return 1
     claude --dangerously-skip-permissions --remote-control "$(_cc_session_name)" "$@"
 }
 
@@ -123,12 +126,12 @@ alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'
 # recommended approvals_reviewer="auto_review" user preference. Only YOLO needs a wrapper
 # here, to refuse startup unless the container's outer boundaries are active.
 gptchat-yolo() {
-    bash /workspace/.devcontainer/check-yolo-boundaries.sh gptchat-yolo || return 1
+    bash /sandbox/.devcontainer/check-yolo-boundaries.sh gptchat-yolo || return 1
     codex --dangerously-bypass-approvals-and-sandbox "$@"
 }
 
 gptmini-yolo() {
-    bash /workspace/.devcontainer/check-yolo-boundaries.sh gptmini-yolo || return 1
+    bash /sandbox/.devcontainer/check-yolo-boundaries.sh gptmini-yolo || return 1
     codex --model gpt-5.4-mini --dangerously-bypass-approvals-and-sandbox "$@"
 }
 
@@ -143,7 +146,7 @@ alias gitlog="git log --graph --oneline --decorate --pretty=format:'%C(auto)%h %
 # R_PROFILE_USER points R at .devcontainer/home/Rprofile instead (see that file
 # for what it sets, e.g. suppressing the stray Rplots.pdf). Add a home/Renviron
 # and R_ENVIRON_USER here alongside it if env-style R settings are ever needed.
-export R_PROFILE_USER=/workspace/.devcontainer/home/Rprofile
+export R_PROFILE_USER=/sandbox/.devcontainer/home/Rprofile
 
 # Never prompt to save the workspace image (.RData) on exit from an interactive
 # R session. There is no R option for this - it is a front-end flag - so an

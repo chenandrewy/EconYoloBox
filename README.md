@@ -94,23 +94,22 @@ Windows and Linux support is partially wired but has not been tested.
    starting the container.
 
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
-   Project folders are listed in `.gitignore` so the outer EconYoloBox
-   repository deliberately ignores them. Each project must therefore be its own
-   Git repository; add any differently named project folder to `.gitignore`
-   too.
+   The sandbox repository is mounted at `/sandbox`; all user content goes
+   under `/sandbox/workspace/`, which `.gitignore` excludes wholesale, so the
+   outer EconYoloBox repository never sees your projects whatever they are
+   named. Each project must therefore be its own Git repository.
 
    For a new project:
 
    ```bash
-   cd /workspace
-   mkdir -p My-Project
-   git -C My-Project init
+   mkdir -p /sandbox/workspace/My-Project
+   git -C /sandbox/workspace/My-Project init
    ```
 
    For an existing project, clone its repository instead:
 
    ```bash
-   cd /workspace
+   cd /sandbox/workspace
    git clone https://github.com/your-name/your-project.git My-Project
    ```
 
@@ -119,7 +118,7 @@ Windows and Linux support is partially wired but has not been tested.
    A newly created npm-global volume therefore starts without them:
 
    ```bash
-   /workspace/.devcontainer/install-packages.sh cli
+   /sandbox/.devcontainer/install-packages.sh cli
    ```
 
    This takes a few seconds and installs the current Claude Code and Codex
@@ -133,7 +132,7 @@ Windows and Linux support is partially wired but has not been tested.
    you to authenticate. Start Claude with auto mode selected:
 
    ```bash
-   cd /workspace/My-Project
+   cd /sandbox/workspace/My-Project
    claude --permission-mode auto
    ```
 
@@ -144,7 +143,7 @@ Windows and Linux support is partially wired but has not been tested.
    Or start Codex with:
 
    ```bash
-   cd /workspace/My-Project
+   cd /sandbox/workspace/My-Project
    codex
    ```
 
@@ -206,7 +205,7 @@ The base container omits the optional R and Python packages. Install both
 stacks—or only the one you need—from a VS Code terminal inside the container:
 
 ```bash
-cd /workspace
+cd /sandbox
 .devcontainer/install-packages.sh          # stacks and CLIs, a few minutes
 .devcontainer/install-packages.sh python   # Python only
 .devcontainer/install-packages.sh r        # R only

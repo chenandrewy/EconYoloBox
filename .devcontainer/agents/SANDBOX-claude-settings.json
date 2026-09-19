@@ -1,7 +1,7 @@
 {
   "statusLine": {
     "type": "command",
-    "command": "bash /workspace/.devcontainer/agents/SANDBOX-claude-statusline.sh"
+    "command": "bash /sandbox/.devcontainer/agents/SANDBOX-claude-statusline.sh"
   },
   "model": "opus",
   "effortLevel": "medium",

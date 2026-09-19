@@ -1,7 +1,6 @@
 # Shared helpers for the ai-sesh scripts. Source, don't execute.
 
 tools_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-workspace_root="/workspace"
 data_root="$tools_dir/data"
 
 claude_projects_root="${CLAUDE_PROJECTS_DIR:-$HOME/.claude/projects}"
@@ -32,26 +31,6 @@ other_machines() {
     d="$(basename "$d")"
     [ "$d" = "$machine_id" ] || printf '%s\n' "$d"
   done
-}
-
-# Claude stores sessions under the launch dir's path with / and , mapped to -.
-claude_key_for_rel() {
-  printf '%s' "$workspace_root/$1" | sed 's#[/,]#-#g'
-}
-
-# For commands that operate on "the current project" (the forks): derive
-# everything from pwd. Run them from the directory where you run claude/codex.
-require_project_cwd() {
-  project_dir="$(pwd)"
-  case "$project_dir" in
-    "$workspace_root"/*) ;;
-    *)
-      echo "Run this from inside a /workspace project (current dir: $project_dir)" >&2
-      exit 1
-      ;;
-  esac
-  project_rel="${project_dir#"$workspace_root"/}"
-  claude_store="${CLAUDE_PROJECT_DIR:-$claude_projects_root/$(claude_key_for_rel "$project_rel")}"
 }
 
 # sync_file SRC DEST SRC_MACHINE

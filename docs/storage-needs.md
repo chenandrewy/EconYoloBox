@@ -90,7 +90,7 @@ native per-platform binaries. The superseded volume stays on disk until you
 remove it with `docker volume rm`.
 
 Session data is not here. `ai-sesh` symlinks `~/.claude/projects` and
-`~/.claude/todos` into `/workspace`, so Claude and Codex history consumes
+`~/.claude/todos` into `/sandbox`, so Claude and Codex history consumes
 Dropbox-synced host disk rather than volume space.
 
 ## Why the image is large

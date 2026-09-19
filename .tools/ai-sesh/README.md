@@ -1,7 +1,7 @@
 # ai-sesh
 
 Machine-to-machine session sync for Claude Code and Codex, built on the
-Dropbox-synced `/workspace`. Each machine's live home stores are symlinks
+Dropbox-synced `/sandbox` mount. Each machine's live home stores are symlinks
 into a per-machine folder here, so this machine's sessions sync passively;
 `sesh-push` installs the *other* machines' sessions when you switch desks.
 Design notes: `docs/journal/0708T08-ai-sesh-redesign.md`.
@@ -16,7 +16,7 @@ these links in place:
 - `~/.claude/todos` -> `data/<machine>/todos`
 
 Claude and Codex therefore write real bytes into the synced tree; the data
-survives container rebuilds because it lives in the `/workspace` mount. The
+survives container rebuilds because it lives in the `/sandbox` mount. The
 machine id derives from the host name the devcontainer injects
 (`write-local-env.sh` -> `LOCAL_HOSTNAME`, e.g. `Mac-Studio.local` ->
 `mac-studio`); set `AI_SESH_MACHINE` to override. Credentials, caches, and
@@ -37,16 +37,15 @@ data/
 
 ## Commands
 
-This directory is on `PATH` (via `/workspace/.devcontainer/shellrc.sh`), so
+This directory is on `PATH` (via `/sandbox/.devcontainer/shellrc.sh`), so
 the filenames are the commands:
 
 - `sesh-init`: idempotent symlink setup/migration; auto-run per shell. It
   defers migrating a store that a live session has open — exit sessions and
   rerun if it says so.
 - `sesh-push`: install every other machine's sessions into the home stores.
-- `cc-fork`: list other machines' Claude seeds for the current project
-  (run from the project dir) and fork one.
-- `gpt-fork`: same for Codex (global, newest first).
+- `gpt-fork`: list other machines' Codex seeds (global, newest first) and
+  fork one.
 - `sesh-wipe`: manual reset — list stores, delete quarantined `*.divergent-*`
   copies, or delete a whole machine's store (typed confirmation; the
   deletion propagates to that machine via Dropbox).
@@ -57,7 +56,7 @@ Own-machine sessions never need installing: resume with `claude --resume` /
 
 ## Install ladder
 
-Every cross-machine install (`sesh-push` and the forks) decides per file,
+Every cross-machine install (`sesh-push` and `gpt-fork`) decides per file,
 never as a blind copy and never from mtime:
 
 1. Same id + same size -> skip.
