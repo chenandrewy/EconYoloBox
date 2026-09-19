@@ -3,17 +3,10 @@
 __pycache__/
 *.py[cod]
 
-# Project folders share this sandbox but have their own Git repositories.
-# Add exact folder names or prefix globs as needed.
-Ref,*/
-Disc,*/
-Travel,*/
-Live,*/
-Live_*/
-Other/
-LIBRARY/
-dev/
-DONE/
+# User content (projects, library, DONE, dev, ...) lives under workspace/ and
+# is never part of the sandbox repository. One structural rule instead of
+# per-project name globs: anything placed there is ignored, whatever its name.
+/workspace/
 
 # local-only Claude Code permissions (recreated by Claude when working from ./)
 .claude/settings.local.json

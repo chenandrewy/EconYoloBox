@@ -67,8 +67,8 @@ original_resolve=$functions[_dc_resolve]
 mkdir -p "$tmp/builtin-root/.devcontainer"
 cp "$root/.devcontainer/seccomp-setting.sh" "$tmp/builtin-root/.devcontainer/"
 printf '%s\n' 'seccomp = "builtin"' >"$tmp/builtin-root/SANDBOX.toml"
-printf '%s\n' '{"workspaceFolder":"/workspace"}' >"$tmp/builtin-root/.devcontainer/devcontainer.json"
-_dc_resolve() { print -r -- "$tmp/builtin-root"; print -r -- /workspace; }
+printf '%s\n' '{"workspaceFolder":"/sandbox"}' >"$tmp/builtin-root/.devcontainer/devcontainer.json"
+_dc_resolve() { print -r -- "$tmp/builtin-root"; print -r -- /sandbox; }
 MOCK_POLICY=builtin
 : >$log
 bbox "$tmp/builtin-root"

@@ -20,5 +20,5 @@ firewall = false
 timezone = "America/New_York"
 
 # Container paths. Agents read these directly.
-research_library = "/workspace/LIBRARY/"
-screenshot_directory = "/workspace/dev/screenshots/"
+research_library = "/sandbox/workspace/LIBRARY/"
+screenshot_directory = "/sandbox/workspace/dev/screenshots/"

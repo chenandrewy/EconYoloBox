@@ -144,8 +144,8 @@
     "LC_ALL": "C.UTF-8",
     "LANG": "C.UTF-8"
   },
-  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=delegated",
-  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/sandbox,type=bind,consistency=delegated",
+  "workspaceFolder": "/sandbox",
   // Arms the firewall (unless SANDBOX.toml says firewall = false), seeds
   // agent guidelines, checks policy, refreshes TeX.
   "postStartCommand": "bash .devcontainer/post-start.sh",

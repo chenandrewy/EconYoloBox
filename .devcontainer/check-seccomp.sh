@@ -34,7 +34,7 @@ if [ "$observed" = unconfined ]; then
     fi
     printf '%s\n' \
         "${highlight}Warning: Seccomp Unconfined${reset}" \
-        'To close: set seccomp = "builtin" in /workspace/SANDBOX.toml, then run bbox --rebuild on the host' >&2
+        'To close: set seccomp = "builtin" in /sandbox/SANDBOX.toml, then run bbox --rebuild on the host' >&2
 fi
 
 if { [ "$requested" = builtin ] && [ "$observed" = filtered ]; } ||

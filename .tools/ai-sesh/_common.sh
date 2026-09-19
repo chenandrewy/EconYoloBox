@@ -1,7 +1,7 @@
 # Shared helpers for the ai-sesh scripts. Source, don't execute.
 
 tools_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-workspace_root="/workspace"
+workspace_root="/sandbox/workspace"
 data_root="$tools_dir/data"
 
 claude_projects_root="${CLAUDE_PROJECTS_DIR:-$HOME/.claude/projects}"
@@ -46,7 +46,7 @@ require_project_cwd() {
   case "$project_dir" in
     "$workspace_root"/*) ;;
     *)
-      echo "Run this from inside a /workspace project (current dir: $project_dir)" >&2
+      echo "Run this from inside a /sandbox/workspace project (current dir: $project_dir)" >&2
       exit 1
       ;;
   esac
