@@ -17,7 +17,7 @@ if [[ "$root_policy" == builtin ]]; then other_policy=unconfined; else other_pol
 typeset -g MOCK_POLICY=$root_policy
 # Containers already labeled for the folder; container-123 is what the mocked
 # `up` returns, so listing it makes bbox treat the container as reused.
-typeset -g MOCK_CONTAINERS='container-123' MOCK_VSCODE=0
+typeset -g MOCK_CONTAINERS='container-123' MOCK_VSCODE=0 MOCK_WORKDIR=/sandbox
 
 alias dcu='devcontainer up --workspace-folder .'
 dccode() { :; }
@@ -31,7 +31,9 @@ devcontainer() {
 }
 docker() {
   print -r -- "docker|$*" >>$log
-  if [[ "$1" == inspect ]]; then
+  if [[ "$1" == inspect && "$*" == *WorkingDir* ]]; then
+    print -r -- "$MOCK_WORKDIR"
+  elif [[ "$1" == inspect ]]; then
     case "$MOCK_POLICY" in
       inspect-fail) return 1 ;;
       custom) print -r -- '["seccomp=/tmp/custom.json"]' ;;
@@ -98,6 +100,19 @@ MOCK_POLICY=$other_policy
 warning=$(bbox "$root" 2>&1) || fail 'reuse mismatch should continue'
 [[ "$warning" == *"requested seccomp=$root_policy"* && "$warning" == *'bbox --rebuild'* ]] || fail 'reuse mismatch message'
 pass 'reuse mismatch warns and continues'
+
+MOCK_POLICY=$root_policy
+MOCK_WORKDIR=/workspace
+: >$log
+if err=$(bbox "$root" 2>&1); then fail 'stale mount target should fail'; fi
+[[ "$err" == *'mounts the sandbox at /workspace'* && "$err" == *'expects /sandbox'* && "$err" == *'bbox --rebuild'* ]] || fail 'stale mount message'
+grep -q '|up ' $log && fail 'stale mount target must be caught before devcontainer up'
+pass 'reused container with a stale mount target fails before up'
+: >$log
+bbox --rebuild "$root" >/dev/null || fail 'rebuild should bypass the layout check'
+pass 'rebuild skips the layout check'
+MOCK_WORKDIR=/sandbox
+MOCK_POLICY=$other_policy
 
 MOCK_CONTAINERS=''
 if err=$(bbox "$root" 2>&1); then fail 'mismatch on a newly created container should fail'; fi

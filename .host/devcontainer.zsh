@@ -66,6 +66,28 @@ _bbox_verify_policy() {
   return 0
 }
 
+# _bbox_verify_layout <root> <expected-folder> <container>...
+# A reused container mounts the sandbox wherever devcontainer.json said when
+# it was created. If workspaceFolder has since moved (for example /workspace
+# to /sandbox), devcontainer up would start it and then fail postStartCommand
+# with an opaque "chdir to cwd ... no such file or directory". Catch that
+# first: unlike seccomp, a stale mount target cannot be worked around, so it
+# is an error, and only a rebuild fixes it. An inspect failure is left for
+# devcontainer up to report.
+_bbox_verify_layout() {
+  local root="$1" expected="$2" container actual
+  shift 2
+  for container in "$@"; do
+    [[ -n "$container" ]] || continue
+    actual=$(docker inspect --format '{{.Config.WorkingDir}}' "$container" 2>/dev/null) || continue
+    [[ "$actual" == "$expected" ]] && continue
+    print -u2 -- "bbox: ERROR: existing container $container mounts the sandbox at $actual, but devcontainer.json now expects $expected."
+    print -u2 -- "bbox: it predates a layout change and cannot start; on the host run: bbox --rebuild ${(q)root}"
+    return 1
+  done
+  return 0
+}
+
 # _bbox_vscode_attached <container>
 # True when a VS Code window is connected. The in-container server lingers
 # after the window closes, so test for an established TCP connection owned by
@@ -106,7 +128,7 @@ _bbox_clear_containers() {
 # bbox [--rebuild|--rebuild-without-cache] [--shell|--code] [DIRECTORY]
 bbox() {
   local action='' project_dir='.' rebuild=0 positional_seen=0 arg resolved root remote_path
-  local seccomp existing up_output container_id created docker_context folder_uri
+  local seccomp existing root_remote up_output container_id created docker_context folder_uri
   local -a up_args
 
   while (( $# )); do
@@ -160,6 +182,10 @@ bbox() {
   # bad policy on that one must fail like a rebuild's would: the returned id
   # is "created" unless it was already labeled for this folder beforehand.
   existing=$(docker ps -aq --no-trunc --filter "label=devcontainer.local_folder=$root") || return 1
+  if (( ! rebuild )) && [[ -n "$existing" ]]; then
+    root_remote=$(python3 "$_DC_RESOLVE_PY" remote-path "$root/.devcontainer/devcontainer.json" "") || return 1
+    _bbox_verify_layout "$root" "$root_remote" ${(f)existing} || return 1
+  fi
   up_output=$(SANDBOX_SECCOMP="$seccomp" devcontainer up --workspace-folder "$root" "${up_args[@]}") || return 1
   container_id=$(print -r -- "$up_output" | python3 "$_DC_RESOLVE_PY" up-container-id) || return 1
   created=1
