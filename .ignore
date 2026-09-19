@@ -3,3 +3,5 @@
 # .gitignore without changing what Git tracks.
 !/workspace/
 !/workspace/**
+!/cellar/
+!/cellar/**

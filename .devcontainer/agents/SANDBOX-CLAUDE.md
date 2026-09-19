@@ -5,11 +5,13 @@
 You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
 
 - The sandbox repo is bind-mounted at `/sandbox`, so edits are live on the
-  host. User content (projects, `LIBRARY/`, `DONE/`, `dev/`, ...) lives under
-  `/sandbox/workspace/`, which is gitignored by the sandbox repo. Terms:
-  **sandbox** = the infrastructure repo at `/sandbox`; **workspace** = user
-  content under `/sandbox/workspace/`; **project** = one working tree inside
-  the workspace.
+  host. User projects live under `/sandbox/workspace/`, which is gitignored
+  by the sandbox repo. Terms: **sandbox** = the infrastructure repo at
+  `/sandbox`; **workspace** = user content under `/sandbox/workspace/`;
+  **project** = one working tree inside the workspace.
+- Shared resources that are not projects (the research library, called the
+  cellar; the screenshot drop) have their locations set in `/sandbox/SANDBOX.toml`. Read
+  it; do not assume or hard-code those paths (see Project Configuration).
 - **Python: use bare `python3`/`pip`.** They resolve to the venv at `/opt/venv`,
   which is already active via `PATH` (so `VIRTUAL_ENV` is unset — that's
   expected).
@@ -80,8 +82,7 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
   unreachable from a Linux container. Installing `xclip` would not help, and the
   integrated terminal only carries text over the pty. So the user hands over
   images by *path* instead. The host writes macOS screenshots into the directory
-  configured as `screenshot_directory` in `/sandbox/SANDBOX.toml` (`/dev/` is
-  gitignored).
+  configured as `screenshot_directory` in `/sandbox/SANDBOX.toml`.
   - When the user refers to "this screenshot", "the image", or similar without
     naming a file, read `screenshot_directory` from `/sandbox/SANDBOX.toml`
     and use the newest image in that directory. Confirm which file you picked
@@ -91,11 +92,14 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
 
 ## Project Configuration
 
-Read `/sandbox/SANDBOX.toml` for project-specific settings regarding
+`/sandbox/SANDBOX.toml` is the single source of truth for
 
-- the research library location
+- the research library location (`cellar`)
 - time zone
-- the macOS screenshot directory
+- the macOS screenshot directory (`screenshot_directory`)
+
+Read it when you need one of these; this file deliberately does not repeat
+the values.
 
 The same file holds `firewall`, the switch that arms (`true`) or disables
 (`false`) the egress firewall at the next container start. Never change it;
