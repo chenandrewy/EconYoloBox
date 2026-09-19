@@ -39,8 +39,12 @@ _dc_resolve() {
   print -r -- "$remote_path"
 }
 
+# _bbox_verify_policy <container> <requested> <created> <root>
+# A mismatch on a container this call created is an error: the policy was
+# meant to apply and did not. A mismatch on a reused container is a warning,
+# since only a rebuild can change it.
 _bbox_verify_policy() {
-  local container_id="$1" requested="$2" recreated="$3" root="$4"
+  local container_id="$1" requested="$2" created="$3" root="$4"
   local security_options actual
 
   if ! security_options=$(docker inspect --format '{{json .HostConfig.SecurityOpt}}' "$container_id"); then
@@ -52,9 +56,9 @@ _bbox_verify_policy() {
   if [[ "$actual" == "$requested" ]]; then
     return 0
   fi
-  if (( recreated )); then
-    print -u2 -- "bbox: ERROR: recreated container requested seccomp=$requested; actual policy is $actual."
-    print -u2 -- 'bbox: refusing attachment because recreation could not be validated.'
+  if (( created )); then
+    print -u2 -- "bbox: ERROR: created container requested seccomp=$requested; actual policy is $actual."
+    print -u2 -- 'bbox: refusing attachment because creation could not be validated.'
     return 1
   fi
   print -u2 -- "bbox: WARNING: requested seccomp=$requested; running container policy is $actual."
@@ -102,7 +106,7 @@ _bbox_clear_containers() {
 # bbox [--rebuild|--rebuild-without-cache] [--shell|--code] [DIRECTORY]
 bbox() {
   local action='' project_dir='.' rebuild=0 positional_seen=0 arg resolved root remote_path
-  local seccomp up_output container_id docker_context folder_uri
+  local seccomp existing up_output container_id created docker_context folder_uri
   local -a up_args
 
   while (( $# )); do
@@ -152,9 +156,17 @@ bbox() {
     _bbox_clear_containers "$root" || return 1
     print -- "bbox: recreating $root with seccomp=$seccomp"
   fi
+  # Without --rebuild, up still creates a container when none exists, and a
+  # bad policy on that one must fail like a rebuild's would: the returned id
+  # is "created" unless it was already labeled for this folder beforehand.
+  existing=$(docker ps -aq --no-trunc --filter "label=devcontainer.local_folder=$root") || return 1
   up_output=$(SANDBOX_SECCOMP="$seccomp" devcontainer up --workspace-folder "$root" "${up_args[@]}") || return 1
   container_id=$(print -r -- "$up_output" | python3 "$_DC_RESOLVE_PY" up-container-id) || return 1
-  _bbox_verify_policy "$container_id" "$seccomp" "$rebuild" "$root" || return 1
+  created=1
+  if (( ! rebuild )) && [[ -n "$container_id" && $'\n'"$existing"$'\n' == *$'\n'"$container_id"$'\n'* ]]; then
+    created=0
+  fi
+  _bbox_verify_policy "$container_id" "$seccomp" "$created" "$root" || return 1
 
   case "$action" in
     shell)

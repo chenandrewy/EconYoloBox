@@ -19,9 +19,12 @@
   "runArgs": [
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
-    // Set only by the bbox host launcher after strict SANDBOX.toml validation.
-    // Direct VS Code creation safely defaults to builtin.
-    "--security-opt=seccomp=${localEnv:SANDBOX_SECCOMP:builtin}",
+    // bbox supplies SANDBOX.toml's strictly validated seccomp value. Direct VS
+    // Code creation cannot read SANDBOX.toml, so it falls back to unconfined:
+    // the everyday Codex/Bubblewrap posture, at the cost of Docker's outer
+    // syscall filter. To restore the filter set seccomp = "builtin" in
+    // SANDBOX.toml and run `bbox --rebuild`; the -yolo launchers require it.
+    "--security-opt=seccomp=${localEnv:SANDBOX_SECCOMP:unconfined}",
     "--env-file=/tmp/devcontainer-local.env"
   ],
   "customizations": {

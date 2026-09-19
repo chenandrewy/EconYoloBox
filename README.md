@@ -15,11 +15,10 @@ Key features:
      `seccomp = "unconfined"` for Codex's Bubblewrap compatibility. These are the
      container defaults; Docker's outer syscall filter is disabled for every
      process.
-   - **YOLO-only work:** for trusted, unattended tasks, enable `firewall = true`
-     in `SANDBOX.toml` and preferably select `seccomp = "builtin"` there, then
-     run `bbox --rebuild`. The YOLO
-     launchers require the firewall; builtin seccomp is recommended extra
-     protection. Keep `unconfined` if also using Codex's sandboxed modes, since
+   - **YOLO-only work:** for trusted, unattended tasks, set `firewall = true`
+     and `seccomp = "builtin"` in `SANDBOX.toml`, then run `bbox --rebuild`.
+     The YOLO launchers require both the firewall and filtered Docker seccomp.
+     Switch back to `unconfined` before using Codex's sandboxed modes, since
      builtin currently blocks Bubblewrap setup here.
    - See [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
 
@@ -81,20 +80,8 @@ Windows and Linux support is partially wired but has not been tested.
    asks whether to open the cloned repository.
 
 4. **Build and open the container.** In the cloned repository's VS Code window,
-   select **Terminal → New Terminal**. In this host zsh terminal, make sure you
-   are at the repository root (the folder containing `SANDBOX.toml`), then run:
-
-   ```zsh
-   npm install -g @devcontainers/cli
-   bash .host/setup.sh
-   exec zsh
-   bbox --code
-   ```
-
-   This records your actual checkout path for future shells; no particular
-   folder name or location is required. Setup checks prerequisites and backs up
-   existing shell configuration before editing it. If you later move or rename
-   the checkout folder, rerun setup to update the saved path.
+   open the Command Palette and select **Dev Containers: Reopen in Container**.
+   Direct VS Code creation uses the everyday `unconfined` seccomp default.
 
    Wait for the first build to finish. VS Code reloads with `Dev Container`
    shown in the lower-left corner when it is ready.
@@ -181,10 +168,11 @@ does not change the running firewall, and a bare `docker restart` skips the
 startup hook that reads the setting.
 
 The `cchat-yolo`, `gptchat-yolo`, and `gptmini-yolo` launchers skip permission
-checks and refuse to start while the firewall is open. Enable the firewall and
-restart through Dev Containers before using them. Keep ordinary approval modes
-for tasks that need review; neither a firewall nor automatic review guarantees
-the safety of mounted files or accessible credentials.
+checks and refuse to start unless the firewall is enabled and PID 1 has a
+filtered seccomp mode. Set `firewall = true` and `seccomp = "builtin"`, then use
+`bbox --rebuild` before starting YOLO work. Keep ordinary approval modes for
+tasks that need review; neither a firewall nor automatic review guarantees the
+safety of mounted files or accessible credentials.
 
 ## Recommended additions
 
@@ -226,12 +214,13 @@ cd /workspace
 .devcontainer/install-packages.sh --force  # reinstall even if present
 ```
 
-## Host command workflow
+## Optional host command workflow
 
-The `bbox` launcher is the supported creation path because it validates
-`SANDBOX.toml` before the Dev Containers CLI asks Docker to create the
-container. Ensure the VS Code `code` CLI is installed if using `--code`.
-If you have not already loaded the launcher during minimal setup, run the
+The general-purpose `bbox` launcher validates `SANDBOX.toml`, brings the
+container up, verifies its seccomp policy, and can open a shell or VS Code.
+It is also the required rebuild path when selecting `builtin`, because direct
+VS Code creation always uses the everyday `unconfined` default. Ensure the VS
+Code `code` CLI is installed if using `--code`. To install the launcher, run the
 following from the checkout root in a host zsh terminal:
 
 ```zsh
@@ -245,10 +234,11 @@ Run `bbox` to bring the container up, `bbox --code My-Project` to open a project
 in VS Code, or `bbox --shell My-Project` to enter it in a terminal. Use
 `bbox --rebuild` after changing `seccomp` in `SANDBOX.toml`.
 
-VS Code's direct **Rebuild Container** command cannot reliably inherit the
-validated setting from this shell launcher. It therefore gets the secure
-`builtin` default, which can differ from a selected `unconfined` setting. Use
-`bbox --rebuild --code` when applying creation-time settings.
+VS Code's direct **Rebuild Container** command cannot inherit the validated
+setting from this shell launcher. It therefore uses `unconfined`, matching the
+everyday default. If `SANDBOX.toml` selects `builtin`, a direct VS Code rebuild
+will produce a mismatch warning and the YOLO launchers will refuse to start;
+use `bbox --rebuild --code` to apply that setting.
 
 Optional: the container picks up the Mac's timezone automatically. To force a
 different one, export it on the host before the container starts.

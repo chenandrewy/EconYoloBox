@@ -1,8 +1,8 @@
 # Big Sandbox settings
 # Rebuild after editing
 
-# Docker seccomp is fixed when the container is created. Apply changes with
-# `bbox --rebuild` on the host; a restart or plain `bbox` may reuse old policy.
+# Docker seccomp is fixed when the container is created. Direct VS Code builds
+# use unconfined; apply this setting with `bbox --rebuild` on the host.
 # unconfined enables Codex/Bubblewrap, but removes Docker's outer syscall filter
 # from every container process. `builtin` keeps Docker's standard filter.
 seccomp = "unconfined"

@@ -1,12 +1,14 @@
 #!/bin/bash
 # Run:     bash .devcontainer/tests/test-seccomp.sh
-# Inputs:  seccomp-setting.sh and check-seccomp.sh; creates temporary fixtures.
+# Inputs:  seccomp-setting.sh, check-seccomp.sh, and check-yolo-boundaries.sh;
+#          creates temporary fixtures.
 # Outputs: TAP-like pass/fail lines and a nonzero status on failure.
 set -u
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 reader="$root/.devcontainer/seccomp-setting.sh"
 checker="$root/.devcontainer/check-seccomp.sh"
+guard="$root/.devcontainer/check-yolo-boundaries.sh"
 tmp=$(mktemp -d)
 trap 'chmod -R u+rw "$tmp" 2>/dev/null; rm -rf "$tmp"' EXIT
 tests=0
@@ -56,6 +58,27 @@ fi
 printf 'Seccomp:\t2\n' >"$tmp/filtered.status"
 printf 'Seccomp:\t0\n' >"$tmp/unfiltered.status"
 printf 'Seccomp:\t9\n' >"$tmp/unexpected.status"
+
+bash "$guard" test-yolo "$tmp/closed-marker" "$tmp/filtered.status" 2>"$tmp/guard.err" || fail 'filtered yolo guard should pass'
+[ ! -s "$tmp/guard.err" ] || fail 'filtered yolo guard should be silent'
+pass 'yolo allows filtered seccomp with firewall armed'
+touch "$tmp/open-marker"
+if bash "$guard" test-yolo "$tmp/open-marker" "$tmp/filtered.status" 2>"$tmp/guard.err"; then fail 'open firewall should refuse yolo'; fi
+grep -q 'firewall is open' "$tmp/guard.err" || fail 'open firewall refusal diagnostic'
+pass 'yolo refuses an open firewall'
+if bash "$guard" test-yolo "$tmp/closed-marker" "$tmp/unfiltered.status" 2>"$tmp/guard.err"; then fail 'unconfined seccomp should refuse yolo'; fi
+grep -q 'seccomp is unconfined' "$tmp/guard.err" || fail 'unconfined refusal diagnostic'
+grep -q 'bbox --rebuild' "$tmp/guard.err" || fail 'unconfined recovery command'
+pass 'yolo refuses unconfined seccomp'
+if bash "$guard" test-yolo "$tmp/closed-marker" "$tmp/unexpected.status" 2>"$tmp/guard.err"; then fail 'unverified seccomp should refuse yolo'; fi
+grep -q 'could not be verified' "$tmp/guard.err" || fail 'unverified refusal diagnostic'
+pass 'yolo refuses unverified seccomp'
+
+grep -q 'SANDBOX_SECCOMP:unconfined' "$root/.devcontainer/devcontainer.json" || fail 'VS Code seccomp fallback'
+pass 'direct VS Code creation defaults to unconfined'
+guard_calls=$(grep -c 'check-yolo-boundaries.sh' "$root/.devcontainer/shellrc.sh")
+[ "$guard_calls" -eq 3 ] || fail 'all three yolo launchers must call the boundary guard'
+pass 'all supplied yolo launchers use the boundary guard'
 
 bash "$checker" "$tmp/builtin.toml" "$tmp/filtered.status" 2>"$tmp/check.err"
 [ ! -s "$tmp/check.err" ] || fail 'compatible builtin should be silent'

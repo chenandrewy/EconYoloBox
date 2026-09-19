@@ -15,7 +15,8 @@
 # It needs container recreation and native tool validation; automatic
 # review alone did not provide reliable recovery from sandbox setup failures.
 # See .devcontainer/README.md and docs/journal/0917c for the decision and limits.
-# YOLO (gptchat-yolo) bypasses both sandboxing and approvals explicitly.
+# YOLO wrappers bypass both sandboxing and approvals explicitly and refuse to
+# start unless the container firewall and Docker seccomp filter are active.
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 

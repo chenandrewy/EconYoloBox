@@ -89,6 +89,8 @@ this helper. See the host setup README for installation and failure handling.
   overwritten, manually removed, or cleaned up by the host OS.
 - `devcontainer.json` — container configuration.
 - `Dockerfile` — container image definition.
+- `check-yolo-boundaries.sh` — refuses supplied YOLO launchers unless the
+  firewall is enabled and PID 1 has filtered seccomp.
 - `init-firewall.sh` — network firewall rules applied by `post-start.sh` when enabled.
 - `install-packages.sh` — installs the optional Python and R analysis stacks and
   the AI CLIs into a running container (see "Analysis stacks and AI CLIs" below).
@@ -141,14 +143,16 @@ See [Docker's seccomp documentation](https://docs.docker.com/engine/security/sec
 
 Changing this setting requires **container recreation** with `bbox --rebuild`
 on the host, not an image change. A plain restart or plain `bbox` does not apply
-it. Reuse the existing image when recreating; named volumes and the bind-mounted
-workspace persist, but files only in the old container's writable layer do not.
+it. Direct VS Code creation uses `unconfined`, matching the checked-in everyday
+posture, but does not read this setting. Reuse the existing image when
+recreating; named volumes and the bind-mounted workspace persist, but files
+only in the old container's writable layer do not.
 
 `bbox` inspects the exact container returned by `devcontainer up`. Reuse warns
 about a mismatch and continues; explicit recreation stops before attachment if
 the policy cannot be verified. VS Code's direct **Rebuild Container** path does
-not reliably inherit the launcher's validated environment and safely defaults
-to `builtin`. Use `bbox --rebuild --code` for the TOML-driven path.
+not inherit the launcher's validated environment and defaults to `unconfined`.
+Use `bbox --rebuild --code` when applying `seccomp = "builtin"`.
 
 Codex separates the sandbox (filesystem and network limits), approval policy
 (when approval is requested), and reviewer (a person or automatic review).
@@ -192,10 +196,12 @@ container does not enforce it or rewrite your user config. For a single session,
 use `codex --approve-for-me` (available in the inspected CLI 0.154.0).
 
 The explicit `gptchat-yolo` / `gptmini-yolo` wrappers remain in `shellrc.sh`.
-They use `--dangerously-bypass-approvals-and-sandbox`, and refuse to start while
-the firewall is open (`/tmp/FIREWALL-WINDOW-OPEN`, also checked by `cchat-yolo`).
-Standard `codex` remains available with the firewall open, subject to the
-sandbox compatibility and approval limits below.
+They use `--dangerously-bypass-approvals-and-sandbox`. Along with `cchat-yolo`,
+they refuse to start unless the firewall is enabled and PID 1 reports filtered
+seccomp mode. The runtime mode proves that a filter is active, not that it is
+Docker's exact builtin profile. Standard `codex` remains available in an
+unconfined container, subject to the sandbox compatibility and approval limits
+below.
 
 **Sandbox compatibility.** With builtin seccomp active, ordinary commands and
 the native `apply_patch` helper failed during Bubblewrap namespace creation.
@@ -306,7 +312,8 @@ directly, so path edits take effect immediately.
 or Rebuild Container); `timezone` becomes `TZ` at create time, so it needs a
 rebuild. General settings use `sandbox-setting.sh`, a `sed` over flat `key = "value"`
 / `key = true|false` lines rather than a TOML parser: keep the file flat, and
-note that a malformed line yields nothing, which for `firewall` means armed.
+note that a malformed line, a duplicated key, or a quoted boolean
+(`firewall = "false"`) yields nothing, which for `firewall` means armed.
 Seccomp uses the stricter shared `seccomp-setting.sh`: it rejects tables,
 duplicate keys, malformed lines, and unsupported TOML and falls back to
 `builtin`.

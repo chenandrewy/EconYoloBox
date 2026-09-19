@@ -55,10 +55,12 @@ its own path, so another checkout cannot redirect its helpers.
 
 All modes walk up from `dir` (default: the current directory), resolve the
 sandbox once, call `devcontainer up`, and inspect the exact returned container.
-Reuse warns if Docker's recorded seccomp policy differs from `SANDBOX.toml`.
+Reusing an existing container warns if Docker's recorded seccomp policy
+differs from `SANDBOX.toml`; if `up` had to create the container, a mismatch
+is an error instead, exactly as after a rebuild.
 Before either rebuild mode, the launcher refuses if a VS Code window is
 connected to any container for the folder (the Dev Containers extension would
-otherwise race `devcontainer up` and recreate a `builtin` container), then
+otherwise race `devcontainer up` and recreate an `unconfined` container), then
 removes every container labeled for the folder so no duplicate survives. The
 check looks for a live connection to the in-container VS Code server, which
 itself lingers after the window closes. After a rebuild, a mismatch or failed
@@ -68,9 +70,9 @@ rebuild mode.
 
 Changes to `seccomp` require `bbox --rebuild`; plain `bbox` may reuse a running
 container. Direct **Dev Containers: Rebuild Container** in VS Code does not
-inherit the launcher's environment and therefore uses the safe `builtin`
-default, even if `SANDBOX.toml` selects `unconfined`. Use `bbox --code` for the
-TOML-driven creation and attachment path.
+inherit the launcher's environment and therefore uses the everyday
+`unconfined` default. This matches the checked-in posture. When
+`SANDBOX.toml` selects `builtin`, use `bbox --rebuild` to apply it.
 
 `bbu`, `bbe`, and `bbcode` are short wrappers around `bbox`, `bbox --shell`,
 and `bbox --code`. They contain no separate bring-up logic. The former
@@ -93,7 +95,8 @@ cchat-yolo                 # Claude, remote-controlled, named for the folder
 every container shell. It always passes `--remote-control` and derives the
 session name from the working directory (`My-Project#1`), numbering
 each session so a second one in the same folder stays distinguishable. Override
-the base name with `CC_SESSION_NAME`.
+the base name with `CC_SESSION_NAME`. It refuses to start unless the firewall
+is enabled and PID 1 has filtered seccomp mode.
 
 Host-side launchers that open a container *and* a Claude session in one command
 (`cc-remote-sandbox`, `ccremotes`, plus `ccsessions` / `cckill` for listing and

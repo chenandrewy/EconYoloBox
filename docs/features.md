@@ -9,15 +9,16 @@ The container provides the outer execution boundary. The checked-in default
 is `firewall = false`, leaving container networking open for everyday work
 with agent approval checks. Claude's `claude --permission-mode auto` and
 Codex's automatic review must be selected separately; the firewall setting
-does not configure them. Explicit YOLO launchers
-skip permissions and refuse to start with the firewall open. Use standard
-`codex` for everyday work; the system defaults request workspace-write
+does not configure them. Explicit YOLO launchers skip permissions and refuse
+to start unless the firewall is enabled and PID 1 has filtered seccomp. Use
+standard `codex` for everyday work; the system defaults request workspace-write
 sandboxing and on-request approval. We recommend setting
 `approvals_reviewer = "auto_review"` in your user config for "Approve for me".
 This remains a user preference rather than an enforced container setting.
 
-Docker seccomp defaults to `unconfined` in `SANDBOX.toml` for
-Codex/Bubblewrap compatibility.
+Docker seccomp defaults to `unconfined` in both `SANDBOX.toml` and direct VS
+Code creation for Codex/Bubblewrap compatibility. `bbox` remains the
+general-purpose host launcher and is required to apply `builtin` from the TOML.
 Builtin seccomp blocked Bubblewrap setup, and automatic review could not reliably
 recover native editing tools. Container recreation and validation of ordinary
 execution, native editing, and sandbox restrictions are still required.
@@ -198,6 +199,8 @@ commands.
   the enclosing devcontainer, verify the live seccomp policy, and open that
   exact subfolder in VS Code. `bbox --shell [dir]` follows the same bring-up
   path and enters zsh. `bbox --rebuild` applies changed creation-time settings.
+  Direct VS Code creation remains the minimal everyday path and defaults to
+  `unconfined`.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered

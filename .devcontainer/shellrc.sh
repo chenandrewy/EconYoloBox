@@ -83,9 +83,9 @@ esac
 # "MacBook:My-Project#1". /workspace itself uses the host folder's
 # name. Set CC_SESSION_NAME to override the project portion. Yolo needs no
 # flag here because the container is the blast radius — host-side launchers
-# that target a container pass the flag themselves. That premise fails with the
-# firewall open, so the -yolo launchers refuse on the same marker as the
-# warning above rather than hand an agent the whole network.
+# that target a container pass the flag themselves. That premise requires both
+# the firewall and Docker's seccomp filter, so every -yolo launcher checks the
+# live container boundaries before bypassing agent permissions.
 _cc_session_name() {
     local base host n=1 running
     base="${CC_SESSION_NAME:-${PWD#/workspace}}"
@@ -112,7 +112,7 @@ _cc_session_name() {
 }
 
 cchat-yolo() {
-    [ -f /tmp/FIREWALL-WINDOW-OPEN ] && { echo 'cchat-yolo: firewall is open, refusing (see shell warning)' >&2; return 1; }
+    bash /workspace/.devcontainer/check-yolo-boundaries.sh cchat-yolo || return 1
     claude --dangerously-skip-permissions --remote-control "$(_cc_session_name)" "$@"
 }
 
@@ -121,14 +121,14 @@ alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'
 
 # Use standard codex for everyday work; see README.md for the recommended
 # approvals_reviewer="auto_review" user preference. Only YOLO needs a wrapper
-# here, to refuse startup while the container firewall is open.
+# here, to refuse startup unless the container's outer boundaries are active.
 gptchat-yolo() {
-    [ -f /tmp/FIREWALL-WINDOW-OPEN ] && { echo 'gptchat-yolo: firewall is open, refusing (see shell warning)' >&2; return 1; }
+    bash /workspace/.devcontainer/check-yolo-boundaries.sh gptchat-yolo || return 1
     codex --dangerously-bypass-approvals-and-sandbox "$@"
 }
 
 gptmini-yolo() {
-    [ -f /tmp/FIREWALL-WINDOW-OPEN ] && { echo 'gptmini-yolo: firewall is open, refusing (see shell warning)' >&2; return 1; }
+    bash /workspace/.devcontainer/check-yolo-boundaries.sh gptmini-yolo || return 1
     codex --model gpt-5.4-mini --dangerously-bypass-approvals-and-sandbox "$@"
 }
 
