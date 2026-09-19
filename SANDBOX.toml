@@ -1,5 +1,9 @@
 # Big Sandbox settings
 # Rebuild after editing
+#
+# The checked-in values are the "chaperoned" posture: agents run under approval
+# checks with open network and unconfined seccomp. YOLO needs firewall = true
+# and seccomp = "builtin"; see README.md.
 
 # Docker seccomp is fixed when the container is created. Direct VS Code builds
 # use unconfined; apply this setting with `bbox --rebuild` on the host.

@@ -143,8 +143,8 @@ See [Docker's seccomp documentation](https://docs.docker.com/engine/security/sec
 
 Changing this setting requires **container recreation** with `bbox --rebuild`
 on the host, not an image change. A plain restart or plain `bbox` does not apply
-it. Direct VS Code creation uses `unconfined`, matching the checked-in everyday
-posture, but does not read this setting. Reuse the existing image when
+it. Direct VS Code creation uses `unconfined`, matching the checked-in
+chaperoned posture, but does not read this setting. Reuse the existing image when
 recreating; named volumes and the bind-mounted workspace persist, but files
 only in the old container's writable layer do not.
 
@@ -318,8 +318,9 @@ Seccomp uses the stricter shared `seccomp-setting.sh`: it rejects tables,
 duplicate keys, malformed lines, and unsupported TOML and falls back to
 `builtin`.
 
-The checked-in default is `firewall = false`, for everyday internet access with
-agent approval checks. Select automatic review separately; the firewall switch
+The checked-in default is `firewall = false`: the "chaperoned" posture, with
+internet access and agents under approval checks. Select automatic review
+separately; the firewall switch
 does not configure either agent's approval mode. Set `firewall = true` to use
 the allowlist and the YOLO wrappers. Apply changes through Dev Containers:
 editing the file does not change live rules, and a bare `docker restart` skips

@@ -21,9 +21,10 @@
     "--cap-add=NET_RAW",
     // bbox supplies SANDBOX.toml's strictly validated seccomp value. Direct VS
     // Code creation cannot read SANDBOX.toml, so it falls back to unconfined:
-    // the everyday Codex/Bubblewrap posture, at the cost of Docker's outer
-    // syscall filter. To restore the filter set seccomp = "builtin" in
-    // SANDBOX.toml and run `bbox --rebuild`; the -yolo launchers require it.
+    // the default "chaperoned" posture (agents run under approval checks, open
+    // network, Codex/Bubblewrap-compatible), at the cost of Docker's outer
+    // syscall filter. For YOLO set seccomp = "builtin" in SANDBOX.toml and run
+    // `bbox --rebuild`; the -yolo launchers require the filter.
     "--security-opt=seccomp=${localEnv:SANDBOX_SECCOMP:unconfined}",
     "--env-file=/tmp/devcontainer-local.env"
   ],

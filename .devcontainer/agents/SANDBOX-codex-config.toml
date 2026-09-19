@@ -11,7 +11,8 @@
 # automatic review: "Approve for me" also uses approvals_reviewer="auto_review".
 # Recommend that reviewer in the user's ~/.codex/config.toml (see README.md);
 # leave it as a user preference rather than setting it here. Launch with codex.
-# Docker seccomp is configured unconfined for Bubblewrap compatibility.
+# Docker seccomp defaults to unconfined for Bubblewrap compatibility; this is
+# the checked-in "chaperoned" posture (approval checks, open network).
 # It needs container recreation and native tool validation; automatic
 # review alone did not provide reliable recovery from sandbox setup failures.
 # See .devcontainer/README.md and docs/journal/0917c for the decision and limits.

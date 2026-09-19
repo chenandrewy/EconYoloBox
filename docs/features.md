@@ -6,8 +6,8 @@ economics research, and the daily workflow around all of it is short.
 ## 1. Safe YOLO agents
 
 The container provides the outer execution boundary. The checked-in default
-is `firewall = false`, leaving container networking open for everyday work
-with agent approval checks. Claude's `claude --permission-mode auto` and
+is the "chaperoned" posture: `firewall = false` leaves container networking
+open, and agents run under approval checks. Claude's `claude --permission-mode auto` and
 Codex's automatic review must be selected separately; the firewall setting
 does not configure them. Explicit YOLO launchers skip permissions and refuse
 to start unless the firewall is enabled and PID 1 has filtered seccomp. Use
@@ -200,7 +200,7 @@ commands.
   exact subfolder in VS Code. `bbox --shell [dir]` follows the same bring-up
   path and enters zsh. `bbox --rebuild` applies changed creation-time settings.
   Direct VS Code creation remains the minimal everyday path and defaults to
-  `unconfined`.
+  `unconfined`, the chaperoned posture.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered
