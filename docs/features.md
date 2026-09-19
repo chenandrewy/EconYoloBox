@@ -6,24 +6,29 @@ economics research, and the daily workflow around all of it is short.
 ## 1. Safe YOLO agents
 
 The container provides the outer execution boundary. The checked-in default
-is the "chaperoned" posture: `firewall = false` leaves container networking
-open, and agents run under approval checks. Claude's `claude --permission-mode auto` and
-Codex's automatic review must be selected separately; the firewall setting
-does not configure them. Explicit YOLO launchers skip permissions and refuse
-to start unless the firewall is enabled and PID 1 has filtered seccomp. Use
-standard `codex` for everyday work; the system defaults request workspace-write
-sandboxing and on-request approval. We recommend setting
-`approvals_reviewer = "auto_review"` in your user config for "Approve for me".
-This remains a user preference rather than an enforced container setting.
+is the YOLO posture: `firewall = true` raises the deny-by-default egress
+firewall, and `seccomp = "builtin"` keeps Docker's outer syscall filter.
+Explicit YOLO launchers skip permissions and refuse to start unless the
+firewall is enabled and PID 1 has filtered seccomp. Egress blocking is a hard
+boundary; an LLM reviewer is a soft one.
 
-Docker seccomp defaults to `unconfined` in both `SANDBOX.toml` and direct VS
-Code creation for Codex/Bubblewrap compatibility. `bbox` remains the
-general-purpose host launcher and is required to apply `builtin` from the TOML.
-Builtin seccomp blocked Bubblewrap setup, and automatic review could not reliably
-recover native editing tools. Container recreation and validation of ordinary
-execution, native editing, and sandbox restrictions are still required.
-Unconfined removes Docker's outer syscall filter for every process, including
-Claude and unsandboxed commands.
+For internet access, set `firewall = false` and use Claude's
+`claude --permission-mode auto`. Its two-stage classifier skips in-project
+edits and is cheap per call. Codex's automatic review is a full model call per
+escalation, and with the firewall down every network action escalates, so it
+degrades noticeably; see
+[docs/journal/0919b](journal/0919b,claude-vs-codex-reviewer-speed.md). The
+firewall setting does not configure either agent's approval mode.
+
+Codex's sandboxed modes (the `/etc/codex` defaults request workspace-write
+sandboxing and on-request approval; we recommend
+`approvals_reviewer = "auto_review"` in your user config for "Approve for me")
+need `seccomp = "unconfined"`, applied with `bbox --rebuild`. Builtin seccomp
+blocks Bubblewrap setup, and automatic review could not reliably recover
+native editing tools. Unconfined removes Docker's outer syscall filter for
+every process, including Claude and unsandboxed commands, and requires
+validation of ordinary execution, native editing, and sandbox restrictions
+after recreation. The seccomp toggle stays while that mode is under test.
 See [sandbox modes and launchers](../.devcontainer/README.md#codex-sandbox-modes-and-launchers)
 for configuration and the distinction between sandbox networking and the firewall.
 
@@ -200,7 +205,7 @@ commands.
   exact subfolder in VS Code. `bbox --shell [dir]` follows the same bring-up
   path and enters zsh. `bbox --rebuild` applies changed creation-time settings.
   Direct VS Code creation remains the minimal everyday path and defaults to
-  `unconfined`, the chaperoned posture.
+  `builtin`, the YOLO posture.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered

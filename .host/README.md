@@ -70,9 +70,9 @@ rebuild mode.
 
 Changes to `seccomp` require `bbox --rebuild`; plain `bbox` may reuse a running
 container. Direct **Dev Containers: Rebuild Container** in VS Code does not
-inherit the launcher's environment and therefore uses the `unconfined`
-default. This matches the checked-in chaperoned posture. When
-`SANDBOX.toml` selects `builtin`, use `bbox --rebuild` to apply it.
+inherit the launcher's environment and therefore uses the `builtin`
+default. This matches the checked-in YOLO posture. When
+`SANDBOX.toml` selects `unconfined`, use `bbox --rebuild` to apply it.
 
 `bbu`, `bbe`, and `bbcode` are short wrappers around `bbox`, `bbox --shell`,
 and `bbox --code`. They contain no separate bring-up logic. The former

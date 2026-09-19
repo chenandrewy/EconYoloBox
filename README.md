@@ -8,18 +8,18 @@ actual research work).
 
 Key features:
 
-1. **Chaperoned agents, with easy YOLO switch**
+1. **YOLO agents by default, with a chaperoned switch**
 
-   - **Everyday work:** use "chaperoned" agents (Claude's auto mode or Codex's
-     automatic approval review) with `firewall = false` for internet access and
-     `seccomp = "unconfined"` for Codex's Bubblewrap compatibility. These are the
-     container defaults; Docker's outer syscall filter is disabled for every
-     process.
-   - **YOLO-only work:** for trusted, unattended tasks, set `firewall = true`
-     and `seccomp = "builtin"` in `SANDBOX.toml`, then run `bbox --rebuild`.
-     The YOLO launchers require both the firewall and filtered Docker seccomp.
-     Switch back to `unconfined` before using Codex's sandboxed modes, since
-     builtin currently blocks Bubblewrap setup here.
+   - **Everyday work:** run the YOLO launchers (`cchat-yolo`, `gptchat-yolo`)
+     behind the container's deny-by-default firewall and Docker's builtin
+     seccomp filter. These are the container defaults (`firewall = true`,
+     `seccomp = "builtin"`); the launchers refuse to start without both.
+   - **Internet access:** set `firewall = false` in `SANDBOX.toml`, rebuild,
+     and use Claude's auto mode. Its permission classifier is much cheaper than
+     Codex's automatic review, which runs a full model call per escalation.
+   - **Codex sandboxed modes:** also set `seccomp = "unconfined"` and run
+     `bbox --rebuild`, since builtin blocks Bubblewrap setup here. This
+     disables Docker's outer syscall filter for every process.
    - See [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
 
 2. **Ergonomic container and AI access**
@@ -81,17 +81,17 @@ Windows and Linux support is partially wired but has not been tested.
 
 4. **Build and open the container.** In the cloned repository's VS Code window,
    open the Command Palette and select **Dev Containers: Reopen in Container**.
-   Direct VS Code creation uses the everyday `unconfined` seccomp default.
+   Direct VS Code creation uses the default `builtin` seccomp filter.
 
    Wait for the first build to finish. VS Code reloads with `Dev Container`
    shown in the lower-left corner when it is ready.
 
-   The container firewall defaults off; a shell warning confirms that posture.
-   Docker's outer seccomp filter is disabled for Codex/Bubblewrap compatibility.
-   This affects every container process, not just Codex;
+   The container firewall defaults on, allowing only the network allowlist.
+   For open internet access, set `firewall = false` in `SANDBOX.toml` before
+   starting the container; a shell warning then confirms that posture.
+   Codex's sandboxed modes additionally need `seccomp = "unconfined"`, which
+   disables Docker's outer syscall filter for every container process;
    see [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
-   To use the network allowlist, set `firewall = true` in `SANDBOX.toml` before
-   starting the container.
 
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
    The sandbox repository is mounted at `/sandbox`; all user content goes
@@ -217,8 +217,8 @@ cd /sandbox
 
 The general-purpose `bbox` launcher validates `SANDBOX.toml`, brings the
 container up, verifies its seccomp policy, and can open a shell or VS Code.
-It is also the required rebuild path when selecting `builtin`, because direct
-VS Code creation always uses the everyday `unconfined` default. Ensure the VS
+It is also the required rebuild path when selecting `unconfined`, because
+direct VS Code creation always uses the `builtin` default. Ensure the VS
 Code `code` CLI is installed if using `--code`. To install the launcher, run the
 following from the checkout root in a host zsh terminal:
 
@@ -234,9 +234,9 @@ in VS Code, or `bbox --shell My-Project` to enter it in a terminal. Use
 `bbox --rebuild` after changing `seccomp` in `SANDBOX.toml`.
 
 VS Code's direct **Rebuild Container** command cannot inherit the validated
-setting from this shell launcher. It therefore uses `unconfined`, matching the
-everyday default. If `SANDBOX.toml` selects `builtin`, a direct VS Code rebuild
-will produce a mismatch warning and the YOLO launchers will refuse to start;
+setting from this shell launcher. It therefore uses `builtin`, matching the
+checked-in default. If `SANDBOX.toml` selects `unconfined`, a direct VS Code
+rebuild will produce a mismatch warning and Codex's sandboxed modes will fail;
 use `bbox --rebuild --code` to apply that setting.
 
 Optional: the container picks up the Mac's timezone automatically. To force a

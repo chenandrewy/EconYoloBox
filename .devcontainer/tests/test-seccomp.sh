@@ -74,7 +74,7 @@ if bash "$guard" test-yolo "$tmp/closed-marker" "$tmp/unexpected.status" 2>"$tmp
 grep -q 'could not be verified' "$tmp/guard.err" || fail 'unverified refusal diagnostic'
 pass 'yolo refuses unverified seccomp'
 
-grep -q 'SANDBOX_SECCOMP:unconfined' "$root/.devcontainer/devcontainer.json" || fail 'VS Code seccomp fallback'
+grep -q 'SANDBOX_SECCOMP:builtin' "$root/.devcontainer/devcontainer.json" || fail 'VS Code seccomp fallback'
 pass 'direct VS Code creation defaults to unconfined'
 guard_calls=$(grep -c 'check-yolo-boundaries.sh' "$root/.devcontainer/shellrc.sh")
 [ "$guard_calls" -eq 3 ] || fail 'all three yolo launchers must call the boundary guard'

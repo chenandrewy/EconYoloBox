@@ -1,19 +1,20 @@
 # Big Sandbox settings
 # Rebuild after editing
 #
-# The checked-in values are the "chaperoned" posture: agents run under approval
-# checks with open network and unconfined seccomp. YOLO needs firewall = true
-# and seccomp = "builtin"; see README.md.
+# The checked-in values are the YOLO posture: firewall up and Docker's builtin
+# seccomp filter, so the -yolo launchers start. For internet access, set
+# firewall = false and use Claude's auto mode. Codex's sandboxed modes need
+# seccomp = "unconfined" (Bubblewrap); see README.md.
 
 # Docker seccomp is fixed when the container is created. Direct VS Code builds
 # use unconfined; apply this setting with `bbox --rebuild` on the host.
 # unconfined enables Codex/Bubblewrap, but removes Docker's outer syscall filter
 # from every container process. `builtin` keeps Docker's standard filter.
-seccomp = "unconfined"
+seccomp = "builtin"
 
 # true raises the deny-by-default egress firewall at container start
 # false skips the firewall setup.
-firewall = false
+firewall = true
 
 # IANA zone for TZ and for human-facing timestamps. Comment out to use the
 # host's detected zone.
