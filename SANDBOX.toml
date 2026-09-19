@@ -1,5 +1,24 @@
-# User-Specific setting for the Workspace Sandbox
+# Big Sandbox settings
+# Rebuild after editing
+#
+# The checked-in values are the "chaperoned" posture: agents run under approval
+# checks with open network and unconfined seccomp. YOLO needs firewall = true
+# and seccomp = "builtin"; see README.md.
 
+# Docker seccomp is fixed when the container is created. Direct VS Code builds
+# use unconfined; apply this setting with `bbox --rebuild` on the host.
+# unconfined enables Codex/Bubblewrap, but removes Docker's outer syscall filter
+# from every container process. `builtin` keeps Docker's standard filter.
+seccomp = "unconfined"
+
+# true raises the deny-by-default egress firewall at container start
+# false skips the firewall setup.
+firewall = false
+
+# IANA zone for TZ and for human-facing timestamps. Comment out to use the
+# host's detected zone.
+timezone = "America/New_York"
+
+# Container paths. Agents read these directly.
 research_library = "/workspace/LIBRARY/"
-timestamp_timezone = "America/New_York"
 screenshot_directory = "/workspace/dev/screenshots/"

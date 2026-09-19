@@ -13,7 +13,15 @@
 #     Output:  prints the vscode-remote://dev-container+... folder URI that
 #              opens <remote-path> in VS Code.
 #
-# Called by _dc_resolve/dccode in devcontainer.zsh; not meant to be run by hand.
+#   python3 dc-resolve.py up-container-id
+#     Input:   `devcontainer up` JSON on stdin.
+#     Output:  its exact containerId.
+#
+#   python3 dc-resolve.py security-policy <docker-security-options-json>
+#     Input:   Docker inspect's HostConfig.SecurityOpt JSON array.
+#     Output:  builtin, unconfined, or an unverified description.
+#
+# Called by _dc_resolve/bbox in devcontainer.zsh; not meant to be run by hand.
 
 import json
 import pathlib
@@ -90,10 +98,45 @@ def folder_uri(devcontainer_dir, remote, docker_context):
     return f"vscode-remote://dev-container+{authority_hex}{urllib.parse.quote(remote, safe='/')}"
 
 
+def up_container_id(src):
+    """Extract containerId, tolerating incidental non-JSON stdout lines."""
+    candidates = [src] + list(reversed(src.splitlines()))
+    for candidate in candidates:
+        try:
+            value = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict) and value.get("containerId"):
+            return value["containerId"]
+    raise SystemExit("devcontainer up did not return a containerId")
+
+
+def security_policy(src):
+    try:
+        options = json.loads(src)
+    except json.JSONDecodeError:
+        return "unverified (invalid Docker inspection output)"
+    if not isinstance(options, list):
+        return "unverified (no explicit seccomp option)"
+    policies = [item[len("seccomp="):] for item in options
+                if isinstance(item, str) and item.startswith("seccomp=")]
+    if policies == ["builtin"]:
+        return "builtin"
+    if policies == ["unconfined"]:
+        return "unconfined"
+    if not policies:
+        return "unverified (no explicit seccomp option)"
+    return "unverified (seccomp=" + ", seccomp=".join(policies) + ")"
+
+
 command = sys.argv[1]
 if command == "remote-path":
     print(remote_path(sys.argv[2], sys.argv[3]))
 elif command == "folder-uri":
     print(folder_uri(sys.argv[2], sys.argv[3], sys.argv[4]))
+elif command == "up-container-id":
+    print(up_container_id(sys.stdin.read()))
+elif command == "security-policy":
+    print(security_policy(sys.argv[2]))
 else:
     raise SystemExit(f"unknown command: {command}")

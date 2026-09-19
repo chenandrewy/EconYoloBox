@@ -5,28 +5,48 @@ economics research, and the daily workflow around all of it is short.
 
 ## 1. Safe YOLO agents
 
-Agents run with permissions skipped. That is the point, and it is only tenable
-because the container — not the prompt — is the boundary.
+The container provides the outer execution boundary. The checked-in default
+is the "chaperoned" posture: `firewall = false` leaves container networking
+open, and agents run under approval checks. Claude's `claude --permission-mode auto` and
+Codex's automatic review must be selected separately; the firewall setting
+does not configure them. Explicit YOLO launchers skip permissions and refuse
+to start unless the firewall is enabled and PID 1 has filtered seccomp. Use
+standard `codex` for everyday work; the system defaults request workspace-write
+sandboxing and on-request approval. We recommend setting
+`approvals_reviewer = "auto_review"` in your user config for "Approve for me".
+This remains a user preference rather than an enforced container setting.
+
+Docker seccomp defaults to `unconfined` in both `SANDBOX.toml` and direct VS
+Code creation for Codex/Bubblewrap compatibility. `bbox` remains the
+general-purpose host launcher and is required to apply `builtin` from the TOML.
+Builtin seccomp blocked Bubblewrap setup, and automatic review could not reliably
+recover native editing tools. Container recreation and validation of ordinary
+execution, native editing, and sandbox restrictions are still required.
+Unconfined removes Docker's outer syscall filter for every process, including
+Claude and unsandboxed commands.
+See [sandbox modes and launchers](../.devcontainer/README.md#codex-sandbox-modes-and-launchers)
+for configuration and the distinction between sandbox networking and the firewall.
 
 ### Inherited from Anthropic
 
 The container design descends from the reference devcontainer in
-[anthropics/claude-code](https://github.com/anthropics/claude-code), so the
-security posture is theirs rather than something invented here: an isolated
-container holding the workspace, `NET_ADMIN`/`NET_RAW` granted only so that
-startup can install a default-deny egress firewall, and the agent then run
-without permission prompts inside that boundary.
+[anthropics/claude-code](https://github.com/anthropics/claude-code). The original
+design uses an isolated container holding the workspace, `NET_ADMIN`/`NET_RAW`
+granted so startup can install a default-deny egress firewall, and an agent
+running without permission prompts inside that boundary.
 
-Keeping the upstream shape is deliberate. It is a design many people have
-reviewed, and it means the safety argument does not rest on this repo's own
-judgment. Traces of the lineage are still visible — the container user is
-`node`, and the shell-history volume is still named
+The current configuration and the files and credentials exposed inside the
+container determine its protection. Traces of the lineage remain — the
+container user is `node`, and the shell-history volume is still named
 `claude-code-bashhistory-*`.
 
 The consequence is worth stating plainly: ordinary agent preferences are not
 the boundary. The container isolates the process and the firewall bounds its
-network reach; files deliberately bind-mounted into `/workspace` remain live
-host files and must be treated accordingly.
+network reach when enabled; files deliberately bind-mounted into `/workspace`
+remain live host files. With the firewall down, commands approved to run outside
+the inner sandbox have the container's internet access and can affect or transmit
+accessible data. Automatic review is a safeguard, not an OS-level restriction
+on each operation performed by an approved script or subprocess.
 
 ### Adapted for economics research
 
@@ -50,8 +70,15 @@ tooling those changes exist to support is described in
   all traffic rather than leaving the container open, and blocked hosts are
   REJECTed so they fail fast instead of hanging.
 
-- **Startup scripts.** `postStartCommand` arms the firewall, seeds canonical
-  agent guidance and shared skills, and checks the enforced agent policy. A
+- **Startup scripts.** `postStartCommand` (`post-start.sh`) configures the firewall,
+  seeds canonical agent guidance and shared skills, and checks the enforced
+  agent policy. Setting `firewall = false` in `SANDBOX.toml` switches the
+  firewall off at the next container start (stop + reopen, or Rebuild
+  Container); every shell warns while it is off, and anything other than a bare
+  `false` arms. The switch is in the tracked, writable workspace - like the
+  startup scripts themselves - so it is a convenience, not a security boundary
+  against an agent that edits the repo; `git diff` before restarting is the
+  review step. A
   fresh container has the system toolchain immediately; the optional Python and
   R stacks and the AI CLIs are installed once into persistent volumes with
   `install-packages.sh`.
@@ -108,9 +135,10 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   empty; the script is the explicit, one-time setup step and can be rerun to add
   or repair packages.
 
-  Note that installs run *behind the firewall*, which makes them tricky: package
-  hosts and their redirect mirrors must be allowlisted, and `docker build`
-  having open network is no evidence a command works in a running container.
+  With `firewall = true`, installs run behind the allowlist: package hosts and
+  their redirect mirrors must be allowed, and `docker build` having open network
+  is no evidence a command works in a running container. The default
+  `firewall = false` leaves these downloads unrestricted by the container.
 
 - **Pinned R package state.** R resolves against a dated P3M snapshot rather
   than live CRAN, so an R environment rebuilt months later resolves the same
@@ -123,7 +151,7 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   `Rplots.pdf` files, while the container supplies TeX Live, Biber, LyX, Pandoc,
   and the native libraries needed by the R and Python stacks.
 
-- **Research-tuned network allowlist.** The firewall is deny-by-default and
+- **Research-tuned network allowlist.** When enabled, the firewall is deny-by-default and
   allows FRED, OpenAlex, arXiv, SSRN, WRDS, the Ken French data library,
   global-q, and JKP factor data alongside package registries, code hosting, and
   agent APIs. Google's published first-party ranges are also allowed, so
@@ -141,7 +169,7 @@ workable should each be one step.
 
 | Location | Commands |
 | --- | --- |
-| `.host/devcontainer.zsh` (host shell) | `dcu`, `dce`, `dccode` (`dc-resolve.py` backs them) |
+| `.host/devcontainer.zsh` (host shell) | `bbox` (`bbu`, `bbe`, and `bbcode` are short wrappers) |
 | `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
 | `.tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork` |
 | `.tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
@@ -167,17 +195,16 @@ commands.
 ### Containers, sessions, and agents
 
 - **One-command project opening (`.host/`).** Source `devcontainer.zsh` in your
-  `~/.zshrc` and any project folder is one command away: `dccode [dir]` walks up
-  from any subfolder to the enclosing devcontainer and opens that exact
-  subfolder in VS Code inside the container; `dce [dir]` does the same but drops
-  you into an in-container zsh. No manual "Reopen in Container" and no
-  navigating after attach. The toolkit takes no configuration and names no
-  personal paths, so it works against any repo with a devcontainer and ports
-  across machines unchanged.
+  `~/.zshrc` and use `bbox --code [dir]` to validate `SANDBOX.toml`, bring up
+  the enclosing devcontainer, verify the live seccomp policy, and open that
+  exact subfolder in VS Code. `bbox --shell [dir]` follows the same bring-up
+  path and enters zsh. `bbox --rebuild` applies changed creation-time settings.
+  Direct VS Code creation remains the minimal everyday path and defaults to
+  `unconfined`, the chaperoned posture.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered
-  (`My-Project#1`), so `dce <dir>` then `cchat-yolo` is the whole
+  (`My-Project#1`), so `bbox --shell <dir>` then `cchat-yolo` is the whole
   workflow and every session is identifiable without being named by hand.
 
 - **Fleet control.** Every session starts under `--remote-control`, so host-side
@@ -208,8 +235,8 @@ commands.
   mechanism.
 
 - **Host-aware workspace settings.** Startup captures a stable host name and
-  detects the host time zone, while `SANDBOX.toml` provides agent-visible paths
-  for the research library and macOS screenshots. That lets agents resolve
+  the host time zone (overridable in `SANDBOX.toml`), and `SANDBOX.toml` also
+  provides agent-visible paths for the research library and macOS screenshots. That lets agents resolve
   phrases such as “this screenshot” without clipboard access and use the right
   zone for human-facing timestamps.
 

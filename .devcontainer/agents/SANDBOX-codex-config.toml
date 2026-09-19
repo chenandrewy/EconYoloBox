@@ -6,6 +6,21 @@
 # and onboarding state. User config has higher precedence than this file, so a
 # deliberate user preference still wins.
 
+# Request workspace-write sandboxing with on-request approval. Network access
+# defaults off but can be configured independently. These settings do not select
+# automatic review: "Approve for me" also uses approvals_reviewer="auto_review".
+# Recommend that reviewer in the user's ~/.codex/config.toml (see README.md);
+# leave it as a user preference rather than setting it here. Launch with codex.
+# Docker seccomp defaults to unconfined for Bubblewrap compatibility; this is
+# the checked-in "chaperoned" posture (approval checks, open network).
+# It needs container recreation and native tool validation; automatic
+# review alone did not provide reliable recovery from sandbox setup failures.
+# See .devcontainer/README.md and docs/journal/0917c for the decision and limits.
+# YOLO wrappers bypass both sandboxing and approvals explicitly and refuse to
+# start unless the container firewall and Docker seccomp filter are active.
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
 [tui]
 status_line = [
     "model-with-reasoning",

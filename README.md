@@ -8,12 +8,19 @@ actual research work).
 
 Key features:
 
-1. **Safe YOLO agents**
+1. **Chaperoned agents, with easy YOLO switch**
 
-   - Don't waste time approving agent actions.
-   - Rely on a sandbox design that follows
-     [`anthropics/claude-code`](https://github.com/anthropics/claude-code)
-     security practices.
+   - **Everyday work:** use "chaperoned" agents (Claude's auto mode or Codex's
+     automatic approval review) with `firewall = false` for internet access and
+     `seccomp = "unconfined"` for Codex's Bubblewrap compatibility. These are the
+     container defaults; Docker's outer syscall filter is disabled for every
+     process.
+   - **YOLO-only work:** for trusted, unattended tasks, set `firewall = true`
+     and `seccomp = "builtin"` in `SANDBOX.toml`, then run `bbox --rebuild`.
+     The YOLO launchers require both the firewall and filtered Docker seccomp.
+     Switch back to `unconfined` before using Codex's sandboxed modes, since
+     builtin currently blocks Bubblewrap setup here.
+   - See [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
 
 2. **Ergonomic container and AI access**
 
@@ -69,13 +76,22 @@ Windows and Linux support is partially wired but has not been tested.
    https://github.com/chenandrewy/EconYoloBox.git
    ```
 
-   Choose your home folder as the destination, then click **Open** when VS Code
+   Choose a destination folder, then click **Open** when VS Code
    asks whether to open the cloned repository.
 
-4. **Build and open the container.** Open the Command Palette with
-   **Shift–Command–P**, select **Dev Containers: Reopen in Container**, and wait
-   for the first build to finish. VS Code reloads with `Dev Container` shown in
-   the lower-left corner when it is ready.
+4. **Build and open the container.** In the cloned repository's VS Code window,
+   open the Command Palette and select **Dev Containers: Reopen in Container**.
+   Direct VS Code creation uses the everyday `unconfined` seccomp default.
+
+   Wait for the first build to finish. VS Code reloads with `Dev Container`
+   shown in the lower-left corner when it is ready.
+
+   The container firewall defaults off; a shell warning confirms that posture.
+   Docker's outer seccomp filter is disabled for Codex/Bubblewrap compatibility.
+   This affects every container process, not just Codex;
+   see [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
+   To use the network allowlist, set `firewall = true` in `SANDBOX.toml` before
+   starting the container.
 
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
    Project folders are listed in `.gitignore` so the outer EconYoloBox
@@ -114,22 +130,49 @@ Windows and Linux support is partially wired but has not been tested.
    distro/Node version token changes in `devcontainer.json`.
 
 7. **Start an AI agent from the project directory.** The first launch may ask
-   you to authenticate. Start Claude with:
+   you to authenticate. Start Claude with auto mode selected:
 
    ```bash
    cd /workspace/My-Project
-   cchat-yolo
+   claude --permission-mode auto
    ```
+
+   This uses Claude's automatic permission checks where
+   [auto mode is available](https://code.claude.com/docs/en/permissions#permission-modes).
+   If unavailable for your account or model, use `claude` with manual approvals.
 
    Or start Codex with:
 
    ```bash
    cd /workspace/My-Project
-   gptchat-yolo
+   codex
    ```
 
-   Both commands intentionally run their agent without permission prompts; the
-   container and its firewall provide the safety boundary.
+   For Codex, we recommend `approvals_reviewer = "auto_review"` in your
+   `~/.codex/config.toml`, alongside on-request approval and workspace-write
+   sandboxing. See [Codex setup and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers)
+   for the configuration. To try it for one session, run `codex --approve-for-me`.
+   Use `/model` or `codex --model <model>` to choose a model.
+
+   Automatic review is a user choice; disabling the firewall does not enable
+   it. Codex also has its own command network policy, so an open container
+   firewall does not guarantee that every sandboxed command can reach the web.
+
+### Switching firewall modes
+
+`SANDBOX.toml` controls the container's outbound network allowlist. `false`
+leaves the container network open; `true` enables the research and package
+allowlist. After changing it, stop the container and reopen it through VS Code
+Dev Containers, or use **Dev Containers: Rebuild Container**. Editing the file
+does not change the running firewall, and a bare `docker restart` skips the
+startup hook that reads the setting.
+
+The `cchat-yolo`, `gptchat-yolo`, and `gptmini-yolo` launchers skip permission
+checks and refuse to start unless the firewall is enabled and PID 1 has a
+filtered seccomp mode. Set `firewall = true` and `seccomp = "builtin"`, then use
+`bbox --rebuild` before starting YOLO work. Keep ordinary approval modes for
+tasks that need review; neither a firewall nor automatic review guarantees the
+safety of mounted files or accessible credentials.
 
 ## Recommended additions
 
@@ -145,10 +188,10 @@ About → Name**. Reopen the container afterward so it picks up the new name.
 ### Save credentials for research tools
 
 These credentials support WRDS, Mistral, and OpenRouter tools; they
-are not needed to authenticate Claude or Codex. In the Mac's Terminal, run:
+are not needed to authenticate Claude or Codex. In the Mac's Terminal, open
+your checkout root and run:
 
 ```bash
-cd "$HOME/EconYoloBox"
 python3 .credentials/setup.py
 python3 .devcontainer/inject-credentials.py
 ```
@@ -171,22 +214,31 @@ cd /workspace
 .devcontainer/install-packages.sh --force  # reinstall even if present
 ```
 
-## Optional command-line workflow
+## Optional host command workflow
 
-The VS Code workflow above is sufficient. To start and enter EconYoloBox from
-the Mac's Terminal instead, install the `devcontainer` CLI and the VS Code
-`code` CLI, then load the included shell helpers:
+The general-purpose `bbox` launcher validates `SANDBOX.toml`, brings the
+container up, verifies its seccomp policy, and can open a shell or VS Code.
+It is also the required rebuild path when selecting `builtin`, because direct
+VS Code creation always uses the everyday `unconfined` default. Ensure the VS
+Code `code` CLI is installed if using `--code`. To install the launcher, run the
+following from the checkout root in a host zsh terminal:
 
 ```zsh
 npm install -g @devcontainers/cli
-echo 'source "$HOME/EconYoloBox/.host/devcontainer.zsh"' >> ~/.zshrc
+bash .host/setup.sh
 exec zsh
-type dcu dce dccode
+type bbox
 ```
 
-Run `dcu` from the EconYoloBox root to start the container. Then use
-`dccode My-Project` to open a project in VS Code or `dce My-Project` to enter it
-in a terminal.
+Run `bbox` to bring the container up, `bbox --code My-Project` to open a project
+in VS Code, or `bbox --shell My-Project` to enter it in a terminal. Use
+`bbox --rebuild` after changing `seccomp` in `SANDBOX.toml`.
+
+VS Code's direct **Rebuild Container** command cannot inherit the validated
+setting from this shell launcher. It therefore uses `unconfined`, matching the
+everyday default. If `SANDBOX.toml` selects `builtin`, a direct VS Code rebuild
+will produce a mismatch warning and the YOLO launchers will refuse to start;
+use `bbox --rebuild --code` to apply that setting.
 
 Optional: the container picks up the Mac's timezone automatically. To force a
 different one, export it on the host before the container starts.

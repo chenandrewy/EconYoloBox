@@ -37,14 +37,14 @@ if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; th
     echo "note: AI CLIs not installed - run .devcontainer/install-packages.sh cli"
 fi
 
-# Firewall window warning. devcontainer.json can be hand-swapped to a
-# postStartCommand that skips init-firewall.sh, leaving the container on
+# Firewall window warning. post-start.sh skips init-firewall.sh when
+# SANDBOX.toml says firewall = false, leaving the container on
 # Docker's default ACCEPT policies - no network restrictions at all. Nothing
 # else surfaces that state: startup looks entirely normal and the only symptom
 # is that blocked hosts start answering.
 #
-# The open postStartCommand touches this marker and the armed one removes it,
-# so no network probe is needed here. Not inferred from dnsmasq or resolv.conf:
+# post-start.sh touches this marker on the open path and removes it on the
+# armed one, so no network probe is needed here. Not inferred from dnsmasq or resolv.conf:
 # both look "open" on init-firewall.sh's legitimate armed-but-dnsmasq-failed
 # path, and iptables itself needs root. The open side writes the marker rather
 # than the armed side because /tmp is not tmpfs here - a stale "armed" marker
@@ -55,19 +55,25 @@ fi
 # and leaves the container open with whatever marker was there before.
 if [ -f /tmp/FIREWALL-WINDOW-OPEN ]; then
     if [ -t 1 ]; then
-        _fw_hi=$'\033[1;37;41m'
+        _fw_hi=$'\033[1;3;38;5;214m'
         _fw_off=$'\033[0m'
     else
         _fw_hi=''
         _fw_off=''
     fi
     printf '%s\n' \
-        "${_fw_hi} !!  FIREWALL OPEN - this container has no network restrictions  !! ${_fw_off}" \
-        "  Everything here can reach the whole internet, agents included." \
-        "  To close: restore the FINAL postStartCommand in .devcontainer/devcontainer.json," \
-        "  Rebuild Container, then confirm with .devcontainer/test-firewall.sh"
+        "${_fw_hi}Warning: Firewall Open${_fw_off}" \
+        "To close: set firewall = true in /workspace/SANDBOX.toml, then rebuild container"
     unset _fw_hi _fw_off
 fi
+
+# Docker's outer seccomp filter is a separate safety boundary from the
+# firewall. Each interactive shell compares current SANDBOX.toml with PID 1;
+# config edits cannot alter an already-created container. PID 1 is used because
+# an inner agent sandbox may add a filter to the checking process itself.
+case $- in
+    *i*) bash /workspace/.devcontainer/check-seccomp.sh ;;
+esac
 
 # cchat-yolo [claude args...]
 # Start Claude in the container, always under --remote-control so the session is
@@ -75,9 +81,11 @@ fi
 # working directory rather than asked for, so starting a session is still one
 # word: on host "MacBook.local", /workspace/My-Project becomes
 # "MacBook:My-Project#1". /workspace itself uses the host folder's
-# name. Set CC_SESSION_NAME to override the project portion. Yolo is
-# unconditional here because the container is the blast radius — host-side
-# launchers that target a container pass the flag themselves.
+# name. Set CC_SESSION_NAME to override the project portion. Yolo needs no
+# flag here because the container is the blast radius — host-side launchers
+# that target a container pass the flag themselves. That premise requires both
+# the firewall and Docker's seccomp filter, so every -yolo launcher checks the
+# live container boundaries before bypassing agent permissions.
 _cc_session_name() {
     local base host n=1 running
     base="${CC_SESSION_NAME:-${PWD#/workspace}}"
@@ -104,17 +112,23 @@ _cc_session_name() {
 }
 
 cchat-yolo() {
+    bash /workspace/.devcontainer/check-yolo-boundaries.sh cchat-yolo || return 1
     claude --dangerously-skip-permissions --remote-control "$(_cc_session_name)" "$@"
 }
 
 alias hostname-local='echo "$LOCAL_HOSTNAME"'
 alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'
 
+# Use standard codex for chaperoned everyday work; see README.md for the
+# recommended approvals_reviewer="auto_review" user preference. Only YOLO needs a wrapper
+# here, to refuse startup unless the container's outer boundaries are active.
 gptchat-yolo() {
+    bash /workspace/.devcontainer/check-yolo-boundaries.sh gptchat-yolo || return 1
     codex --dangerously-bypass-approvals-and-sandbox "$@"
 }
 
 gptmini-yolo() {
+    bash /workspace/.devcontainer/check-yolo-boundaries.sh gptmini-yolo || return 1
     codex --model gpt-5.4-mini --dangerously-bypass-approvals-and-sandbox "$@"
 }
 

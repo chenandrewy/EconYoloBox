@@ -92,6 +92,10 @@ Read `/workspace/SANDBOX.toml` for project-specific settings regarding
 - time zone
 - the macOS screenshot directory
 
+The same file holds `firewall`, the switch that arms (`true`) or disables
+(`false`) the egress firewall at the next container start. Never change it;
+that is the user's decision (see `USER PERMISSION REQUIRED`).
+
 ## Coding and Writing Guidelines
 
 - Latex: Build using pdflatex and biber
@@ -115,7 +119,9 @@ Custom tools live in `/workspace/.tools/`, organized by topic. Check these folde
 - `.tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork`); see its README
 - `.tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README
 
-## USER PERMISSION REQUIRED
+## Permission guidelines
+
+### USER PERMISSION REQUIRED
 
 The actions below are forbidden unless the user explicitly asks for them in the
 current conversation. If one seems necessary, STOP work, describe the problem,
@@ -129,3 +135,7 @@ and ask. The default fix is for the user to update the environment.
   attempt to another agent.
 - Get permission before hand-rolling replacements for missing libraries or tools.
 - Get permission before working around environment problems (Dropbox locks, auth, firewall, or similar).
+
+### Git Guidelines for Codex
+
+Codex specific instructions: When working with git and sandbox protections, request elevated sandbox permissions upfront.

@@ -1,6 +1,10 @@
 #!/bin/bash
 # ABOUTME: Writes stable host-local info to an env file consumed by the Dev
 # ABOUTME: Container via runArgs --env-file.
+#
+# Run:     bash .devcontainer/write-local-env.sh   (host, at initializeCommand)
+# Inputs:  host name and zone; SANDBOX.toml `timezone` (optional override).
+# Outputs: /tmp/devcontainer-local.env with LOCAL_HOSTNAME, LOCAL_CONTAINER_FOLDER, TZ.
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -48,11 +52,24 @@ detect_hostname() {
     hostname -s 2>/dev/null || hostname
 }
 
+# TZ: SANDBOX.toml's `timezone` if set, else the host's detected zone. The
+# container's TZ has to be in its environment at create time, which is why this
+# one setting is read on the host rather than in post-start.sh.
+resolve_tz() {
+    local tz
+    tz=$(bash "$SCRIPT_DIR/sandbox-setting.sh" timezone) || {
+        echo "write-local-env.sh: could not read SANDBOX.toml - using the host zone" >&2
+        tz=
+    }
+    [ -n "$tz" ] || tz=$(detect_tz)
+    printf '%s' "$tz"
+}
+
 ENV_FILE=/tmp/devcontainer-local.env
 umask 077
 {
     printf 'LOCAL_HOSTNAME=%s\n' "$(detect_hostname)"
     printf 'LOCAL_CONTAINER_FOLDER=%s\n' "$LOCAL_CONTAINER_FOLDER"
-    HOST_TZ=$(detect_tz)
+    HOST_TZ=$(resolve_tz)
     [ -n "$HOST_TZ" ] && printf 'TZ=%s\n' "$HOST_TZ"
 } > "$ENV_FILE"

@@ -71,7 +71,7 @@ PATH; user TeX caches live in the writable home directory. The setup script
 refuses nonempty volumes. It does not manage updates.
 
 `tex-refresh` runs LyX converter detection as `node` in `~/.lyx` at startup,
-after the mandatory firewall step. A missing installation warns without
+after the firewall configuration step. A missing installation warns without
 preventing other container use. If TeX is installed after startup, run
 `tex-refresh` manually in each consumer and reopen any already-running LyX.
 The user configuration is not persisted across container recreation, so it
@@ -89,7 +89,9 @@ this helper. See the host setup README for installation and failure handling.
   overwritten, manually removed, or cleaned up by the host OS.
 - `devcontainer.json` — container configuration.
 - `Dockerfile` — container image definition.
-- `init-firewall.sh` — network firewall rules applied post-create.
+- `check-yolo-boundaries.sh` — refuses supplied YOLO launchers unless the
+  firewall is enabled and PID 1 has filtered seccomp.
+- `init-firewall.sh` — network firewall rules applied by `post-start.sh` when enabled.
 - `install-packages.sh` — installs the optional Python and R analysis stacks and
   the AI CLIs into a running container (see "Analysis stacks and AI CLIs" below).
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
@@ -113,6 +115,137 @@ MacBook25:My-Project#1
 ```
 
 Because the name appears in every session, a short one is worth setting.
+
+### Codex sandbox modes and launchers
+
+Docker's outer seccomp policy is selected in root-level `SANDBOX.toml`:
+
+```toml
+seccomp = "unconfined" # or "builtin"
+```
+
+`unconfined` is the chosen configuration
+because builtin seccomp blocks Bubblewrap setup here and
+automatic review did not provide reliable recovery for all native tools.
+Validation after container recreation is still required; this setting alone is
+not evidence that the inner sandbox works.
+
+`unconfined` removes Docker's outer syscall filter for every container process,
+including Claude, YOLO sessions, and commands approved to run outside Codex's
+sandbox. A working Codex sandbox does not restore that outer protection for
+other processes. Every interactive shell rereads the setting and compares it
+with container PID 1's live `/proc` mode. It always displays **Warning: Seccomp
+Unconfined** when PID 1 is unfiltered, even when that matches the setting.
+It also warns on a mismatch, invalid
+configuration, or an unverifiable mode. Filtered mode is only a runtime mode
+check, not proof of Docker's exact builtin profile.
+See [Docker's seccomp documentation](https://docs.docker.com/engine/security/seccomp/).
+
+Changing this setting requires **container recreation** with `bbox --rebuild`
+on the host, not an image change. A plain restart or plain `bbox` does not apply
+it. Direct VS Code creation uses `unconfined`, matching the checked-in
+chaperoned posture, but does not read this setting. Reuse the existing image when
+recreating; named volumes and the bind-mounted workspace persist, but files
+only in the old container's writable layer do not.
+
+`bbox` inspects the exact container returned by `devcontainer up`. Reuse warns
+about a mismatch and continues; explicit recreation stops before attachment if
+the policy cannot be verified. VS Code's direct **Rebuild Container** path does
+not inherit the launcher's validated environment and defaults to `unconfined`.
+Use `bbox --rebuild --code` when applying `seccomp = "builtin"`.
+
+Codex separates the sandbox (filesystem and network limits), approval policy
+(when approval is requested), and reviewer (a person or automatic review).
+"Approve for me" selects automatic review of eligible escalation requests; it
+does not replace the sandbox or grant network access by itself.
+
+Workspace-write disables command networking by default. Bubblewrap can enforce
+that through a separate network namespace (`--unshare-net`), but it can also
+preserve networking while restricting filesystem access. To enable command
+networking in a working workspace-write sandbox, Codex supports:
+
+```toml
+[sandbox_workspace_write]
+network_access = true
+```
+
+The container firewall is a separate outer restriction. Lowering it does not
+enable networking inside a sandbox whose policy keeps it off. Enabling sandbox
+networking does not necessarily resolve bubblewrap's namespace setup failure.
+
+Use standard `codex` for everyday work. Select a model with `/model` or
+`codex --model <model>`; separate chat and mini wrappers are unnecessary.
+
+A bare `codex` defaults to requesting sandboxing: `/etc/codex/config.toml` (from
+`agents/SANDBOX-codex-config.toml`) sets `approval_policy`/`sandbox_mode` to the
+on-request/workspace-write defaults. User configuration can override them.
+These two settings alone do not select automatic review.
+
+We recommend "Approve for me". Set the following at the top level of your
+`~/.codex/config.toml`, before any table headers (update existing keys rather
+than adding duplicates):
+
+```toml
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+approvals_reviewer = "auto_review"
+```
+
+Then launch `codex` normally. Automatic review remains a user preference; the
+container does not enforce it or rewrite your user config. For a single session,
+use `codex --approve-for-me` (available in the inspected CLI 0.154.0).
+
+The explicit `gptchat-yolo` / `gptmini-yolo` wrappers remain in `shellrc.sh`.
+They use `--dangerously-bypass-approvals-and-sandbox`. Along with `cchat-yolo`,
+they refuse to start unless the firewall is enabled and PID 1 reports filtered
+seccomp mode. The runtime mode proves that a filter is active, not that it is
+Docker's exact builtin profile. Standard `codex` remains available in an
+unconfined container, subject to the sandbox compatibility and approval limits
+below.
+
+**Sandbox compatibility.** With builtin seccomp active, ordinary commands and
+the native `apply_patch` helper failed during Bubblewrap namespace creation.
+Shell escalation could recover, and invoking the installed patch helper by its
+absolute path through an escalated shell worked in one session. The native
+editing tool still failed. These tool-specific recovery paths are not a reliable
+substitute for a working sandbox; this prompted the switch to unconfined.
+
+**Validation after recreation.** Run these harmless probes as `node`:
+
+```bash
+bwrap --unshare-user --ro-bind / / /bin/true
+codex sandbox /bin/true
+```
+
+Then start a normal Codex workspace-write session and verify:
+
+- An ordinary shell command runs without namespace errors or escalation.
+- The native `apply_patch` tool can create, edit, and remove a disposable file
+  inside the workspace without an escalated shell fallback.
+- A workspace write succeeds, while a write to a disposable, user-owned test
+  location outside all writable roots is denied without escalation. Verify the
+  location is writable by `node` outside the sandbox so the check tests sandbox
+  enforcement rather than ordinary Unix permissions.
+- Command networking matches the chosen policy: default workspace-write stays
+  offline; explicitly enabled networking can reach an intended public endpoint,
+  subject to the container firewall if enabled.
+
+Record the results before calling the compatibility fix validated. If a check
+fails, inspect that failure before adding capabilities or relaxing other
+controls. Re-enabling builtin requires another recreation and is expected to
+restore the observed namespace failure until compatibility is addressed.
+
+Commands executed outside the inner sandbox retain Docker's restrictions but
+have the container user's filesystem and network access. With the firewall
+down, that includes outbound internet access. Live workspace files and accessible
+credentials remain exposed to those commands. Automatic review is a safeguard,
+not an OS-level restriction on every operation of an approved subprocess.
+
+See the [September 17 reassessment](../docs/journal/0917c,bwrap-auto-review-friction.md),
+which supersedes the builtin recommendation in `0917a`, and OpenAI's
+[auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review) and
+[network settings](https://learn.chatgpt.com/docs/agent-approvals-security#network-access)
+documentation.
 
 ### Persistent auth state
 
@@ -170,11 +303,29 @@ The seed script handles guidance and settings differently:
   mixes model choices, project trust, and other runtime state. Stable defaults
   belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
 
-Some user-specific agent settings live in the visible root-level `SANDBOX.toml`.
-It contains the research-library location and the timezone agents use for
-human-facing timestamps. Relative paths are resolved from the repository root.
-Because agents read this file directly, edits take effect without rebuilding or
-restarting the container.
+User-specific settings live in the root-level `SANDBOX.toml`: `seccomp`
+(`"builtin"` or `"unconfined"`), `firewall` (`true` or `false`), `timezone`
+(IANA zone; comment out to use the detected host zone), `research_library`, and
+`screenshot_directory`. Paths are container paths. Agents read path settings
+directly, so path edits take effect immediately.
+`firewall` is read by `post-start.sh` at every container start (stop + reopen
+or Rebuild Container); `timezone` becomes `TZ` at create time, so it needs a
+rebuild. General settings use `sandbox-setting.sh`, a `sed` over flat `key = "value"`
+/ `key = true|false` lines rather than a TOML parser: keep the file flat, and
+note that a malformed line, a duplicated key, or a quoted boolean
+(`firewall = "false"`) yields nothing, which for `firewall` means armed.
+Seccomp uses the stricter shared `seccomp-setting.sh`: it rejects tables,
+duplicate keys, malformed lines, and unsupported TOML and falls back to
+`builtin`.
+
+The checked-in default is `firewall = false`: the "chaperoned" posture, with
+internet access and agents under approval checks. Select automatic review
+separately; the firewall switch
+does not configure either agent's approval mode. Set `firewall = true` to use
+the allowlist and the YOLO wrappers. Apply changes through Dev Containers:
+editing the file does not change live rules, and a bare `docker restart` skips
+the startup hook. The seccomp choice is independent of either firewall mode;
+enabling the firewall does not restore syscall filtering.
 
 ### Analysis stacks and AI CLIs (`install-packages.sh`)
 
@@ -213,10 +364,10 @@ snapshot pinned in `Rprofile.site`, and system dependencies needing root
 What changes is that the stack costs minutes per container instead of being a
 cached image layer.
 
-Note that `docker build` runs with the **network open** while the firewall only
-exists at runtime, so a command working in the Dockerfile is no evidence it
-works in a started container. Moving installs to runtime puts them behind the
-allowlist — which is why `rspm-sync.rstudio.com` (P3M's payload host) and
+Note that `docker build` runs with the **network open**. When `firewall = true`,
+runtime installs use the allowlist, so a command working in the Dockerfile is
+no evidence it works in a started container. This is why
+`rspm-sync.rstudio.com` (P3M's payload host) and
 `cran.r-project.org` (archived sources) had to be added to `init-firewall.sh`.
 Expect further redirect hosts to surface; they cannot be enumerated in advance.
 
@@ -232,8 +383,9 @@ In practice, large system installs, source builds, and language package installs
 
 ### Timezone
 
-The container matches your host's timezone automatically. `write-local-env.sh`
-detects it at `initializeCommand` time — `$TZ` if exported, else `timedatectl`,
+`SANDBOX.toml`'s `timezone` wins if set. Otherwise the container matches your
+host's timezone: `write-local-env.sh` detects it at `initializeCommand` time —
+`$TZ` if exported, else `timedatectl`,
 else the target of the `/etc/localtime` symlink (which is how macOS and desktop
 Linux actually record it) — and passes it in via `--env-file`.
 

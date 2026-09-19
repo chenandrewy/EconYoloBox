@@ -6,7 +6,7 @@
   "model": "opus",
   "effortLevel": "medium",
   "tui": "default",
-  "theme": "dark",
+  "theme": "dark-ansi",
   "skipDangerousModePermissionPrompt": true,
   "agentPushNotifEnabled": true,
   "attribution": {
