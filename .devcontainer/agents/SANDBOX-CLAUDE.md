@@ -136,6 +136,6 @@ and ask. The default fix is for the user to update the environment.
 - Get permission before hand-rolling replacements for missing libraries or tools.
 - Get permission before working around environment problems (Dropbox locks, auth, firewall, or similar).
 
-### Git Guidelines for Codex 
+### Git Guidelines for Codex
 
 Codex specific instructions: When working with git and sandbox protections, request elevated sandbox permissions upfront.
