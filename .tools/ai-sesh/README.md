@@ -44,9 +44,8 @@ the filenames are the commands:
   defers migrating a store that a live session has open — exit sessions and
   rerun if it says so.
 - `sesh-push`: install every other machine's sessions into the home stores.
-- `cc-fork`: list other machines' Claude seeds for the current project
-  (run from the project dir) and fork one.
-- `gpt-fork`: same for Codex (global, newest first).
+- `gpt-fork`: list other machines' Codex seeds (global, newest first) and
+  fork one.
 - `sesh-wipe`: manual reset — list stores, delete quarantined `*.divergent-*`
   copies, or delete a whole machine's store (typed confirmation; the
   deletion propagates to that machine via Dropbox).
@@ -57,7 +56,7 @@ Own-machine sessions never need installing: resume with `claude --resume` /
 
 ## Install ladder
 
-Every cross-machine install (`sesh-push` and the forks) decides per file,
+Every cross-machine install (`sesh-push` and `gpt-fork`) decides per file,
 never as a blind copy and never from mtime:
 
 1. Same id + same size -> skip.

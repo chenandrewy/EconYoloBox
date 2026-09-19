@@ -10,7 +10,7 @@
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
 #   lit:     citation lookup (cited_by.py, via OpenAlex)
-#   ai-sesh: sesh-init, sesh-push, sesh-wipe, cc-fork, gpt-fork
+#   ai-sesh: sesh-init, sesh-push, sesh-wipe, gpt-fork
 export PATH="/sandbox/.tools/pdf:/sandbox/.tools/latex:/sandbox/.tools/lit:/sandbox/.tools/ai-sesh:$PATH"
 
 # ai-sesh: keep the home session stores symlinked into the Dropbox-synced

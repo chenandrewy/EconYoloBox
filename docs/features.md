@@ -171,7 +171,7 @@ workable should each be one step.
 | --- | --- |
 | `.host/devcontainer.zsh` (host shell) | `bbox` (`bbu`, `bbe`, and `bbcode` are short wrappers) |
 | `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
-| `.tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `cc-fork`, `gpt-fork` |
+| `.tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork` |
 | `.tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
 | `.tools/latex/` | `sync-lyx.sh` |
 | `.tools/lit/` | `cited_by.py` |
