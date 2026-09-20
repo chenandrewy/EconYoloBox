@@ -26,4 +26,7 @@ timezone = "America/New_York"
 # It is shared reference material, not a project, so it sits beside
 # workspace/ at the sandbox root.
 cellar = "/sandbox/cellar/"
+# Finished and retired projects. Moving a project here means it is no longer
+# active work; workspace/ holds only what is in progress.
+done = "/sandbox/done/"
 screenshot_directory = "/sandbox/workspace/dev/screenshots/"

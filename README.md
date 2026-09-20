@@ -97,7 +97,9 @@ Windows and Linux support is partially wired but has not been tested.
    The sandbox repository is mounted at `/sandbox`; all user content goes
    under `/sandbox/workspace/`, which `.gitignore` excludes wholesale, so the
    outer EconYoloBox repository never sees your projects whatever they are
-   named. Each project must therefore be its own Git repository.
+   named. Each project must therefore be its own Git repository. Projects that
+   are finished or retired move to `/sandbox/done/`, which is ignored the same
+   way; `workspace/` holds only active work.
 
    For a new project:
 

@@ -306,7 +306,7 @@ The seed script handles guidance and settings differently:
 User-specific settings live in the root-level `SANDBOX.toml`: `seccomp`
 (`"builtin"` or `"unconfined"`), `firewall` (`true` or `false`), `timezone`
 (IANA zone; comment out to use the detected host zone), `cellar` (the research
-library), and `screenshot_directory`. Paths are container paths. Agents read path settings
+library), `done` (finished and retired projects), and `screenshot_directory`. Paths are container paths. Agents read path settings
 directly, so path edits take effect immediately.
 `firewall` is read by `post-start.sh` at every container start (stop + reopen
 or Rebuild Container); `timezone` becomes `TZ` at create time, so it needs a

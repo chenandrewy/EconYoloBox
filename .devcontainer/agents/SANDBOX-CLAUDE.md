@@ -10,7 +10,8 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
   `/sandbox`; **workspace** = user content under `/sandbox/workspace/`;
   **project** = one working tree inside the workspace.
 - Shared resources that are not projects (the research library, called the
-  cellar; the screenshot drop) have their locations set in `/sandbox/SANDBOX.toml`. Read
+  cellar; the done folder of finished and retired projects; the screenshot
+  drop) have their locations set in `/sandbox/SANDBOX.toml`. Read
   it; do not assume or hard-code those paths (see Project Configuration).
 - **Python: use bare `python3`/`pip`.** They resolve to the venv at `/opt/venv`,
   which is already active via `PATH` (so `VIRTUAL_ENV` is unset — that's
@@ -95,6 +96,7 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
 `/sandbox/SANDBOX.toml` is the single source of truth for
 
 - the research library location (`cellar`)
+- the finished/retired projects location (`done`)
 - time zone
 - the macOS screenshot directory (`screenshot_directory`)
 
