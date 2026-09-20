@@ -15,10 +15,8 @@ two-stage classifier that skips in-project edits and is much cheaper. Codex
 chaperoned was also already half-broken here: 0917c showed `apply_patch` has
 no escalation path when Bubblewrap fails.
 
-Codex outside YOLO mode also has special problems with git permissions: any
-git edit (commit, checkout, branch, and the like) trips the sandbox and
-escalates or fails. Worktrees make it worse simply because there is more git.
-This is a big hassle and a further reason to treat Codex as YOLO-only here.
+Codex outside YOLO mode has special problems with git, which are exacerbated
+when using worktrees.
 
 Security-wise the flip is a wash or better. Chaperoned = open network +
 unconfined seccomp + an LLM reviewer between the agent and exfil. YOLO = no
