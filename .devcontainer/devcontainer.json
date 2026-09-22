@@ -34,8 +34,10 @@
       // entry to init-firewall.sh, or the install silently fails.
       "extensions": [
         "anthropic.claude-code",
-        "GitHub.copilot",
-        "GitHub.copilot-chat",
+        // GitHub.copilot and GitHub.copilot-chat are built into VS Code now
+        // (bundled at a newer version than the marketplace would resolve);
+        // listing them here only triggered a downgrade/rollback/retry loop on
+        // every attach - see docs/journal/0922a. Copilot still works built-in.
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "tamasfe.even-better-toml",
