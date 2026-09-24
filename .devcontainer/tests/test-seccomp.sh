@@ -75,7 +75,7 @@ grep -q 'could not be verified' "$tmp/guard.err" || fail 'unverified refusal dia
 pass 'yolo refuses unverified seccomp'
 
 grep -q 'SANDBOX_SECCOMP:builtin' "$root/.devcontainer/devcontainer.json" || fail 'VS Code seccomp fallback'
-pass 'direct VS Code creation defaults to unconfined'
+pass 'direct VS Code creation defaults to builtin'
 guard_calls=$(grep -c 'check-yolo-boundaries.sh' "$root/.devcontainer/shellrc.sh")
 [ "$guard_calls" -eq 3 ] || fail 'all three yolo launchers must call the boundary guard'
 pass 'all supplied yolo launchers use the boundary guard'
