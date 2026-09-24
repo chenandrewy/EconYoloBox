@@ -122,8 +122,9 @@ cchat-yolo() {
 alias hostname-local='echo "$LOCAL_HOSTNAME"'
 alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'
 
-# Use standard codex for chaperoned everyday work; see README.md for the
-# recommended approvals_reviewer="auto_review" user preference. Only YOLO needs a wrapper
+# Everyday work is the -yolo launchers. Standard codex is the sandboxed mode,
+# which needs seccomp = "unconfined"; see README.md for the recommended
+# approvals_reviewer="auto_review" user preference. Only YOLO needs a wrapper
 # here, to refuse startup unless the container's outer boundaries are active.
 gptchat-yolo() {
     bash /sandbox/.devcontainer/check-yolo-boundaries.sh gptchat-yolo || return 1

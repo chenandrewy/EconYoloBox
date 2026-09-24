@@ -1,19 +1,16 @@
 # Big Sandbox settings
-# Rebuild after editing
 #
-# The checked-in values are the "chaperoned" posture: agents run under approval
-# checks with open network and unconfined seccomp. YOLO needs firewall = true
-# and seccomp = "builtin"; see README.md.
+# YOLO launchers require both the egress firewall and Docker's builtin seccomp
+# filter. These settings do not select an agent's approval mode.
 
-# Docker seccomp is fixed when the container is created. Direct VS Code builds
-# use unconfined; apply this setting with `bbox --rebuild` on the host.
-# unconfined enables Codex/Bubblewrap, but removes Docker's outer syscall filter
-# from every container process. `builtin` keeps Docker's standard filter.
-seccomp = "unconfined"
+# true raises the deny-by-default firewall; false leaves egress open for
+# sessions such as Claude auto mode. Applies at the next container start.
+firewall = true
 
-# true raises the deny-by-default egress firewall at container start
-# false skips the firewall setup.
-firewall = false
+# builtin keeps Docker's syscall filter. Codex/Bubblewrap sandboxing needs
+# unconfined here; it removes that filter from every process. Apply changes
+# with `bbox --rebuild`; direct VS Code builds default to builtin.
+seccomp = "builtin"
 
 # IANA zone for TZ and for human-facing timestamps. Comment out to use the
 # host's detected zone.
@@ -25,4 +22,7 @@ timezone = "America/New_York"
 # It is shared reference material, not a project, so it sits beside
 # workspace/ at the sandbox root.
 cellar = "/sandbox/cellar/"
+# Finished and retired projects. Moving a project here means it is no longer
+# active work; workspace/ holds only what is in progress.
+done = "/sandbox/done/"
 screenshot_directory = "/sandbox/workspace/dev/screenshots/"

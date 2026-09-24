@@ -15,6 +15,7 @@ ln -sfn "$AGENTS_DIR/SANDBOX-AGENTS.md" "$HOME/.codex/AGENTS.md"
 # discovery directory. Only links this seeder owns — those already pointing into
 # the canonical skill tree — are refreshed. A same-named real directory, or a
 # symlink pointing somewhere else, is the user's and is treated as a conflict.
+# A dangling symlink (e.g. left by a mount path rename) is replaced.
 #
 # Conflicts are collected here rather than exiting on the spot, so that one bad
 # name does not cost us the rest of the seed (the settings copy below, in
@@ -28,7 +29,9 @@ for skill_dir in "$AGENTS_DIR"/skills/*; do
 
     for skill_root in "$HOME/.claude/skills" "$HOME/.agents/skills"; do
         skill_link="$skill_root/$skill_name"
-        if [[ -L $skill_link ]]; then
+        if [[ -L $skill_link && ! -e $skill_link ]]; then
+            : # dangling symlink: fall through to ln -sfn
+        elif [[ -L $skill_link ]]; then
             # A symlink: ours to refresh only if it points into the canonical
             # tree. Anything else is the user's own link -- record it and leave
             # it alone. 'continue' skips just this root, so the same skill can

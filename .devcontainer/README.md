@@ -143,16 +143,16 @@ See [Docker's seccomp documentation](https://docs.docker.com/engine/security/sec
 
 Changing this setting requires **container recreation** with `bbox --rebuild`
 on the host, not an image change. A plain restart or plain `bbox` does not apply
-it. Direct VS Code creation uses `unconfined`, matching the checked-in
-chaperoned posture, but does not read this setting. Reuse the existing image when
+it. Direct VS Code creation uses `builtin`, matching the checked-in YOLO
+posture, but does not read this setting. Reuse the existing image when
 recreating; named volumes and the bind-mounted workspace persist, but files
 only in the old container's writable layer do not.
 
 `bbox` inspects the exact container returned by `devcontainer up`. Reuse warns
 about a mismatch and continues; explicit recreation stops before attachment if
 the policy cannot be verified. VS Code's direct **Rebuild Container** path does
-not inherit the launcher's validated environment and defaults to `unconfined`.
-Use `bbox --rebuild --code` when applying `seccomp = "builtin"`.
+not inherit the launcher's validated environment and defaults to `builtin`.
+Use `bbox --rebuild --code` when applying `seccomp = "unconfined"`.
 
 Codex separates the sandbox (filesystem and network limits), approval policy
 (when approval is requested), and reviewer (a person or automatic review).
@@ -306,7 +306,7 @@ The seed script handles guidance and settings differently:
 User-specific settings live in the root-level `SANDBOX.toml`: `seccomp`
 (`"builtin"` or `"unconfined"`), `firewall` (`true` or `false`), `timezone`
 (IANA zone; comment out to use the detected host zone), `cellar` (the research
-library), and `screenshot_directory`. Paths are container paths. Agents read path settings
+library), `done` (finished and retired projects), and `screenshot_directory`. Paths are container paths. Agents read path settings
 directly, so path edits take effect immediately.
 `firewall` is read by `post-start.sh` at every container start (stop + reopen
 or Rebuild Container); `timezone` becomes `TZ` at create time, so it needs a
@@ -318,11 +318,10 @@ Seccomp uses the stricter shared `seccomp-setting.sh`: it rejects tables,
 duplicate keys, malformed lines, and unsupported TOML and falls back to
 `builtin`.
 
-The checked-in default is `firewall = false`: the "chaperoned" posture, with
-internet access and agents under approval checks. Select automatic review
-separately; the firewall switch
-does not configure either agent's approval mode. Set `firewall = true` to use
-the allowlist and the YOLO wrappers. Apply changes through Dev Containers:
+The checked-in default is `firewall = true`: the YOLO posture, with the
+allowlist active and the YOLO wrappers permitted. Set `firewall = false` for
+internet access and use Claude's auto mode; the firewall switch does not
+configure either agent's approval mode. Apply changes through Dev Containers:
 editing the file does not change live rules, and a bare `docker restart` skips
 the startup hook. The seccomp choice is independent of either firewall mode;
 enabling the firewall does not restore syscall filtering.

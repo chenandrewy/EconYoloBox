@@ -20,12 +20,12 @@
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
     // bbox supplies SANDBOX.toml's strictly validated seccomp value. Direct VS
-    // Code creation cannot read SANDBOX.toml, so it falls back to unconfined:
-    // the default "chaperoned" posture (agents run under approval checks, open
-    // network, Codex/Bubblewrap-compatible), at the cost of Docker's outer
-    // syscall filter. For YOLO set seccomp = "builtin" in SANDBOX.toml and run
-    // `bbox --rebuild`; the -yolo launchers require the filter.
-    "--security-opt=seccomp=${localEnv:SANDBOX_SECCOMP:unconfined}",
+    // Code creation cannot read SANDBOX.toml, so it falls back to builtin: the
+    // default YOLO posture (Docker's outer syscall filter on; the -yolo
+    // launchers require it). Codex's sandboxed modes need unconfined for
+    // Bubblewrap, at the cost of that filter for every process: set
+    // seccomp = "unconfined" in SANDBOX.toml and run `bbox --rebuild`.
+    "--security-opt=seccomp=${localEnv:SANDBOX_SECCOMP:builtin}",
     "--env-file=/tmp/devcontainer-local.env"
   ],
   "customizations": {
@@ -34,8 +34,10 @@
       // entry to init-firewall.sh, or the install silently fails.
       "extensions": [
         "anthropic.claude-code",
-        "GitHub.copilot",
-        "GitHub.copilot-chat",
+        // GitHub.copilot and GitHub.copilot-chat are built into VS Code now
+        // (bundled at a newer version than the marketplace would resolve);
+        // listing them here only triggered a downgrade/rollback/retry loop on
+        // every attach - see docs/journal/0922a. Copilot still works built-in.
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "tamasfe.even-better-toml",

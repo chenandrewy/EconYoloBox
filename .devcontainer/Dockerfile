@@ -233,9 +233,11 @@ EOF
 # safe.directory '*': the bind-mounted /sandbox root intermittently reports
 # uid 0 under Docker Desktop's virtiofs, which trips git's ownership check for
 # the sandbox repo and every project repo nested under it.
-RUN git config --system merge.ff false && \
-  git config --system pager.branch cat && \
+# worktree.useRelativePaths: the repo is bind-mounted at a different path in the
+# container than on the host, so absolute gitdir links break on one side.
+RUN git config --system pager.branch cat && \
   git config --system core.editor nano && \
+  git config --system worktree.useRelativePaths true && \
   git config --system --add safe.directory '*'
 
 # Persist bash history.

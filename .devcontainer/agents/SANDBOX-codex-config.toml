@@ -11,10 +11,11 @@
 # automatic review: "Approve for me" also uses approvals_reviewer="auto_review".
 # Recommend that reviewer in the user's ~/.codex/config.toml (see README.md);
 # leave it as a user preference rather than setting it here. Launch with codex.
-# Docker seccomp defaults to unconfined for Bubblewrap compatibility; this is
-# the checked-in "chaperoned" posture (approval checks, open network).
-# It needs container recreation and native tool validation; automatic
-# review alone did not provide reliable recovery from sandbox setup failures.
+# The checked-in posture is YOLO (firewall up, builtin seccomp), under which
+# Bubblewrap cannot set up and these sandboxed defaults fail; use the -yolo
+# wrappers there. Sandboxed Codex needs seccomp = "unconfined", container
+# recreation, and native tool validation; automatic review alone did not
+# provide reliable recovery from sandbox setup failures.
 # See .devcontainer/README.md and docs/journal/0917c for the decision and limits.
 # YOLO wrappers bypass both sandboxing and approvals explicitly and refuse to
 # start unless the container firewall and Docker seccomp filter are active.
