@@ -2,17 +2,63 @@
 
 ## The Environment
 
-You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
-
 - The sandbox repo is bind-mounted at `/sandbox`, so edits are live on the
   host. User projects live under `/sandbox/workspace/`, which is gitignored
   by the sandbox repo. Terms: **sandbox** = the infrastructure repo at
   `/sandbox`; **workspace** = user content under `/sandbox/workspace/`;
   **project** = one working tree inside the workspace.
-- Shared resources that are not projects (the research library, called the
-  cellar; the done folder of finished and retired projects; the screenshot
-  drop) have their locations set in `/sandbox/SANDBOX.toml`. Read
-  it; do not assume or hard-code those paths (see Project Configuration).
+
+You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
+
+## Sandbox Configuration
+
+`/sandbox/SANDBOX.toml` is the single source of truth for the research library
+(`cellar`), finished and retired projects (`done`), time zone (`timezone`), and
+macOS screenshots (`screenshot_directory`). Read it when you need a location;
+do not assume or hard-code these paths.
+
+The same file holds `firewall`, the switch that arms (`true`) or disables
+(`false`) the egress firewall at the next container start. Never change it;
+that is the user's decision (see `USER PERMISSION REQUIRED`).
+
+### Guidance that depends on `SANDBOX.toml`
+
+- Shared resources that are not projects include the research library (cellar),
+  the finished and retired projects folder (done), and the screenshot drop.
+- **Network access depends on `firewall`.** When `true`, `init-firewall.sh`
+  builds a deny-by-default IP allowlist at container start. Blocked hosts are
+  REJECTed, so they fail fast rather than hanging — suspect the firewall before
+  the code. When `false`, the container starts without these network
+  restrictions. The allowlist when the firewall is on:
+  - **Packages**: npm, PyPI (`pypi.org`, `files.pythonhosted.org`), Posit P3M
+    (plus `rspm-sync.rstudio.com`, where P3M redirects the payload) and
+    `cran.r-project.org` for archived sources, VS Code marketplace
+    (per-publisher `*.gallerycdn.vsassets.io` — a new extension publisher needs
+    a new entry or its install silently fails).
+  - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
+  - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
+  - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
+    (`goog.json`), which cover Google's first-party fleet. GCP customer ranges
+    (`cloud.json`) are deliberately **not** allowed.
+  - **Data**: WRDS, FRED, Ken French's data library
+    (`mba.tuck.dartmouth.edu`) and `global-q.org`.
+  - With the firewall on, there is no general web access — assume a fetch of
+    an arbitrary URL will fail. A package install that dies on an unlisted
+    **redirect** host is the common surprise; report the host so it can be added.
+- For general web information, Claude should use `WebSearch`, and Codex should
+  use the `web` tool. These tools access the web through the model providers'
+  servers and are not subject to the devcontainer firewall. When the firewall
+  is on, this does not make arbitrary URLs available to terminal commands or
+  project code.
+- Installing *packages* from the sources listed above (pip, `install.packages()`,
+  or `install-packages.sh`) is fine and does not need permission. New **system**
+  libraries (`apt-get`, `-dev` packages) do — see `USER PERMISSION REQUIRED`.
+- If the firewall blocks a resource you need: **ASK THE USER TO ADD IT**
+- For "this screenshot," "the image," or "latest screenshot," look up
+  `screenshot_directory` in `/sandbox/SANDBOX.toml`.
+
+## Software and Services
+
 - **Python: use bare `python3`/`pip`.** They resolve to the venv at `/opt/venv`,
   which is already active via `PATH` (so `VIRTUAL_ENV` is unset — that's
   expected).
@@ -35,28 +81,6 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
   the devcontainer. Run `tex-refresh` as node after initial host installation;
   it also runs at container startup. Reopen an already-running LyX afterward.
   The setup script refuses nonempty volumes; updates are separate manual work.
-- **Network is deny-by-default**, via an IP allowlist built at container start by
-  `init-firewall.sh`. Blocked hosts are REJECTed, so they fail fast rather than
-  hanging — but suspect the firewall before the code. Allowed:
-  - **Packages**: npm, PyPI (`pypi.org`, `files.pythonhosted.org`), Posit P3M
-    (plus `rspm-sync.rstudio.com`, where P3M redirects the payload) and
-    `cran.r-project.org` for archived sources, VS Code marketplace
-    (per-publisher `*.gallerycdn.vsassets.io` — a new extension publisher needs
-    a new entry or its install silently fails).
-  - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
-  - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
-  - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
-    (`goog.json`), which cover Google's first-party fleet. GCP customer ranges
-    (`cloud.json`) are deliberately **not** allowed.
-  - **Data**: WRDS, FRED, Ken French's data library
-    (`mba.tuck.dartmouth.edu`) and `global-q.org`.
-  - There is still no general web access — assume a fetch of an arbitrary URL
-    will fail. A package install that dies on an unlisted **redirect** host is
-    the common surprise; report the host so it can be added.
-- For general web information, Claude should use `WebSearch`, and Codex should
-  use the `web` tool. These tools access the web through the model providers'
-  servers and are not subject to the devcontainer firewall. This does not make
-  arbitrary URLs available to terminal commands or project code.
 - **Connectors and Codex Apps/Plugins are disabled in this sandbox.** Claude's
   AI connectors are disabled by `/etc/claude-code/managed-settings.json`.
   Codex Apps, Plugins, and remote plugin catalogs are disabled by
@@ -64,10 +88,6 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
   the user for the unavailable mail, calendar, or other private data instead.
   These are client controls rather than a complete OS security boundary; see
   `docs/features.md` under `Safe YOLO agents` for the threat model.
-- Installing *packages* from the allowlisted sources (pip, `install.packages()`,
-  or `install-packages.sh`) is fine and does not need permission. New **system**
-  libraries (`apt-get`, `-dev` packages) do — see `USER PERMISSION REQUIRED`.
-- If you think having access to a blocked resource would be helpful: **ASK THE USER TO ADD IT**
 - **Dropbox online-only files cannot be read in here.** `/sandbox` is a
   VirtioFS mount of a Dropbox folder, and files Dropbox has evicted still stat
   and open normally — only reads fail, with **EDEADLK (errno 35)**, or **SIGBUS**
@@ -78,34 +98,6 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
     reports before it downloads, so `dbhydrate <path>` alone is a safe check.
   - Do not route around it by regenerating or re-downloading the data; that is a
     workaround under `USER PERMISSION REQUIRED`. Ask first.
-- **Images cannot be pasted into the CLI chat.** There is no host clipboard in
-  here: no `DISPLAY`, no clipboard binaries, and the macOS pasteboard is
-  unreachable from a Linux container. Installing `xclip` would not help, and the
-  integrated terminal only carries text over the pty. So the user hands over
-  images by *path* instead. The host writes macOS screenshots into the directory
-  configured as `screenshot_directory` in `/sandbox/SANDBOX.toml`.
-  - When the user refers to "this screenshot", "the image", or similar without
-    naming a file, read `screenshot_directory` from `/sandbox/SANDBOX.toml`
-    and use the newest image in that directory. Confirm which file you picked
-    when it is ambiguous.
-  - The folder is Dropbox-synced, so old shots can be evicted to online-only and
-    fail to read — see the bullet above. Prune it when it gets noisy.
-
-## Project Configuration
-
-`/sandbox/SANDBOX.toml` is the single source of truth for
-
-- the research library location (`cellar`)
-- the finished/retired projects location (`done`)
-- time zone
-- the macOS screenshot directory (`screenshot_directory`)
-
-Read it when you need one of these; this file deliberately does not repeat
-the values.
-
-The same file holds `firewall`, the switch that arms (`true`) or disables
-(`false`) the egress firewall at the next container start. Never change it;
-that is the user's decision (see `USER PERMISSION REQUIRED`).
 
 ## Coding and Writing Guidelines
 
