@@ -209,3 +209,22 @@ decisions.
 - Files with live package-install wording besides the agent guidance:
   `shellrc.sh:26,166`, `tex-refresh.sh:12`, `features.md:137`,
   `.setup/README.md`, `.devcontainer/README.md`.
+
+## checkpoints before implementation
+
+- **Declare the complete R stack.** The current site library includes
+  `pcaMethods` from Bioconductor and packages installed after this plan was
+  written. Add `BiocManager` and `pcaMethods` to the installer, with a
+  noninteractive Bioconductor install and a fresh-process verification.
+  Inventory the other recent installs and decide which are direct requirements;
+  declare those too. Dependency packages need not be listed individually.
+  The host builder runs outside the devcontainer firewall, so it can fetch
+  Bioconductor without weakening the container's egress rules.
+- **Resolve the exact consumer image.** The host wrapper must use the image
+  selected for this devcontainer, including its R version, P3M snapshot, and
+  native libraries. Confirm that image selection before filling a volume;
+  do not silently substitute an older image or a similar standalone build.
+- **Build before cutover.** Fill and verify the new shared R and Python volumes
+  before changing their consumer mounts to read-only. Then switch the mounts
+  and run the read-only consumer tests. Keep the existing per-devcontainer
+  volumes intact until the new setup passes, so rollback remains straightforward.
