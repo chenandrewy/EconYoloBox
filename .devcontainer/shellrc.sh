@@ -23,7 +23,7 @@ sesh-init || true
 # (find, not a glob: an unmatched glob is a hard error under zsh's nomatch.)
 if [ -z "$(find /opt/venv/lib -maxdepth 3 -type d -name pandas -print -quit 2>/dev/null)" ] ||
     [ -z "$(find /opt/R -maxdepth 5 -type d -name fixest -print -quit 2>/dev/null)" ]; then
-    echo "note: analysis stack not fully installed - run .devcontainer/install-packages.sh"
+    echo "note: analysis stack not fully installed - run .devcontainer/install-packages.sh python r"
 fi
 
 # Same idea for the AI CLIs, which are also runtime-installed now (into the

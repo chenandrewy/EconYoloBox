@@ -21,7 +21,15 @@
 #     Input:   Docker inspect's HostConfig.SecurityOpt JSON array.
 #     Output:  builtin, unconfined, or an unverified description.
 #
-# Called by _dc_resolve/bbox in devcontainer.zsh; not meant to be run by hand.
+#   python3 dc-resolve.py package-volumes <devcontainer.json>
+#     Input:   path to a devcontainer.json (JSONC allowed).
+#     Output:  one "<stack> <volume> <target>" line each for python, r and tex:
+#              the shared package volumes .setup/packages.sh builds. A
+#              `// packages.sh: <mount>` comment line stages a volume and
+#              overrides the live mount with the same target.
+#
+# Called by _dc_resolve/bbox in devcontainer.zsh and by .setup/packages.sh;
+# not meant to be run by hand.
 
 import json
 import pathlib
@@ -129,6 +137,43 @@ def security_policy(src):
     return "unverified (seccomp=" + ", seccomp=".join(policies) + ")"
 
 
+def package_stack(target):
+    if target == "/opt/venv":
+        return "python"
+    if re.fullmatch(r"/opt/R/[^/]+/lib/R/site-library", target):
+        return "r"
+    if target == "/usr/local/texlive":
+        return "tex"
+    return None
+
+
+def parse_mount(spec):
+    return dict(part.split("=", 1) for part in spec.split(",") if "=" in part)
+
+
+def package_volumes(devcontainer_json):
+    with open(devcontainer_json, encoding="utf-8") as fh:
+        src = fh.read()
+    live = [m for m in json.loads(strip_jsonc(src)).get("mounts", []) if isinstance(m, str)]
+    staged = re.findall(r"^\s*//\s*packages\.sh:\s*(\S+)\s*$", src, re.MULTILINE)
+    volumes = {}
+    for spec in live + staged:  # staged last, so it wins
+        mount = parse_mount(spec)
+        stack = package_stack(mount.get("target", ""))
+        if stack and mount.get("type") == "volume":
+            volumes[stack] = (mount.get("source", ""), mount["target"])
+    lines = []
+    for stack in ("python", "r", "tex"):
+        if stack not in volumes:
+            raise SystemExit(f"package-volumes: no {stack} volume mount in {devcontainer_json}")
+        source, target = volumes[stack]
+        # A per-devcontainer name is not a shared volume the host should fill.
+        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", source):
+            raise SystemExit(f"package-volumes: {stack} volume {source!r} is not a literal shared name")
+        lines.append(f"{stack} {source} {target}")
+    return "\n".join(lines)
+
+
 command = sys.argv[1]
 if command == "remote-path":
     print(remote_path(sys.argv[2], sys.argv[3]))
@@ -138,5 +183,7 @@ elif command == "up-container-id":
     print(up_container_id(sys.stdin.read()))
 elif command == "security-policy":
     print(security_policy(sys.argv[2]))
+elif command == "package-volumes":
+    print(package_volumes(sys.argv[2]))
 else:
     raise SystemExit(f"unknown command: {command}")

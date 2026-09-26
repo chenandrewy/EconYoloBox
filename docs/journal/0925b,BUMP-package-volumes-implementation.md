@@ -109,32 +109,32 @@ The user answered these on 2026-09-25.
 
 ## phase 1 — builder (commit 1; mounts unchanged, still writable)
 
-- [ ] `install-packages.sh`: accept several targets (`python r tex cli`,
+- [x] `install-packages.sh`: accept several targets (`python r tex cli`,
       `all`), and update the usage text and header comment.
-- [ ] `install-packages.sh`: add the 13 R packages from decision 1.
+- [x] `install-packages.sh`: add the 13 R packages from decision 1.
       Bioconductor step as in the traps section.
-- [ ] `install-packages.sh`: verify R in a fresh `Rscript` after the install.
-- [ ] `install-packages.sh`: `tex` target, per decision 3. Move the logic
+- [x] `install-packages.sh`: verify R in a fresh `Rscript` after the install.
+- [x] `install-packages.sh`: `tex` target, per decision 3. Move the logic
       from `.setup/texlive.sh` (tlpdb year check, profile, `install-tl`,
       `fmtutil-sys`, `updmap-sys`) into it, adapted to the minimal profile.
       Smoke-test pdflatex, biber and a LyX export (LyX is in the image), log
       to `install.log`, then write the marker.
-- [ ] `install-packages.sh`: in-container default is `cli`, per decision 6.
+- [x] `install-packages.sh`: in-container default is `cli`, per decision 6.
       (The read-only guards themselves belong to phase 2, since the mounts
       are still writable now.)
-- [ ] `.setup/packages.sh [targets]`: resolve the image (decision 4), read
+- [x] `.setup/packages.sh [targets]`: resolve the image (decision 4), read
       volume names from `devcontainer.json` (decision 7), and
       `docker run --rm --user root` with the three volumes read-write and
       `.devcontainer/` bind-mounted read-only at `/setup`. Header documents
       how to run it, its inputs and its outputs.
-- [ ] Add the new volume names to `devcontainer.json` so `packages.sh` can
+- [x] Add the new volume names to `devcontainer.json` so `packages.sh` can
       read them, **without switching any mount yet**. For example, a
       commented block or a `// packages.sh:` key the parser recognises;
       pick whatever is least fragile and explain it in a comment.
-- [ ] Delete `.setup/texlive.sh`. Update `.setup/README.md` for
+- [x] Delete `.setup/texlive.sh`. Update `.setup/README.md` for
       `packages.sh`.
-- [ ] `shellcheck` both scripts, and `bash -n` them.
-- [ ] Commit 1. Show the user the diff summary first; commit only when they
+- [x] `shellcheck` both scripts, and `bash -n` them.
+- [x] Commit 1. Show the user the diff summary first; commit only when they
       approve.
 - [ ] **HOST:** `bbox --rebuild` if the Dockerfile changed (it shouldn't in
       phase 1), then `bash .setup/packages.sh all`. Collect the tail of the
@@ -151,7 +151,10 @@ The user answered these on 2026-09-25.
 
 - [ ] `devcontainer.json`: switch the R, venv and TeX mounts to the shared
       names with `readonly`, drop `${devcontainerId}` from them, and
-      rewrite the comment block to match. Leave `npm-global` alone.
+      rewrite the comment block to match. Remove the three
+      `// packages.sh:` staging lines (their names become the live mounts);
+      keep the explanation of staging for future bumps. Leave `npm-global`
+      alone.
 - [ ] `Dockerfile`: remove `chmod -R a+w .../lib/R/library`, and the
       `chown` on site-library and `/opt/venv`. Keep the `mkdir` of
       site-library, since R only adds it to `.libPaths()` if it exists.
@@ -194,3 +197,39 @@ The user answered these on 2026-09-25.
 - 2026-09-25: decisions recorded; nothing implemented yet. Starting state:
   the site library holds 227 packages (34 top-level, spacyr included); the
   old TeX volume is 11 GB with no marker.
+- 2026-09-25, TeX selection, from the full tree's `texlive.tlpdb` (CTAN is
+  firewalled in the container). LuaTeX cannot be dropped: `luatex` and
+  `luahbtex` are in `collection-basic`, and profiles cannot deselect
+  packages. No selected collection pulls in `collection-xetex`. Estimated
+  size is about 3.0 GB without docs and 5.7 GB with them. The user agreed to
+  `tlpdbopt_install_docfiles 0` and `tlpdbopt_install_srcfiles 0`, so
+  `texdoc` will not work. `latexindent` and `latexmk` are not in the
+  collections; the user agreed to put them in `TEX_PKGS` (latexindent's Perl
+  deps are in the Dockerfile, and latexmk is LaTeX Workshop's default).
+- 2026-09-25, install-tl profile trap: once a profile names any collection,
+  the scheme's collection list is ignored (install-tl manual, "Profiles").
+  The scheme's own packages still install (`calc_depends`). So
+  `TEX_COLLECTIONS` lists scheme-small's four collections explicitly, and
+  a marked tree's add step checks collections as well as `TEX_PKGS`.
+- 2026-09-25, **accidental write to an old volume.** While testing the R
+  script in the container, `verify` reported `fuzzyjoin`, `lexicon` and
+  `quanteda.textstats` absent from *this* container's site library. That
+  contradicts decision 1's inventory, which was presumably taken from
+  another project's volume. The follow-up `install` run then put them and 12
+  dependencies from P3M into this devcontainer's old per-devcontainer R
+  volume. Nothing existing was replaced. Reported to the user, who chose
+  to leave the 15 packages in place. Decision 1's list stands.
+- 2026-09-25, phase 1 code checks done in the container: the TeX smoke test
+  passes against the old full tree (about 12 s); R `verify` then passes
+  (50 packages) and a rerun of `install` downloads nothing; `packages.sh`
+  was dry-run against a stub `docker` (0, 1 and 2 containers; targets;
+  `cli` rejected); `install-packages.sh tex` in the container refuses the
+  old unmarked volume without writing. The `install-tl` path itself is
+  verified only by the host build.
+- 2026-09-25, `packages.sh` details: it is bash 3.2-safe (macOS `/bin/bash`).
+  It looks up the container label under the symlink-resolved path first, as
+  `bbox` does, then the logical path. Volume names are staged as
+  `// packages.sh: <mount>` comment lines, read by
+  `.host/dc-resolve.py package-volumes`, which refuses `${...}` names.
+  `shellrc.sh:26` now says `install-packages.sh python r`, because a bare
+  call means `cli`.
