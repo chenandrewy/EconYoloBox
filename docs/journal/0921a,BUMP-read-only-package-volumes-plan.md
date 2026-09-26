@@ -5,6 +5,11 @@ yet implemented. BUMP: needs a rebuild and a host-side volume build, so it
 waits until the current posture changes have settled and there is a quiet
 moment to test.
 
+**Update 2026-09-25:** implementation is tracked in
+[0925b](0925b,BUMP-package-volumes-implementation.md). It overrides the TeX
+design here: TeX becomes minimal, pdfLaTeX-only, with packages addable via
+`tlmgr`, in a new volume.
+
 ## the idea
 
 Treat the R site-library and the Python venv the way TeX Live is treated
