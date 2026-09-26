@@ -93,14 +93,14 @@ reasons, and shellcheck is clean.
 
 ## HOST steps
 
-- [ ] 8a. Build the lean base under the new names:
+- [x] 8a. Build the lean base under the new names:
   `bash .setup/packages.sh all`. Expect the builder's TeX smoke test to pass
   on the lean tree, and a final `chown -R node:node` line.
-- [ ] 8b. YOLO mode, `bbox --rebuild`. Check the startup line reads
+- [x] 8b. YOLO mode, `bbox --rebuild`. Check the startup line reads
   `YOLO mode`, then in the container:
   `bash .devcontainer/tests/test-packages.sh`. `test-optional.sh` should
   fail here (the optional set is absent), which shows the base stands alone.
-- [ ] 8c. Normie mode (the preset in `SANDBOX.toml`), `bbox --rebuild`. Check
+- [x] 8c. Normie mode (the preset in `SANDBOX.toml`), `bbox --rebuild`. Check
   the startup line reads `Normie mode` and shells warn about writable volumes
   and the open firewall. Run `bash .devcontainer/tests/test-packages.sh`
   (writable branch), then `bash .devcontainer/install-optional.sh`, then
@@ -108,7 +108,7 @@ reasons, and shellcheck is clean.
   `install.packages()` writes to the site library, not a personal one;
   `tlmgr install` works as node; note whether pip replaced any base
   dependency.
-- [ ] 8d. Still in normie mode, validate Codex's sandbox under unconfined
+- [x] 8d. Still in normie mode, validate Codex's sandbox under unconfined
   seccomp (0923b's follow-up): Bubblewrap starts, native editing works,
   workspace writes are allowed, writes outside it are denied, and the chosen
   command-network policy behaves.
