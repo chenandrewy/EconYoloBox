@@ -112,14 +112,24 @@ reasons, and shellcheck is clean.
   seccomp (0923b's follow-up): Bubblewrap starts, native editing works,
   workspace writes are allowed, writes outside it are denied, and the chosen
   command-network policy behaves.
-- [ ] 8e. Back to YOLO mode, `bbox --rebuild`, `test-packages.sh` once more.
+- [x] 8e. Back to YOLO mode, `bbox --rebuild`, `test-packages.sh` once more.
   Re-measure the volumes for `docs/storage-needs.md`, then prune the old
   volumes (`venv-noble-py3.12`, `r-site-library-noble-4.5.3-2026-07-15`,
-  `texlive-2026-small-noble`) when satisfied.
-
-Untested until 8c: that the devcontainer CLI passes `readonly=false` through
-to `docker run --mount` as expected (Docker accepts it; `bbox`'s mount check
-will catch it if not).
+  `texlive-2026-small-noble`) when satisfied. `SANDBOX.toml` has YOLO values;
+  the live mounts are read-only and `test-packages.sh` passed. The three new
+  volumes measure 1.2G, 536M, and 3.0G with the optional set installed, and
+  `docs/storage-needs.md` records that. A host `bbox --rebuild` and pruning
+  remain: this devcontainer has no Docker socket or `bbox`/`docker` command.
+- [x] 8f. On the host, measure the three persistent package volumes with only
+  the lean base installed. Close the VS Code container window and stop package
+  work, then remove this checkout's devcontainer and the three active `-base`
+  volumes (their names are in `.devcontainer/devcontainer.json`). This removes
+  the optional set and any ad hoc installs. Run `bbox --rebuild` to create a
+  container with fresh, empty package volumes; its missing-package warnings
+  are expected. Run `bash .setup/packages.sh` on the host to build the base,
+  then `bbox --rebuild` again for a clean startup. In the container, run
+  `bash .devcontainer/tests/test-packages.sh` and `du -sh` on the three package
+  mount paths. Record their sizes, total, and date in `docs/storage-needs.md`.
 
 ## log
 
@@ -131,3 +141,9 @@ will catch it if not).
   `docs/features.md`, `.setup/README.md`, the agent guidance and
   `install-optional.sh`'s messages now describe YOLO and normie mode, with all
   three keys; "chaperoned", "mode 3" and "install mode" are gone.
+- 2026-09-26: 8e container checks passed on the new read-only mounts and the
+  current volume sizes were recorded. Host rebuild and old-volume pruning
+  remain pending host Docker access.
+- 2026-09-26: 8f done. Lean base on fresh volumes, `du -sh` in the YOLO
+  container: venv 767M, R 201M, TeX 482M, 1.5G total (vs 4.7G with the
+  optional set). Recorded in `docs/storage-needs.md`.

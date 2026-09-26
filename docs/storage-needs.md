@@ -4,10 +4,13 @@ What the sandbox costs on disk: the image, the BuildKit build cache, and the
 persistent volumes. The shared workspace devcontainer is built locally from
 `.devcontainer/Dockerfile`, starting from the official `ubuntu:24.04` image.
 
-Rough current total: the image (not yet re-measured; see below), about
-**4.7GB** of shared package volumes once per Docker daemon, and about
-**1.0GB** of volumes per sandbox checkout. The build cache comes on top of
-that.
+For the intended setup of **one sandbox checkout and one devcontainer**, the
+persistent volumes use about **2.8GB**: about **1.5GB** for the lean R,
+Python, and TeX base, plus about **1.3GB** for the AI CLIs and agent
+configuration, nearly all of it CLI binaries. Installing the optional set
+raises the package volumes to about **4.7GB** (6.0GB in all). The current image and BuildKit cache use additional
+space; the image has not been re-measured. Old volumes also occupy space until
+removed.
 
 ## Image size
 
@@ -18,8 +21,8 @@ The last measurement, on 2026-07-26 after the Ubuntu base migration, found a
 **3.42GB image built cold in about 9 minutes** on arm64, down from roughly
 24GB before. Since then, three large components have left the image:
 
-- TeX Live (`texlive-full`, about 3.2GB) moved to a shared read-only volume
-  on 2026-09-10, now the minimal `texlive-2026-small-noble`;
+- TeX Live (`texlive-full`, about 3.2GB) moved to a shared volume
+  on 2026-09-10, now `texlive-2026-base-noble`;
 - the AI CLIs (about 550MB) moved to the per-checkout npm-global volume;
 - the R and Python packages had already moved to volumes before July, and
   since 0925b they are shared, host-built volumes.
@@ -57,26 +60,26 @@ rebuilds.
 ## Persistent volumes
 
 Two kinds of Docker volume survive container rebuilds. Neither is included in
-the image or build-cache figures above. Measured with `du -sh` inside the
-rebuilt devcontainer on 2026-09-26
-([0925b](journal/0925b,BUMP-package-volumes-implementation.md)).
+the image or build-cache figures above. All figures were measured with `du -sh`
+on 2026-09-26.
 
-**Shared package volumes**, one set per Docker daemon. They are built on the
-host by `.setup/packages.sh` and mounted read-only:
+**Package volumes** account for about **1.5GB** of the one-checkout total
+with the lean base, or about **4.7GB** with the optional set.
+There is one set on the Docker daemon. They are built on the host by
+`.setup/packages.sh` and mounted read-only in YOLO mode (writable in normie
+mode):
 
-| Volume | Mount | Size |
-|---|---|---|
-| `texlive-2026-small-noble` | `/usr/local/texlive` | 3.0GB |
-| `venv-noble-py3.12` | `/opt/venv` | 1.2GB |
-| `r-site-library-noble-4.5.3-2026-07-15` | `/opt/R/4.5.3/lib/R/site-library` | 536MB |
+| Volume | Mount | Lean base | With optional set |
+|---|---|---|---|
+| `texlive-2026-base-noble` | `/usr/local/texlive` | 482MB | 3.0GB |
+| `venv-noble-py3.12-base` | `/opt/venv` | 767MB | 1.2GB |
+| `r-site-library-noble-4.5.3-2026-07-15-base` | `/opt/R/4.5.3/lib/R/site-library` | 201MB | 536MB |
 
-About **4.7GB** in total. These are the full stacks under their pre-0926a
-names. [0926a](journal/0926a,package-install-modes-plan.md) moves them to
-`-base`/`base` names holding a lean base, with the rest as an optional set
-installed into the same volumes; the base alone has not been measured yet, and
-base plus optional set should come to about the same total. Every project in the workspace uses these through
-the one devcontainer. A second sandbox checkout on the same daemon would
-mount the same three volumes instead of building its own.
+About **1.5GB** in total for the lean base and **4.7GB** with the optional
+set, both measured with `du -sh` inside the YOLO container on 2026-09-26: the
+lean base on freshly built volumes, the optional set after installing it in
+normie mode. Every project in the workspace uses these through
+the one devcontainer.
 
 The names carry version tokens (`noble`, `4.5.3`, the P3M date, `py3.12`,
 `2026`). A distro, R, snapshot, Python or TeX Live bump therefore builds a
@@ -84,28 +87,39 @@ The names carry version tokens (`noble`, `4.5.3`, the P3M date, `py3.12`,
 packages compiled against different shared libraries must not be mixed. The
 superseded volume stays on disk until you remove it with `docker volume rm`.
 
-**Per-devcontainer volumes**, one set per sandbox checkout:
+**Devcontainer-specific volumes** account for about **1.3GB** of the
+one-checkout total. About 1.2GB of that is CLI binaries; configuration and
+state are about 115MB:
 
-| Volume | Mount | Size |
-|---|---|---|
-| `<folder>-npm-global-noble-node24-<id>` | `/usr/local/share/npm-global` | 560MB |
-| `<folder>-codex-config-<id>` | `/home/node/.codex` | 396MB |
-| `<folder>-claude-config-<id>` | `/home/node/.claude` | 26MB |
-| `claude-code-bashhistory-<id>` | `/commandhistory` | 48KB |
+| Volume | Mount | Size | Binaries | Config and state |
+|---|---|---|---|---|
+| `<folder>-npm-global-noble-node24-<id>` | `/usr/local/share/npm-global` | 559MB | 559MB | — |
+| `<folder>-codex-config-<id>` | `/home/node/.codex` | 746MB | 658MB | 88MB |
+| `<folder>-claude-config-<id>` | `/home/node/.claude` | 25MB | — | 25MB |
+| `claude-code-bashhistory-<id>` | `/commandhistory` | 48KB | — | 48KB |
 
-About **1.0GB** in total. `<id>` is `${devcontainerId}`, a ~52-character
-string identifying the devcontainer. Keying by it gives each checkout its own
-set, so two checkouts never share Claude and Codex auth tokens or, through
-`npm-global`, the executables they run. This holds even when their folders
-share a name. The folder name is only a readable prefix that keeps
-`docker volume ls` scannable. The id is derived from the host path, so moving
-or renaming the sandbox folder orphans these volumes. That costs a re-login
-and an `install-packages.sh cli` re-run. Orphans are hard to identify by name,
-so find them with `docker volume ls -f dangling=true`.
+The npm-global volume holds the CLIs themselves: Codex (329MB) and Claude
+Code (230MB), both bundling native binaries. The codex-config volume is
+mostly binaries too: Codex downloads its own app-server releases into
+`packages/app-server-daemon/releases/`, about 330MB each, and older releases
+stay behind (two, 0.157.0 and 0.157.1, on 2026-09-26). Expect this volume to
+grow with Codex updates. The rest of it is mainly `logs_2.sqlite` (52MB) and
+`thread_history_1.sqlite` (20MB). Claude's volume is mostly plugins (15MB).
+Transcripts are not in these volumes (see below).
 
-**Superseded volumes** from before 0925b stay on disk until pruned: the full
-TeX tree `texlive-2026-noble` (11GB) and each checkout's old
-`<folder>-venv-noble-py3.12-<id>` (1.2GB) and
+`<id>` is `${devcontainerId}`, a ~52-character string identifying this
+devcontainer. The folder name is a readable prefix for `docker volume ls`.
+These volumes hold the AI CLIs and agent configuration for the one intended
+checkout. If another checkout were created on the same Docker daemon, it
+would share the package volumes but get its own devcontainer-specific volumes.
+Moving or renaming the sandbox folder also changes the id and leaves the old
+volumes behind. Find unused ones with `docker volume ls -f dangling=true`.
+
+**Superseded volumes** from before 0926b include
+`texlive-2026-small-noble`, `venv-noble-py3.12`, and
+`r-site-library-noble-4.5.3-2026-07-15`. Older volumes from before 0925b
+may also remain: the full TeX tree `texlive-2026-noble` (11GB), plus an old
+checkout's `<folder>-venv-noble-py3.12-<id>` (1.2GB) and
 `<folder>-r-site-library-noble-4.5.3-<id>` (about 800MB).
 
 Session data is not here. `ai-sesh` symlinks `~/.claude/projects` and
