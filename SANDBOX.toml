@@ -2,6 +2,13 @@
 
 ## Security 
 # YOLO launchers require both firewall = true and seccomp = "builtin"
+
+## Package volumes (R, Python, TeX)
+# `packages = "readonly"` mounts them read-only: agents ask for missing packages
+# `packages = "writable"` lets you install with install.packages(), pip install
+#   or tlmgr install; pair it with firewall = false, then switch back
+# Takes effect at `bbox --rebuild`. Modes: .devcontainer/README.md
+packages = "readonly"
 # Codex auto mode works more smoothly with seccomp = "unconfined"
 
 # `firewall = true` raises the deny-by-default firewall

@@ -71,8 +71,8 @@ tooling those changes exist to support is described in
 - **Firewall.** Upstream's allowlist covers what a software engineer needs.
   This one runs its own dnsmasq for domain-based allowlisting and adds the
   sources econ research runs on — data providers and paper repositories. R and
-  Python package registries are left out, since those stacks are built on the
-  host. It is also **fail-closed**: any setup failure drops
+  Python package registries are left out, since packages are installed on the
+  host or with the firewall off. It is also **fail-closed**: any setup failure drops
   all traffic rather than leaving the container open, and blocked hosts are
   REJECTed so they fail fast instead of hanging.
 
@@ -86,7 +86,7 @@ tooling those changes exist to support is described in
   against an agent that edits the repo; `git diff` before restarting is the
   review step. A
   fresh container has the system toolchain immediately. The R, Python and TeX
-  stacks come from shared read-only volumes built on the host, and the AI CLIs
+  stacks come from shared volumes built on the host, and the AI CLIs
   install once into a per-container volume with `install-packages.sh cli`.
 
 - **Enforced agent policy.** Root-owned configuration disables Claude's online
@@ -137,14 +137,22 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
 - **Host-built, read-only package stacks.** The Python venv, the R
   site-library and a minimal pdfLaTeX TeX Live live in shared Docker volumes.
-  The human builds them on the host with `bash .setup/packages.sh`, which runs
-  `install-packages.sh` in the devcontainer's own image, and every project
-  mounts them read-only. Agents run the stacks but cannot change them. To add a
-  package, edit the list in `install-packages.sh` and rerun the builder: only
-  the new package downloads, and running containers see it at the next R or
-  Python session. The builder uses Docker's default network, so the container
+  The human builds a lean base on the host with `bash .setup/packages.sh`,
+  which runs `install-packages.sh` in the devcontainer's own image, and every
+  project mounts them read-only by default. Agents run the stacks but cannot
+  change them. The builder uses Docker's default network, so the container
   firewall never blocks a stack build; it still governs anything fetched from
   inside the container.
+
+- **Three working modes.** A second switch, `packages = "readonly" |
+  "writable"`, sits beside `firewall` in `SANDBOX.toml`. Together they give
+  YOLO work (firewall on, read-only), chaperoned internet work (firewall off,
+  read-only) and careful package installs (firewall off, writable). In the
+  last, the user installs with the ordinary `install.packages()`, `pip install`
+  and `tlmgr install`, then switches back. `bbox --rebuild` applies the switch
+  and checks the resulting mounts; startup prints the mode, and shells warn
+  while the volumes are writable. The rest of what we use beyond the base is
+  an optional set that `install-optional.sh` installs this way.
 
 - **Pinned R package state.** R resolves against a dated P3M snapshot rather
   than live CRAN, so an R environment rebuilt months later resolves the same

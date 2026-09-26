@@ -17,6 +17,10 @@ Key features:
    - **Internet access:** set `firewall = false` in `SANDBOX.toml`, rebuild,
      and use Claude's auto mode. Its permission classifier is much cheaper than
      Codex's automatic review, which runs a full model call per escalation.
+   - **Package installs:** also set `packages = "writable"` and run
+     `bbox --rebuild`, then install R, Python or TeX packages the usual way
+     while watching. Switch back afterwards; the package volumes are read-only
+     otherwise.
    - **Codex sandboxed modes:** also set `seccomp = "unconfined"` and run
      `bbox --rebuild`, since builtin blocks Bubblewrap setup here. This
      disables Docker's outer syscall filter for every process.
@@ -204,19 +208,23 @@ not built the container yet.
 ### Build the package stacks
 
 R, Python and TeX Live are not in the image. They live in shared volumes that
-you build on the Docker host, and every project mounts them read-only. After
-the container exists (it supplies the builder image), run from the checkout
-root on the host:
+every project mounts, read-only by default. You build a lean base on the Docker
+host. After the container exists (it supplies the builder image), run from the
+checkout root on the host:
 
 ```bash
-bash .setup/packages.sh          # Python and R, a few minutes
-bash .setup/packages.sh tex      # minimal pdfLaTeX TeX Live, about 3GB
+bash .setup/packages.sh          # Python and R
+bash .setup/packages.sh tex      # minimal pdfLaTeX TeX Live
 bash .setup/packages.sh all      # all three
 ```
 
-To add a package later, add it to the list in
-`.devcontainer/install-packages.sh` and rerun the same command. See
-[host setup](.setup/README.md) for the details.
+The rest of the usual stack is an optional set. To install it, switch to the
+package-install mode: set `packages = "writable"` and `firewall = false` in
+`SANDBOX.toml` and run `bbox --rebuild`. Then run
+`bash .devcontainer/install-optional.sh` in the container, and switch both
+back. The same mode is how you add a package later, with `install.packages()`,
+`pip install` or `tlmgr install`. See [host setup](.setup/README.md) and the
+[devcontainer README](.devcontainer/README.md#working-modes) for the details.
 
 ## Optional host command workflow
 
@@ -236,7 +244,7 @@ type bbox
 
 Run `bbox` to bring the container up, `bbox --code My-Project` to open a project
 in VS Code, or `bbox --shell My-Project` to enter it in a terminal. Use
-`bbox --rebuild` after changing `seccomp` in `SANDBOX.toml`.
+`bbox --rebuild` after changing `seccomp` or `packages` in `SANDBOX.toml`.
 
 VS Code's direct **Rebuild Container** command cannot inherit the validated
 setting from this shell launcher. It therefore uses `builtin`, matching the
@@ -265,7 +273,7 @@ to confirm that eviction is the actual problem.
 
 ## TeX Live host setup
 
-The devcontainer uses a shared, read-only, pdfLaTeX-only TeX Live volume.
+The devcontainer uses a shared, pdfLaTeX-only TeX Live volume, read-only by default.
 Before TeX/LyX work, run `bash .setup/packages.sh tex` on the Docker host; see
 [host setup](.setup/README.md) for installation and validation instructions.
 

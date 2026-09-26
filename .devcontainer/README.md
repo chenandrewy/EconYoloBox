@@ -64,14 +64,15 @@ this.
 ### TeX Live and LyX
 
 TeX Live 2026 is installed with `bash .setup/packages.sh tex` **on the host**,
-using upstream `install-tl`. It is minimal and pdfLaTeX-only: `scheme-small`
-without XeTeX, plus latexextra, fontsrecommended, bibtexextra (biblatex,
-biber), pictures, mathscience and fontsextra, plus latexindent and latexmk. It
-has no documentation files. It lives in the shared `texlive-2026-small-noble`
-volume, mounted read-only at `/usr/local/texlive`. The image puts the matching
-architecture's binaries on PATH; user TeX caches live in the writable home
-directory. Packages are added by listing them in `TEX_PKGS` and rerunning the
-builder; existing packages are never updated in place.
+using upstream `install-tl`. It is minimal and pdfLaTeX-only. The base is
+`scheme-small` without XeTeX, plus bibtexextra (biblatex, biber), latexindent,
+latexmk and cm-super; `install-optional.sh` adds latexextra, fontsrecommended,
+pictures, mathscience and fontsextra. It has no documentation files. It lives
+in the shared `texlive-2026-base-noble` volume at `/usr/local/texlive`. The
+image puts the matching architecture's binaries on PATH; user TeX caches live
+in the writable home directory. Packages are added with `tlmgr install` in
+install mode, or by listing them in `TEX_PKGS` and rerunning the builder;
+existing packages are never updated in place.
 
 `tex-refresh` runs LyX converter detection as `node` in `~/.lyx` at startup,
 after the firewall configuration step. A missing installation warns without
@@ -95,9 +96,15 @@ this helper. See the host setup README for installation and failure handling.
 - `check-yolo-boundaries.sh` — refuses supplied YOLO launchers unless the
   firewall is enabled and PID 1 has filtered seccomp.
 - `init-firewall.sh` — network firewall rules applied by `post-start.sh` when enabled.
-- `install-packages.sh` — the package lists and installer for the R, Python and
-  TeX volumes (run on the host through `.setup/packages.sh`), and the AI CLI
-  installer inside the container (see "Package stacks and AI CLIs" below).
+- `install-packages.sh` — the base package lists and installer for the R,
+  Python and TeX volumes (run on the host through `.setup/packages.sh`), and
+  the AI CLI installer inside the container (see "Package stacks and AI CLIs"
+  below).
+- `install-optional.sh` — the optional package set, installed by the user in
+  install mode (see "Working modes" below).
+- `strict-setting.sh`, with its wrappers `seccomp-setting.sh` and
+  `packages-setting.sh` — strict readers for SANDBOX.toml's enumerated
+  switches; `package-mode.sh` reports how the package volumes are mounted.
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
 - `agents/` — canonical agent guidance and settings, applied to the container's user-level config on every start (see "Agent Config" below).
 - `home/` — user-level dotfiles that must survive a rebuild. The container's
@@ -308,7 +315,8 @@ The seed script handles guidance and settings differently:
   belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
 
 User-specific settings live in the root-level `SANDBOX.toml`: `seccomp`
-(`"builtin"` or `"unconfined"`), `firewall` (`true` or `false`), `timezone`
+(`"builtin"` or `"unconfined"`), `firewall` (`true` or `false`), `packages`
+(`"readonly"` or `"writable"`), `timezone`
 (IANA zone; comment out to use the detected host zone), `cellar` (the research
 library), `done` (finished and retired projects), and `screenshot_directory`. Paths are container paths. Agents read path settings
 directly, so path edits take effect immediately.
@@ -318,9 +326,11 @@ rebuild. General settings use `sandbox-setting.sh`, a `sed` over flat `key = "va
 / `key = true|false` lines rather than a TOML parser: keep the file flat, and
 note that a malformed line, a duplicated key, or a quoted boolean
 (`firewall = "false"`) yields nothing, which for `firewall` means armed.
-Seccomp uses the stricter shared `seccomp-setting.sh`: it rejects tables,
-duplicate keys, malformed lines, and unsupported TOML and falls back to
-`builtin`.
+Seccomp and packages use the stricter shared `strict-setting.sh` (through
+`seccomp-setting.sh` and `packages-setting.sh`): it rejects tables, duplicate
+keys, malformed lines, and unsupported TOML and falls back to `builtin` and
+`readonly`. Both are fixed at container creation, so they take
+`bbox --rebuild`.
 
 The checked-in default is `firewall = true`: the YOLO posture, with the
 allowlist active and the YOLO wrappers permitted. Set `firewall = false` for
@@ -330,24 +340,52 @@ editing the file does not change live rules, and a bare `docker restart` skips
 the startup hook. The seccomp choice is independent of either firewall mode;
 enabling the firewall does not restore syscall filtering.
 
+### Working modes
+
+Two independent switches in `SANDBOX.toml`, `firewall` and `packages`, give
+three working modes (docs/journal/0926a):
+
+| Mode | `firewall` | `packages` | Use |
+|---|---|---|---|
+| 1. YOLO work (default) | `true` | `"readonly"` | everyday work; agents ask when a package is missing |
+| 2. Chaperoned internet work | `false` | `"readonly"` | open web access, with the user watching |
+| 3. Careful package installs | `false` | `"writable"` | the user installs packages, then switches back |
+
+Changing `firewall` takes a container restart; changing `packages` takes
+`bbox --rebuild`, because mounts are fixed at container creation (a rebuild
+from the cached image is quick). `bbox` exports `SANDBOX_PKG_READONLY` for the
+three package mounts in `devcontainer.json` and checks the created container's
+mounts, as it does for seccomp. A container created without `bbox`, for example
+by VS Code directly, mounts them read-only. `post-start.sh` prints the current
+mode, and interactive shells warn while the volumes are writable.
+
+In mode 3, install as `node` with the ordinary commands: `install.packages()`
+writes to the shared site library, `pip install` to `/opt/venv`, and
+`tlmgr install` to the TeX tree (then run `tex-refresh`). `.setup/packages.sh`
+chowns the volumes to `node` so no sudo is needed. pip resolves against current
+PyPI and can replace dependencies, one reason the mode is supervised. Agents
+install in mode 3 only when the user asks. `install-optional.sh` installs the
+optional set this way; `install-optional.sh --verify` and
+`tests/test-optional.sh` check it in any mode.
+
 ### Package stacks and AI CLIs (`install-packages.sh`)
 
-The R, Python and TeX stacks are **not** in the image, and they are not
-installed from inside the container either. They live in three shared Docker
-volumes that the human builds on the host with `bash .setup/packages.sh` (see
-the [host setup README](../.setup/README.md)), and `devcontainer.json` mounts
-them read-only:
+The R, Python and TeX stacks are **not** in the image. They live in three
+shared Docker volumes. The human builds a lean base on the host with
+`bash .setup/packages.sh` (see the [host setup README](../.setup/README.md)),
+and optionally adds the rest in mode 3 with `install-optional.sh`.
+`devcontainer.json` mounts them read-only unless `packages = "writable"`:
 
 | Volume | Mount |
 |---|---|
-| `r-site-library-noble-4.5.3-2026-07-15` | `/opt/R/4.5.3/lib/R/site-library` |
-| `venv-noble-py3.12` | `/opt/venv` |
-| `texlive-2026-small-noble` | `/usr/local/texlive` |
+| `r-site-library-noble-4.5.3-2026-07-15-base` | `/opt/R/4.5.3/lib/R/site-library` |
+| `venv-noble-py3.12-base` | `/opt/venv` |
+| `texlive-2026-base-noble` | `/usr/local/texlive` |
 
 The principle is that agents in the container only execute; the human maintains
-the environment (docs/journal/0921a). Inside the container,
+the environment (docs/journal/0921a). In the default read-only mode,
 `install-packages.sh python|r|tex` refuses with the host command, and
-`install-packages.sh --verify python r tex` checks the stacks without writing.
+`install-packages.sh --verify python r tex` checks the base without writing.
 `pip install` and `install.packages()` into the stacks fail with a read-only or
 not-writable error. At startup, `post-start.sh` warns if a volume is not built.
 It tests a sentinel package (`pyfixest`, `fixest`, the TeX marker), because
@@ -377,10 +415,11 @@ self-update; re-run `install-packages.sh cli` to update both to their current
 releases.
 
 `tests/test-packages.sh`, run as `node` in a rebuilt container, is the
-acceptance check. It covers the read-only mounts, the declared stacks, every
-installed R package loading, a `fixest` regression, a parquet round trip
-between arrow and pyarrow, refused installs of absent packages, and pdflatex,
-biber, latexindent, latexmk and LyX export.
+acceptance check for the base. It covers mounts that match `packages`, the
+declared base stacks, every installed R package loading, a `fixest`
+regression, refused installs of absent packages (read-only mode), and pdflatex,
+biber, latexindent, latexmk and LyX export. It passes without the optional
+set; `tests/test-optional.sh` checks that set separately.
 
 ### Dockerfile ordering
 

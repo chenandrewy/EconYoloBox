@@ -76,6 +76,23 @@ if [ -f /tmp/FIREWALL-WINDOW-OPEN ]; then
     unset _fw_hi _fw_off
 fi
 
+# Writable package volumes (SANDBOX.toml packages = "writable") are meant to
+# be a short supervised window, like the open firewall, so say so in every
+# shell. Read from the live mounts: they are fixed at container creation.
+if [ "$(bash /sandbox/.devcontainer/package-mode.sh)" != readonly ]; then
+    if [ -t 1 ]; then
+        _pk_hi=$'\033[1;3;38;5;214m'
+        _pk_off=$'\033[0m'
+    else
+        _pk_hi=''
+        _pk_off=''
+    fi
+    printf '%s\n' \
+        "${_pk_hi}Warning: Package Volumes Writable${_pk_off}" \
+        'To close: set packages = "readonly" in /sandbox/SANDBOX.toml, then run bbox --rebuild on the host'
+    unset _pk_hi _pk_off
+fi
+
 # Docker's outer seccomp filter is a separate safety boundary from the
 # firewall. Each interactive shell compares current SANDBOX.toml with PID 1;
 # config edits cannot alter an already-created container. PID 1 is used because

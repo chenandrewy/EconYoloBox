@@ -90,7 +90,7 @@
   "remoteUser": "node",
   "mounts": [
     // Shared package volumes: R, Python and TeX, built on the host by
-    // `bash .setup/packages.sh` (docs/journal/0921a, 0925b) and mounted
+    // `bash .setup/packages.sh` (docs/journal/0921a, 0925b, 0926a) and mounted
     // read-only, so agents in here can run the stacks but never change them.
     // They are shared across projects on this Docker daemon; only per-project
     // writable state needs the ${devcontainerId} key used further down.
@@ -110,10 +110,15 @@
     // comment line of the form `// packages.sh: <mount string>`. It overrides
     // the live mount with the same target for packages.sh only; move it here
     // once the volume passes its checks.
-    "source=r-site-library-noble-4.5.3-2026-07-15,target=/opt/R/4.5.3/lib/R/site-library,type=volume,readonly",
-    "source=venv-noble-py3.12,target=/opt/venv,type=volume,readonly",
+    //
+    // Read-only unless SANDBOX.toml says packages = "writable": bbox exports
+    // SANDBOX_PKG_READONLY and checks the created mounts, and direct VS Code
+    // creation, which cannot read SANDBOX.toml, falls back to read-only.
+    // Writable mode is for the user installing packages (docs/journal/0926a).
+    "source=r-site-library-noble-4.5.3-2026-07-15-base,target=/opt/R/4.5.3/lib/R/site-library,type=volume,readonly=${localEnv:SANDBOX_PKG_READONLY:true}",
+    "source=venv-noble-py3.12-base,target=/opt/venv,type=volume,readonly=${localEnv:SANDBOX_PKG_READONLY:true}",
     // Minimal pdfLaTeX-only TeX Live; the year must match TEXLIVE_YEAR.
-    "source=texlive-2026-small-noble,target=/usr/local/texlive,type=volume,readonly",
+    "source=texlive-2026-base-noble,target=/usr/local/texlive,type=volume,readonly=${localEnv:SANDBOX_PKG_READONLY:true}",
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     // Every project-owned volume below is keyed by ${devcontainerId}, not by folder name
     // alone. anthropics/claude-code fixed this exact bug in July 2025 ("Fix

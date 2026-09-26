@@ -17,9 +17,18 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
 macOS screenshots (`screenshot_directory`). Read it when you need a location;
 do not assume or hard-code these paths.
 
-The same file holds `firewall`, the switch that arms (`true`) or disables
-(`false`) the egress firewall at the next container start. Never change it;
-that is the user's decision (see `USER PERMISSION REQUIRED`).
+The same file holds two switches: `firewall`, which arms (`true`) or disables
+(`false`) the egress firewall at the next container start, and `packages`,
+which mounts the R, Python and TeX volumes `"readonly"` (the default) or
+`"writable"` at the next `bbox --rebuild`. Never change either; that is the
+user's decision (see `USER PERMISSION REQUIRED`). Together they give three
+working modes; startup prints the current one:
+
+1. **YOLO work** (`firewall = true`, `packages = "readonly"`): everyday work.
+2. **Chaperoned internet work** (`false`, `"readonly"`): open web access, with
+   the user watching.
+3. **Careful package installs** (`false`, `"writable"`): the user installs
+   packages, then switches back.
 
 ### Guidance that depends on `SANDBOX.toml`
 
@@ -32,9 +41,9 @@ that is the user's decision (see `USER PERMISSION REQUIRED`).
   restrictions. The allowlist when the firewall is on:
   - **Packages**: npm and the VS Code marketplace (per-publisher
     `*.gallerycdn.vsassets.io` — a new extension publisher needs a new entry
-    or its install silently fails). PyPI, P3M and CRAN are deliberately
-    **not** allowed: the R and Python stacks are built on the host, so a
-    missing package goes to the user.
+    or its install silently fails). PyPI, P3M, CRAN, Bioconductor and CTAN
+    are deliberately **not** allowed: packages are installed on the host or
+    in mode 3, so a missing package goes to the user.
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
   - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
@@ -50,12 +59,15 @@ that is the user's decision (see `USER PERMISSION REQUIRED`).
   servers and are not subject to the devcontainer firewall. When the firewall
   is on, this does not make arbitrary URLs available to terminal commands or
   project code.
-- The R, Python and TeX package stacks are **read-only** here; the human
-  builds them on the host. If a package is missing, **ASK THE USER TO ADD IT**
-  (name the package) rather than installing it some other way. They add it to
-  the list in `.devcontainer/install-packages.sh` and run
-  `bash .setup/packages.sh` on the host. New **system** libraries (`apt-get`,
-  `-dev` packages) also need permission — see `USER PERMISSION REQUIRED`.
+- **Package installs depend on `packages`.** In modes 1 and 2 the R, Python
+  and TeX stacks are **read-only**. If a package is missing, **ASK THE USER TO
+  ADD IT** (name the package) rather than installing it some other way. They
+  add it in mode 3, or to a list in `.devcontainer/install-packages.sh` (base)
+  or `.devcontainer/install-optional.sh` (optional set). In mode 3 the volumes
+  are writable, but install **only what the user asks for**, with the ordinary
+  commands (`install.packages()`, `pip install`, `tlmgr install`), and say
+  when pip replaced a dependency. New **system** libraries (`apt-get`, `-dev`
+  packages) always need permission — see `USER PERMISSION REQUIRED`.
 - If the firewall blocks a resource you need: **ASK THE USER TO ADD IT**
 - For "this screenshot," "the image," or "latest screenshot," look up
   `screenshot_directory` in `/sandbox/SANDBOX.toml`.
@@ -65,32 +77,38 @@ that is the user's decision (see `USER PERMISSION REQUIRED`).
 - **Python: use bare `python3`/`pip`.** They resolve to the venv at `/opt/venv`,
   which is already active via `PATH` (so `VIRTUAL_ENV` is unset — that's
   expected).
-  - Installed: numpy, pandas, polars, pyarrow, scipy, statsmodels, linearmodels,
-    pyfixest, scikit-learn, matplotlib, openpyxl, wrds, PyMuPDF, pikepdf,
-    beautifulsoup4, lxml, requests, openai, mistralai.
-- R 4.5.3 with packages from a dated P3M snapshot (plus `pcaMethods` from
-  Bioconductor).
-- **The R, Python and TeX stacks live in shared read-only volumes**, built on
-  the host by `bash .setup/packages.sh` from the lists in
-  `.devcontainer/install-packages.sh`. Its `python`, `r` and `tex` targets
-  refuse in here; `install-packages.sh --verify python r tex` checks the
-  stacks without changing them. If an import fails, or startup warns that a
-  package volume is not built, notify the user.
+  - Base: numpy, pandas, matplotlib, statsmodels, pyfixest, PyMuPDF, pikepdf,
+    requests, openai, mistralai.
+  - Optional set, if the user installed it: scipy, linearmodels,
+    scikit-learn, polars, pyarrow, openpyxl, sas7bdat, wrds,
+    openassetpricing, beautifulsoup4, lxml, PyYAML.
+- R 4.5.3 with packages from a dated P3M snapshot. Base: fixest, data.table,
+  tidyverse, modelsummary, sandwich, lmtest, languageserver. The optional set
+  adds the rest (arrow, lme4, kableExtra, ..., `pryr` from the CRAN archive,
+  `pcaMethods` from Bioconductor); `install-optional.sh --verify` says whether
+  it is present.
+- **The R, Python and TeX stacks live in shared volumes**, mounted read-only
+  unless the user chose mode 3. The base is built on the host by
+  `bash .setup/packages.sh` from the lists in
+  `.devcontainer/install-packages.sh`; the optional set is installed by the
+  user in mode 3 with `.devcontainer/install-optional.sh`.
+  `install-packages.sh --verify python r tex` checks the base without changing
+  it. If an import fails, or startup warns that a package volume is not built,
+  notify the user.
 - **The Claude Code and Codex CLIs come from the same script**
   (`install-packages.sh cli`, its default), into a writable npm-global
   *volume* — so an update survives rebuilds rather than being reverted by
   them. The npm-managed CLIs should not be assumed to self-update; re-run the
   script's `cli` target to update both. A rebuild is unnecessary.
-- TeX Live 2026 is **minimal and pdfLaTeX-only**: scheme-small plus
-  latexextra, fontsrecommended, bibtexextra (biblatex, biber), pictures
-  (TikZ), mathscience and fontsextra, plus latexindent and latexmk. There is
-  no XeLaTeX and no `texdoc` documentation; LuaLaTeX is present only because
-  core TeX Live needs it. Build with pdflatex. It lives in the shared
-  `texlive-2026-small-noble` volume, mounted read-only at
-  `/usr/local/texlive`. A missing LaTeX package goes to the user like any
-  other package (they add it to `TEX_PKGS`). Run `tex-refresh` as node after
-  the host changes TeX; it also runs at container startup. Reopen an
-  already-running LyX afterward.
+- TeX Live 2026 is **minimal and pdfLaTeX-only**. Base: scheme-small plus
+  bibtexextra (biblatex, biber), latexindent, latexmk and cm-super. The
+  optional set adds latexextra, fontsrecommended, pictures (TikZ),
+  mathscience and fontsextra. There is no XeLaTeX and no `texdoc`
+  documentation; LuaLaTeX is present only because core TeX Live needs it.
+  Build with pdflatex. It lives in the shared `texlive-2026-base-noble`
+  volume at `/usr/local/texlive`. A missing LaTeX package goes to the user
+  like any other package. Run `tex-refresh` as node after TeX changes; it also
+  runs at container startup. Reopen an already-running LyX afterward.
 - **Connectors and Codex Apps/Plugins are disabled in this sandbox.** Claude's
   AI connectors are disabled by `/etc/claude-code/managed-settings.json`.
   Codex Apps, Plugins, and remote plugin catalogs are disabled by

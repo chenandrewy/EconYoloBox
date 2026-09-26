@@ -21,6 +21,11 @@
 #     Input:   Docker inspect's HostConfig.SecurityOpt JSON array.
 #     Output:  builtin, unconfined, or an unverified description.
 #
+#   python3 dc-resolve.py package-access <docker-mounts-json>
+#     Input:   Docker inspect's .Mounts JSON array.
+#     Output:  readonly or writable when the python, r and tex package mounts
+#              all agree, else an unverified description.
+#
 #   python3 dc-resolve.py package-volumes <devcontainer.json>
 #     Input:   path to a devcontainer.json (JSONC allowed).
 #     Output:  one "<stack> <volume> <target>" line each for python, r and tex:
@@ -147,6 +152,28 @@ def package_stack(target):
     return None
 
 
+def package_access(src):
+    try:
+        mounts = json.loads(src)
+    except json.JSONDecodeError:
+        return "unverified (invalid Docker inspection output)"
+    if not isinstance(mounts, list):
+        return "unverified (no mounts)"
+    access = {}
+    for mount in mounts:
+        if isinstance(mount, dict):
+            stack = package_stack(mount.get("Destination", ""))
+            if stack:
+                access[stack] = "writable" if mount.get("RW") else "readonly"
+    absent = [stack for stack in ("python", "r", "tex") if stack not in access]
+    if absent:
+        return "unverified (no " + ", ".join(absent) + " package mount)"
+    modes = set(access.values())
+    if len(modes) == 1:
+        return modes.pop()
+    return "unverified (mixed: " + ", ".join(f"{s} {access[s]}" for s in ("python", "r", "tex")) + ")"
+
+
 def parse_mount(spec):
     return dict(part.split("=", 1) for part in spec.split(",") if "=" in part)
 
@@ -183,6 +210,8 @@ elif command == "up-container-id":
     print(up_container_id(sys.stdin.read()))
 elif command == "security-policy":
     print(security_policy(sys.argv[2]))
+elif command == "package-access":
+    print(package_access(sys.argv[2]))
 elif command == "package-volumes":
     print(package_volumes(sys.argv[2]))
 else:

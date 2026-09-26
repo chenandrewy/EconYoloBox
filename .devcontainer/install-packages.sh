@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the Python, R and TeX stacks, and the AI CLIs.
+# Install the lean base Python, R and TeX stacks, and the AI CLIs.
 #
 # Run:
 #   On the host, via the builder (python, r, tex):
@@ -12,8 +12,8 @@
 #     .devcontainer/install-packages.sh --verify all cli   # check only
 #
 # Inputs:  the package lists below; the dated P3M snapshot pinned in the image's
-#          Rprofile.site (Dockerfile ARG CRAN_SNAPSHOT); PyPI; Bioconductor;
-#          the rolling TeX Live tlnet repository; npm.
+#          Rprofile.site (Dockerfile ARG CRAN_SNAPSHOT); PyPI; the rolling
+#          TeX Live tlnet repository; npm.
 # Outputs: python -> /opt/venv; r -> the R site library; tex -> TeX Live in
 #          /usr/local/texlive (with install.log and the .sandbox-installed
 #          marker there); cli -> NPM_CONFIG_PREFIX. Each target ends with an
@@ -27,6 +27,12 @@
 # here and re-running the builder: python and r are idempotent (present packages
 # are skipped unless --force), and tex adds whatever TEX_COLLECTIONS/TEX_PKGS
 # name that the marked tree lacks. See docs/journal/0921a and 0925b.
+#
+# The lists are a lean base: what the sandbox's own tools and tests need, plus a
+# small core. Everything else we use is the optional set, installed by the user
+# into the same volumes with install-optional.sh in SANDBOX.toml's
+# packages = "writable" mode (docs/journal/0926a). Nothing here may depend on
+# the optional set.
 #
 # Deliberately no user-level layering: one declared stack per language.
 
@@ -117,28 +123,18 @@ require_writable_mount() {
 }
 
 PY_PKGS=(
+    # sandbox tools (.tools/pdf, .tools/lit)
+    requests
+    PyMuPDF
+    pikepdf
+    openai
+    mistralai
+    # core; pyfixest is also the startup sentinel
     numpy
     pandas
     matplotlib
     statsmodels
-    scipy
-    linearmodels
-    scikit-learn
-    openpyxl
-    wrds
-    mistralai
-    polars
-    sas7bdat
-    beautifulsoup4
-    lxml
-    pyarrow
     pyfixest
-    PyMuPDF
-    pikepdf
-    openai
-    openassetpricing
-    requests
-    PyYAML
 )
 
 install_python() {
@@ -216,44 +212,20 @@ install_r() {
 mode <- commandArgs(trailingOnly = TRUE)[1]
 reinstall <- identical(Sys.getenv("STACK_FORCE"), "1")
 
-# Econometrics/data stack. Notable entries:
-#   fixest          - the regressions
+# Lean base. Everything else, including pryr (CRAN archive) and pcaMethods
+# (Bioconductor), is in install-optional.sh.
+#   languageserver  - the VS Code R extension
+#   fixest          - the regressions; also the test and startup sentinel
 #   modelsummary    - fixest models -> LaTeX/markdown/Word tables
 #   sandwich+lmtest - robust/clustered SEs for base lm/glm
-#   kableExtra      - LaTeX table styling on top of knitr
-#   arrow           - parquet/feather I/O, interop with Python pyarrow
-#   car             - regression diagnostics / hypothesis tests
-#   marginaleffects - contrasts/marginal effects, pairs with modelsummary
-#   BiocManager     - installs bioc_pkgs below
 cran_pkgs <- c(
-  "DBI", "RPostgres", "dplyr", "data.table", "keyring",
-  "tidyverse", "lubridate", "readxl", "writexl",
-  "lobstr", "Rcpp",
-  "ggrepel", "gridExtra", "xtable",
-  "doParallel", "foreach", "fst",
-  "lme4", "ccaPP", "zoo",
-  "fs", "getPass", "googledrive", "here", "tictoc", "tm",
   "languageserver",
-  "fixest", "OpenSourceAP.DownloadR",
-  "modelsummary", "sandwich", "lmtest", "kableExtra",
-  "arrow", "car", "marginaleffects",
-  "BiocManager", "dotenv", "extrafont", "fuzzyjoin", "huxtable", "janitor",
-  "latex2exp", "lexicon", "quanteda.textstats", "roll", "splitstackshape",
-  "strucchange"
+  "fixest",
+  "data.table", "tidyverse",
+  "modelsummary", "sandwich", "lmtest"
 )
 
-# pryr is archived on CRAN, so its build deps (lobstr, Rcpp) come from the
-# snapshot above and the package itself is pinned from the archive.
-archive_pkgs <- c(
-  pryr = "https://cran.r-project.org/src/contrib/Archive/pryr/pryr_0.1.6.tar.gz"
-)
-
-# Bioconductor release matching R 4.5. update = FALSE matters: the default
-# would upgrade snapshot-pinned CRAN packages past the P3M date.
-bioc_version <- "3.22"
-bioc_pkgs <- c("pcaMethods")
-
-all_pkgs <- c(cran_pkgs, names(archive_pkgs), bioc_pkgs)
+all_pkgs <- cran_pkgs
 
 # Verification runs in a fresh process (mode "verify"): a namespace loaded
 # before a --force reinstall would otherwise pass from memory.
@@ -282,45 +254,12 @@ report_failure <- function(failed, context) {
   cat("It names the host or package that failed; the full log is above.\n")
 }
 
-# Keep going on a failure here so the run still reaches the summary below,
-# instead of halting R on the first error and burying the cause.
-try_install <- function(nm, expr) {
-  tryCatch(expr, error = function(e) {
-    cat("ERROR installing ", nm, ": ", conditionMessage(e), "\n", sep = "")
-  })
-}
-
 todo <- cran_pkgs[vapply(cran_pkgs, wanted, logical(1))]
 if (length(todo)) {
   cat("Installing from P3M snapshot:", paste(todo, collapse = ", "), "\n")
   install.packages(todo)
-
-  # Stop here rather than cascading: pryr and pcaMethods need this batch.
-  # Continuing past a failed batch buries one network error under a pile of
-  # missing-dependency errors.
-  failed <- todo[!vapply(todo, have, logical(1))]
-  if (length(failed)) {
-    report_failure(failed, sprintf("%d of %d from P3M", length(failed), length(todo)))
-    quit(status = 1)
-  }
 } else {
   cat("CRAN packages already present\n")
-}
-
-for (nm in names(archive_pkgs)) {
-  if (wanted(nm)) {
-    cat("Installing archived source:", nm, "\n")
-    try_install(nm, install.packages(archive_pkgs[[nm]], repos = NULL, type = "source"))
-  }
-}
-
-todo <- bioc_pkgs[vapply(bioc_pkgs, wanted, logical(1))]
-if (length(todo)) {
-  cat("Installing from Bioconductor ", bioc_version, ": ",
-      paste(todo, collapse = ", "), "\n", sep = "")
-  try_install("Bioconductor", BiocManager::install(
-    todo, version = bioc_version, ask = FALSE, update = FALSE, force = reinstall
-  ))
 }
 
 # Fail loudly on a partial install rather than leaving a half-built stack.
@@ -357,20 +296,21 @@ TEX_COLLECTIONS=(
     collection-latexrecommended
     collection-metapost
     # additions
-    collection-latexextra
-    collection-fontsrecommended
     collection-bibtexextra # biblatex, biber
-    collection-pictures    # tikz
-    collection-mathscience
-    collection-fontsextra # fontawesome5
 )
 TEX_EXCLUDED=(collection-xetex)
 # Single packages on top of the collections. Adding a name here and re-running
 # `packages.sh tex` installs it with tlmgr. latexindent's Perl dependencies are
-# in the Dockerfile; latexmk is LaTeX Workshop's default recipe.
+# in the Dockerfile; latexmk is LaTeX Workshop's default recipe. cm-super is
+# the one package a default LyX export needs beyond the collections: LyX writes
+# \usepackage[T1]{fontenc}, and without cm-super pdflatex falls back to
+# bitmap EC fonts (found by mapping a default export's -recorder inputs to
+# texlive.tlpdb; docs/journal/0926b). The rest of the old TeX stack
+# (latexextra, pictures/TikZ, mathscience, fonts) is in install-optional.sh.
 TEX_PKGS=(
     latexindent
     latexmk
+    cm-super
 )
 
 # Package names recorded in the tree's own database; no network needed.
@@ -432,13 +372,12 @@ tex_smoke() {
 BIB
     cat >smoke.tex <<'TEX'
 \documentclass{article}
+\usepackage[T1]{fontenc}
 \usepackage{amsmath}
-\usepackage{tikz}
 \usepackage[backend=biber,style=authoryear]{biblatex}
 \addbibresource{references.bib}
 \begin{document}
 TeX Live smoke test: $x^2$, see \autocite{knuth1984}.
-\tikz \draw (0,0) -- (1,1);
 \printbibliography
 \end{document}
 TEX
@@ -447,6 +386,11 @@ TEX
     pdflatex -interaction=nonstopmode -halt-on-error smoke.tex >/dev/null
     pdftotext smoke.pdf smoke.txt
     grep -q Knuth smoke.txt
+    # T1 text in bitmap (Type 3) fonts means cm-super is missing.
+    if pdffonts smoke.pdf | grep -q 'Type 3'; then
+        echo "smoke.pdf uses bitmap fonts; is cm-super installed?" >&2
+        return 1
+    fi
     latexindent smoke.tex >/dev/null
     latexmk -v >/dev/null
     echo "pdflatex, biber, latexindent, latexmk OK"

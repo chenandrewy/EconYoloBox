@@ -70,7 +70,11 @@ host by `.setup/packages.sh` and mounted read-only:
 | `venv-noble-py3.12` | `/opt/venv` | 1.2GB |
 | `r-site-library-noble-4.5.3-2026-07-15` | `/opt/R/4.5.3/lib/R/site-library` | 536MB |
 
-About **4.7GB** in total. Every project in the workspace uses these through
+About **4.7GB** in total. These are the full stacks under their pre-0926a
+names. [0926a](journal/0926a,package-install-modes-plan.md) moves them to
+`-base`/`base` names holding a lean base, with the rest as an optional set
+installed into the same volumes; the base alone has not been measured yet, and
+base plus optional set should come to about the same total. Every project in the workspace uses these through
 the one devcontainer. A second sandbox checkout on the same daemon would
 mount the same three volumes instead of building its own.
 

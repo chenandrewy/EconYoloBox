@@ -10,8 +10,10 @@
 #   .devcontainer/install-packages.sh; network access from Docker's default
 #   network (the devcontainer firewall does not apply here).
 # Outputs: the named shared volumes, filled or updated in place by
-#   install-packages.sh (the TeX volume also holds install.log). Consuming
-#   containers see the change at the next R/Python session or tex-refresh.
+#   install-packages.sh (the TeX volume also holds install.log), then owned by
+#   node so that SANDBOX.toml's packages = "writable" mode can install into
+#   them without sudo. Consuming containers see the change at the next
+#   R/Python session or tex-refresh.
 #
 # Why the devcontainer's own image: R packages link against the image's shared
 # libraries and use its Rprofile.site snapshot, so the volume must be built by
@@ -73,6 +75,7 @@ image=$(docker inspect -f '{{.Image}}' "$containers")
 echo "Builder image: $image (from container ${containers:0:12})"
 
 mounts=()
+paths=()
 unique=()
 seen=" "
 for target in "${targets[@]}"; do
@@ -83,13 +86,26 @@ for target in "${targets[@]}"; do
     read -r _ volume path <<<"$line"
     echo "  $target -> $volume ($path)"
     mounts+=(--mount "type=volume,source=$volume,target=$path")
+    paths+=("$path")
 done
 
 echo "Stop R, Python and TeX work in every container that mounts these volumes first."
+# The chown runs even after a failed install, so a half-built volume can still
+# be finished by hand in writable mode; the install's status is what returns.
+# shellcheck disable=SC2016 # expanded by the builder's bash
 docker run --rm --user root \
     -e PIP_ROOT_USER_ACTION=ignore \
     "${mounts[@]}" \
     --mount "type=bind,source=$root/.devcontainer,target=/setup,readonly" \
-    "$image" bash /setup/install-packages.sh "${unique[@]}" ${force[@]+"${force[@]}"}
+    "$image" bash -c '
+        n=$1
+        shift
+        status=0
+        bash /setup/install-packages.sh "${@:1:n}" || status=$?
+        shift "$n"
+        echo "==> chown -R node:node $*"
+        chown -R node:node "$@"
+        exit "$status"
+    ' _ "$(( ${#unique[@]} + ${#force[@]} ))" "${unique[@]}" ${force[@]+"${force[@]}"} "${paths[@]}"
 
 echo "Consumers: restart R/Python sessions; after a TeX change run tex-refresh and reopen LyX."

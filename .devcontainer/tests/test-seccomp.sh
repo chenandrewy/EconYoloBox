@@ -1,6 +1,7 @@
 #!/bin/bash
 # Run:     bash .devcontainer/tests/test-seccomp.sh
-# Inputs:  seccomp-setting.sh, check-seccomp.sh, and check-yolo-boundaries.sh;
+# Inputs:  seccomp-setting.sh, packages-setting.sh (both via strict-setting.sh),
+#          check-seccomp.sh, and check-yolo-boundaries.sh;
 #          creates temporary fixtures.
 # Outputs: TAP-like pass/fail lines and a nonzero status on failure.
 set -u
@@ -54,6 +55,29 @@ if [ ! -r "$tmp/unreadable.toml" ]; then
 else
     pass 'unreadable file check skipped for privileged test user'
 fi
+
+packages_reader="$root/.devcontainer/packages-setting.sh"
+check_packages() {
+    name=$1 expected=$2 file=$3
+    actual=$(bash "$packages_reader" "$file" 2>"$tmp/err") || fail "$name exited nonzero"
+    [ "$actual" = "$expected" ] || fail "$name: expected $expected, got $actual"
+    pass "$name"
+}
+printf 'packages = "readonly"\n' >"$tmp/pkg-ro.toml"
+check_packages 'packages accepts readonly' readonly "$tmp/pkg-ro.toml"
+printf 'seccomp = "unconfined"\npackages = "writable" # installing\n' >"$tmp/pkg-rw.toml"
+check_packages 'packages accepts writable' writable "$tmp/pkg-rw.toml"
+check_packages 'missing packages setting is read-only' readonly "$tmp/builtin.toml"
+grep -q 'packages setting is missing; using packages = "readonly"' "$tmp/err" || fail 'missing packages warning'
+printf 'packages = true\n' >"$tmp/pkg-bool.toml"
+check_packages 'boolean packages value is read-only' readonly "$tmp/pkg-bool.toml"
+printf 'packages = "writable"\npackages = "readonly"\n' >"$tmp/pkg-dup.toml"
+check_packages 'duplicate packages setting is read-only' readonly "$tmp/pkg-dup.toml"
+grep -q 'SANDBOX_PKG_READONLY:true' "$root/.devcontainer/devcontainer.json" || fail 'VS Code package fallback'
+# shellcheck disable=SC2016 # a literal devcontainer.json expression
+[ "$(grep -c 'readonly=${localEnv:SANDBOX_PKG_READONLY:true}' "$root/.devcontainer/devcontainer.json")" -eq 3 ] ||
+    fail 'all three package mounts must follow SANDBOX_PKG_READONLY'
+pass 'direct VS Code creation mounts all three package volumes read-only'
 
 printf 'Seccomp:\t2\n' >"$tmp/filtered.status"
 printf 'Seccomp:\t0\n' >"$tmp/unfiltered.status"

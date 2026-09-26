@@ -15,6 +15,12 @@ root_policy=$(bash "$root/.devcontainer/seccomp-setting.sh" "$root/SANDBOX.toml"
 [[ "$root_policy" == builtin || "$root_policy" == unconfined ]] || { print -r -- "not ok - cannot read SANDBOX.toml seccomp"; exit 1; }
 if [[ "$root_policy" == builtin ]]; then other_policy=unconfined; else other_policy=builtin; fi
 typeset -g MOCK_POLICY=$root_policy
+# Likewise for `packages`: the mock mounts match the real setting by default.
+typeset -g root_packages
+root_packages=$(bash "$root/.devcontainer/packages-setting.sh" "$root/SANDBOX.toml")
+[[ "$root_packages" == readonly || "$root_packages" == writable ]] || { print -r -- "not ok - cannot read SANDBOX.toml packages"; exit 1; }
+if [[ "$root_packages" == readonly ]]; then other_packages=writable; else other_packages=readonly; fi
+typeset -g MOCK_PACKAGES=$root_packages
 # Containers already labeled for the folder; container-123 is what the mocked
 # `up` returns, so listing it makes bbox treat the container as reused.
 typeset -g MOCK_CONTAINERS='container-123' MOCK_VSCODE=0 MOCK_WORKDIR=/sandbox
@@ -24,7 +30,7 @@ dccode() { :; }
 source "$root/.host/devcontainer.zsh"
 
 devcontainer() {
-  print -r -- "seccomp=${SANDBOX_SECCOMP:-}|$*" >>$log
+  print -r -- "seccomp=${SANDBOX_SECCOMP:-} pkg_readonly=${SANDBOX_PKG_READONLY:-}|$*" >>$log
   if [[ "$1" == up ]]; then
     print -r -- '{"outcome":"success","containerId":"container-123"}'
   fi
@@ -33,6 +39,15 @@ docker() {
   print -r -- "docker|$*" >>$log
   if [[ "$1" == inspect && "$*" == *WorkingDir* ]]; then
     print -r -- "$MOCK_WORKDIR"
+  elif [[ "$1" == inspect && "$*" == *Mounts* ]]; then
+    local rw
+    case "$MOCK_PACKAGES" in
+      inspect-fail) return 1 ;;
+      mixed) print -r -- '[{"Destination":"/opt/venv","RW":true},{"Destination":"/opt/R/4.5.3/lib/R/site-library","RW":false},{"Destination":"/usr/local/texlive","RW":false}]'; return 0 ;;
+      writable) rw=true ;;
+      *) rw=false ;;
+    esac
+    print -r -- "[{\"Destination\":\"/opt/venv\",\"RW\":$rw},{\"Destination\":\"/opt/R/4.5.3/lib/R/site-library\",\"RW\":$rw},{\"Destination\":\"/usr/local/texlive\",\"RW\":$rw},{\"Destination\":\"/sandbox\",\"RW\":true}]"
   elif [[ "$1" == inspect ]]; then
     case "$MOCK_POLICY" in
       inspect-fail) return 1 ;;
@@ -61,23 +76,38 @@ pass 'reload removes legacy dcu/dce/dccode names and defines bbu/bbe/bbcode'
 
 : >$log
 bbox "$root"
-grep -q "seccomp=$root_policy|up --workspace-folder $root" $log || fail 'ordinary up construction'
+if [[ "$root_packages" == readonly ]]; then root_pkg_readonly=true; else root_pkg_readonly=false; fi
+grep -q "seccomp=$root_policy pkg_readonly=$root_pkg_readonly|up --workspace-folder $root" $log || fail 'ordinary up construction'
 grep -q 'docker|inspect --format .* container-123' $log || fail 'exact returned container inspection'
-pass 'ordinary up exports policy and inspects returned container'
+grep -q 'docker|inspect --format {{json .Mounts}} container-123' $log || fail 'package mount inspection'
+pass 'ordinary up exports policy and package mode and inspects returned container'
 
 original_resolve=$functions[_dc_resolve]
 mkdir -p "$tmp/builtin-root/.devcontainer"
-cp "$root/.devcontainer/seccomp-setting.sh" "$tmp/builtin-root/.devcontainer/"
-printf '%s\n' 'seccomp = "builtin"' >"$tmp/builtin-root/SANDBOX.toml"
+cp "$root/.devcontainer/"{strict,seccomp,packages}-setting.sh "$tmp/builtin-root/.devcontainer/"
+printf '%s\n' 'seccomp = "builtin"' "packages = \"$root_packages\"" >"$tmp/builtin-root/SANDBOX.toml"
 printf '%s\n' '{"workspaceFolder":"/sandbox"}' >"$tmp/builtin-root/.devcontainer/devcontainer.json"
 _dc_resolve() { print -r -- "$tmp/builtin-root"; print -r -- /sandbox; }
 MOCK_POLICY=builtin
 : >$log
 bbox "$tmp/builtin-root"
-grep -q 'seccomp=builtin|up --workspace-folder' $log || fail 'builtin propagation'
+grep -q 'seccomp=builtin pkg_readonly=[a-z]*|up --workspace-folder' $log || fail 'builtin propagation'
 pass 'builtin policy reaches the same host bring-up path'
-functions[_dc_resolve]=$original_resolve
 MOCK_POLICY=$root_policy
+printf '%s\n' "seccomp = \"$root_policy\"" 'packages = "writable"' >"$tmp/builtin-root/SANDBOX.toml"
+MOCK_PACKAGES=writable
+: >$log
+bbox "$tmp/builtin-root" || fail 'writable packages bring-up'
+grep -q 'pkg_readonly=false|up --workspace-folder' $log || fail 'writable propagation'
+pass 'packages = "writable" exports SANDBOX_PKG_READONLY=false'
+printf '%s\n' "seccomp = \"$root_policy\"" 'packages = "yes"' >"$tmp/builtin-root/SANDBOX.toml"
+MOCK_PACKAGES=readonly
+: >$log
+bbox "$tmp/builtin-root" 2>/dev/null || fail 'invalid packages bring-up'
+grep -q 'pkg_readonly=true|up --workspace-folder' $log || fail 'invalid packages value must fall back to read-only'
+pass 'an invalid packages value falls back to read-only'
+functions[_dc_resolve]=$original_resolve
+MOCK_PACKAGES=$root_packages
 
 : >$log
 bbox --rebuild "$root" >/dev/null
@@ -131,6 +161,22 @@ warning=$(bbox "$root" 2>&1) || fail 'custom reuse should continue'
 pass 'custom policy is unverified'
 
 MOCK_POLICY=$root_policy
+MOCK_PACKAGES=$other_packages
+warning=$(bbox "$root" 2>&1) || fail 'package reuse mismatch should continue'
+[[ "$warning" == *"requested packages=$root_packages"* && "$warning" == *'bbox --rebuild'* ]] || fail 'package reuse mismatch message'
+pass 'package mount mismatch on reuse warns and continues'
+MOCK_CONTAINERS=''
+if err=$(bbox "$root" 2>&1); then fail 'package mismatch on a newly created container should fail'; fi
+[[ "$err" == *"created container requested packages=$root_packages"* ]] || fail 'created package mismatch message'
+pass 'package mount mismatch on a created container fails validation'
+MOCK_CONTAINERS='container-123'
+MOCK_PACKAGES=mixed
+if bbox --rebuild "$root" >/dev/null 2>&1; then fail 'mixed package mounts should fail'; fi
+MOCK_PACKAGES=inspect-fail
+if bbox --rebuild "$root" >/dev/null 2>&1; then fail 'package inspection failure should fail'; fi
+pass 'mixed or uninspectable package mounts fail recreation'
+MOCK_PACKAGES=$root_packages
+
 : >$log
 bbox --shell "$root" >/dev/null
 grep -q "|exec --workspace-folder $root" $log || fail 'shell attachment'

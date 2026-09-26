@@ -66,6 +66,32 @@ _bbox_verify_policy() {
   return 0
 }
 
+# _bbox_verify_packages <container> <requested> <created> <root>
+# The same rule as _bbox_verify_policy, for SANDBOX.toml's `packages`: the
+# R, Python and TeX volumes are mounted readonly or writable at creation.
+_bbox_verify_packages() {
+  local container_id="$1" requested="$2" created="$3" root="$4"
+  local mounts actual
+
+  if ! mounts=$(docker inspect --format '{{json .Mounts}}' "$container_id"); then
+    actual='unverified (docker inspect failed)'
+  else
+    actual=$(python3 "$_DC_RESOLVE_PY" package-access "$mounts") || actual='unverified (inspection output could not be parsed)'
+  fi
+
+  if [[ "$actual" == "$requested" ]]; then
+    return 0
+  fi
+  if (( created )); then
+    print -u2 -- "bbox: ERROR: created container requested packages=$requested; actual package mounts are $actual."
+    print -u2 -- 'bbox: refusing attachment because creation could not be validated.'
+    return 1
+  fi
+  print -u2 -- "bbox: WARNING: requested packages=$requested; running container package mounts are $actual."
+  print -u2 -- "bbox: package mounts are fixed at creation; on the host run: bbox --rebuild ${(q)root}"
+  return 0
+}
+
 # _bbox_verify_layout <root> <expected-folder> <container>...
 # A reused container mounts the sandbox wherever devcontainer.json said when
 # it was created. If workspaceFolder has since moved (for example /workspace
@@ -128,7 +154,7 @@ _bbox_clear_containers() {
 # bbox [--rebuild|--rebuild-without-cache] [--shell|--code] [DIRECTORY]
 bbox() {
   local action='' project_dir='.' rebuild=0 positional_seen=0 arg resolved root remote_path
-  local seccomp existing root_remote up_output container_id created docker_context folder_uri
+  local seccomp packages pkg_readonly existing root_remote up_output container_id created docker_context folder_uri
   local -a up_args
 
   while (( $# )); do
@@ -173,10 +199,13 @@ bbox() {
   root="${resolved%%$'\n'*}"
   remote_path="${resolved#*$'\n'}"
   seccomp=$(bash "$root/.devcontainer/seccomp-setting.sh" "$root/SANDBOX.toml") || return 1
+  packages=$(bash "$root/.devcontainer/packages-setting.sh" "$root/SANDBOX.toml") || return 1
+  pkg_readonly=true
+  [[ "$packages" == writable ]] && pkg_readonly=false
 
   if (( rebuild )); then
     _bbox_clear_containers "$root" || return 1
-    print -- "bbox: recreating $root with seccomp=$seccomp"
+    print -- "bbox: recreating $root with seccomp=$seccomp packages=$packages"
   fi
   # Without --rebuild, up still creates a container when none exists, and a
   # bad policy on that one must fail like a rebuild's would: the returned id
@@ -186,13 +215,14 @@ bbox() {
     root_remote=$(python3 "$_DC_RESOLVE_PY" remote-path "$root/.devcontainer/devcontainer.json" "") || return 1
     _bbox_verify_layout "$root" "$root_remote" ${(f)existing} || return 1
   fi
-  up_output=$(SANDBOX_SECCOMP="$seccomp" devcontainer up --workspace-folder "$root" "${up_args[@]}") || return 1
+  up_output=$(SANDBOX_SECCOMP="$seccomp" SANDBOX_PKG_READONLY="$pkg_readonly" devcontainer up --workspace-folder "$root" "${up_args[@]}") || return 1
   container_id=$(print -r -- "$up_output" | python3 "$_DC_RESOLVE_PY" up-container-id) || return 1
   created=1
   if (( ! rebuild )) && [[ -n "$container_id" && $'\n'"$existing"$'\n' == *$'\n'"$container_id"$'\n'* ]]; then
     created=0
   fi
   _bbox_verify_policy "$container_id" "$seccomp" "$created" "$root" || return 1
+  _bbox_verify_packages "$container_id" "$packages" "$created" "$root" || return 1
 
   case "$action" in
     shell)
