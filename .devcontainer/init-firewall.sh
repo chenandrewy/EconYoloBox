@@ -140,24 +140,14 @@ done < <(echo "$goog_ranges" | jq -r '.prefixes[].ipv4Prefix | select(. != null)
 # Adding an extension from a new publisher requires a new entry here, or its
 # install will silently fail inside the container.
 #
-# Two hosts serve runtime R installs (install-packages.sh):
-#   cran.r-project.org    - archived-source tarballs (pryr), which P3M does not
-#     carry. Only touched by the explicit archive pin.
-#   rspm-sync.rstudio.com - P3M's package payload host - is NOT pinned here: it
-#     is CloudFront and rotates IPs on a minutes timescale, so start-time
-#     pinning cannot hold it (docs/journal/0725e). It goes through dnsmasq's
-#     resolve-time VOLATILE_DOMAINS path at the end of this script instead.
-#
-# Six hosts were removed here at the Ubuntu base migration (0725g):
-# www/dlcdn/archive/nightlies.apache.org, zlib.net, and sourceware.org existed
-# only to feed arrow's C++ source build, and that build happened only because
-# P3M ships no arm64 binaries for Debian. It ships them for noble, so arrow now
-# arrives prebuilt with libarrow already inside, over the ordinary rspm-sync
-# path. If a source build ever resurfaces, rediscover the host list from
-# cpp/thirdparty/versions.txt in the arrow tarball - everything else there is
-# github.com. (apache.jfrog.io stays in VOLATILE_DOMAINS below: it serves a
-# *prebuilt* libarrow, so it is the cheap fallback that avoids the C++ build
-# rather than part of it.)
+# No R or Python package hosts (docs/journal/0925b). The package stacks are
+# built on the host by .setup/packages.sh, outside this firewall, and mounted
+# read-only, so nothing inside the container needs PyPI
+# (pypi.org, files.pythonhosted.org), P3M (packagemanager.posit.co,
+# rspm-sync.rstudio.com), CRAN's archive (cran.r-project.org) or arrow's
+# prebuilt-libarrow host (apache.jfrog.io). Leaving them out also stops scratch
+# installs (pip --user, a personal R library) from pulling code into the
+# container. npm stays: the AI CLIs update from inside.
 #
 # Expect more redirect hosts to surface: a redirect chain to an unlisted host is
 # invisible to inspection, so this list is permanently reactive. A host whose
@@ -204,14 +194,9 @@ for domain in \
     "www.arxiv.org" \
     "export.arxiv.org" \
     "api.mistral.ai" \
-    "pypi.org" \
-    "files.pythonhosted.org" \
-    "packagemanager.posit.co" \
-    "cran.r-project.org" \
     "api.stlouisfed.org" \
     "fred.stlouisfed.org" \
-    "mba.tuck.dartmouth.edu" \
-    "global-q.org"; do
+    "mba.tuck.dartmouth.edu"; do
     echo "Resolving $domain..."
     ips=$(dig +short A "$domain" | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' || true)
     if [ -z "$ips" ]; then
@@ -283,22 +268,15 @@ fi
 # every failure path here leaves the container with working DNS and only the
 # volatile hosts unreachable. None of these failures should trip the EXIT trap
 # into DROP - the firewall itself is fine.
-# apache.jfrog.io: first host arrow's nixlibs.R tries for a prebuilt libarrow.
-# AWS load balancer with a ~73s TTL, so it needs the resolve-time path.
-# jkpfactors-data.s3.amazonaws.com: Amazon S3 endpoint whose answers rotate,
-# so start-time IP pinning becomes stale.
 # developers.openai.com: Vercel-hosted OpenAI documentation and Docs MCP;
 # resolve-time allowlisting accommodates changes to its edge addresses.
 VOLATILE_DOMAINS=(
-    "rspm-sync.rstudio.com"
-    "apache.jfrog.io"
-    "jkpfactors-data.s3.amazonaws.com"
     "developers.openai.com"
 )
 
 if ! command -v dnsmasq >/dev/null; then
     echo "WARNING: dnsmasq not installed (image predates it) - skipping resolver setup." >&2
-    echo "WARNING: R installs from P3M will fail until the container is rebuilt." >&2
+    echo "WARNING: volatile domains (${VOLATILE_DOMAINS[*]}) are unreachable until the container is rebuilt." >&2
 else
     # Harvest the real upstream once. On re-runs resolv.conf already points at
     # dnsmasq itself, and forwarding to ourselves would loop; the teardown at
@@ -325,10 +303,10 @@ else
         if dnsmasq --conf-file=/etc/dnsmasq-firewall.conf; then
             # End-to-end check: a generic name resolves, a volatile name
             # resolves, and the volatile answer landed in the ipset.
-            rspm_ip=$(dig +short +time=2 @127.0.0.1 A "${VOLATILE_DOMAINS[0]}" \
+            volatile_ip=$(dig +short +time=2 @127.0.0.1 A "${VOLATILE_DOMAINS[0]}" \
                 | grep -E '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$' | head -1 || true)
             if dig +short +time=2 @127.0.0.1 A api.github.com | grep -qE '^[0-9]' \
-                && [ -n "$rspm_ip" ] && ipset test allowed-volatile "$rspm_ip" 2>/dev/null; then
+                && [ -n "$volatile_ip" ] && ipset test allowed-volatile "$volatile_ip" 2>/dev/null; then
                 dnsmasq_ok=true
             fi
         fi
@@ -340,7 +318,7 @@ else
             sed 's/^server=/nameserver /' "$UPSTREAM_STASH" > /etc/resolv.conf
             pkill -x dnsmasq 2>/dev/null || true
             echo "WARNING: dnsmasq verification failed - resolver left at upstream." >&2
-            echo "WARNING: R installs from P3M will fail; fix and restart the container." >&2
+            echo "WARNING: volatile domains (${VOLATILE_DOMAINS[*]}) are unreachable; fix and restart the container." >&2
         fi
     fi
 fi

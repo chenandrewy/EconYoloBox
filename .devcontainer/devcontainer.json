@@ -89,8 +89,31 @@
   },
   "remoteUser": "node",
   "mounts": [
-    // Host-managed TeX installation, deliberately shared across projects.
-    "source=texlive-2026-noble,target=/usr/local/texlive,type=volume,readonly",
+    // Shared package volumes: R, Python and TeX, built on the host by
+    // `bash .setup/packages.sh` (docs/journal/0921a, 0925b) and mounted
+    // read-only, so agents in here can run the stacks but never change them.
+    // They are shared across projects on this Docker daemon; only per-project
+    // writable state needs the ${devcontainerId} key used further down.
+    // packages.sh reads these names from here. Adding a package does not
+    // change them: edit the list in install-packages.sh and rerun the builder.
+    //
+    // Names carry distro, interpreter version and (for R) the P3M snapshot
+    // date, so a bump builds a fresh volume instead of serving stale binaries.
+    // Bump them with R_VERSION / CRAN_SNAPSHOT in the Dockerfile or the base
+    // image's python3; the R target must match R_VERSION too (devcontainer.json
+    // cannot read Dockerfile ARGs). R picks up site-library automatically
+    // because the directory exists in the image. The `noble` token is
+    // load-bearing: packages compiled against one distro's libraries must never
+    // be mounted into another.
+    //
+    // To build a new volume before any container mounts it, stage it with a
+    // comment line of the form `// packages.sh: <mount string>`. It overrides
+    // the live mount with the same target for packages.sh only; move it here
+    // once the volume passes its checks.
+    "source=r-site-library-noble-4.5.3-2026-07-15,target=/opt/R/4.5.3/lib/R/site-library,type=volume,readonly",
+    "source=venv-noble-py3.12,target=/opt/venv,type=volume,readonly",
+    // Minimal pdfLaTeX-only TeX Live; the year must match TEXLIVE_YEAR.
+    "source=texlive-2026-small-noble,target=/usr/local/texlive,type=volume,readonly",
     "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
     // Every project-owned volume below is keyed by ${devcontainerId}, not by folder name
     // alone. anthropics/claude-code fixed this exact bug in July 2025 ("Fix
@@ -101,7 +124,7 @@
     // ls` stays scannable; the id is what makes the name unique.
     //
     // Cost of the id: it is derived from the host path, so moving or renaming
-    // the project folder orphans these volumes (re-login + install-packages.sh).
+    // the project folder orphans these volumes (re-login + install-packages.sh cli).
     // Orphans are then unidentifiable by name; find them with
     // `docker volume ls -f dangling=true`.
     "source=${localWorkspaceFolderBasename}-claude-config-${devcontainerId},target=/home/node/.claude,type=volume",
@@ -109,21 +132,6 @@
     // Credentials stay out of Docker's Config.Env and are read on demand.
     // inject-credentials.py creates this host-side file before Docker starts.
     "source=/tmp/devcontainer-credentials.env,target=/run/secrets/credentials.env,type=bind,readonly",
-    // Compiled-package volumes (docs/journal/0725f): installs stay at runtime
-    // so image builds stay fast, but packages survive container recreation.
-    // Names carry the interpreter version so an upgrade starts a fresh volume
-    // instead of serving stale binaries - bump them together with R_VERSION in
-    // the Dockerfile / the base image's python3. The R target must match
-    // R_VERSION too (devcontainer.json cannot read Dockerfile ARGs). R picks
-    // up site-library automatically because the directory exists in the image.
-    //
-    // The `noble` token is the distro, and it is load-bearing: these packages
-    // are compiled against the base image's shared libraries, so a volume
-    // filled under bookworm must never be mounted into an Ubuntu container.
-    // Changing the token is what makes the base migration start clean volumes
-    // automatically instead of failing at load time with ABI errors.
-    "source=${localWorkspaceFolderBasename}-r-site-library-noble-4.5.3-${devcontainerId},target=/opt/R/4.5.3/lib/R/site-library,type=volume",
-    "source=${localWorkspaceFolderBasename}-venv-noble-py3.12-${devcontainerId},target=/opt/venv,type=volume",
     // The AI CLIs live here rather than in an image layer, so that updating
     // Codex in a running container is not undone by the next rebuild (a baked
     // `@latest` layer freezes at first cache; see the Dockerfile note). Codex

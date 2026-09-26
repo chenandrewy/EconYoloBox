@@ -201,19 +201,22 @@ Press Enter to skip any service you do not use. The final command refreshes the
 credential file mounted in an already-running container; skip it if you have
 not built the container yet.
 
-### Install the analysis stacks
+### Build the package stacks
 
-The base container omits the optional R and Python packages. Install both
-stacks—or only the one you need—from a VS Code terminal inside the container:
+R, Python and TeX Live are not in the image. They live in shared volumes that
+you build on the Docker host, and every project mounts them read-only. After
+the container exists (it supplies the builder image), run from the checkout
+root on the host:
 
 ```bash
-cd /sandbox
-.devcontainer/install-packages.sh          # stacks and CLIs, a few minutes
-.devcontainer/install-packages.sh python   # Python only
-.devcontainer/install-packages.sh r        # R only
-.devcontainer/install-packages.sh cli      # AI CLIs only (step 6 above)
-.devcontainer/install-packages.sh --force  # reinstall even if present
+bash .setup/packages.sh          # Python and R, a few minutes
+bash .setup/packages.sh tex      # minimal pdfLaTeX TeX Live, about 3GB
+bash .setup/packages.sh all      # all three
 ```
+
+To add a package later, add it to the list in
+`.devcontainer/install-packages.sh` and rerun the same command. See
+[host setup](.setup/README.md) for the details.
 
 ## Optional host command workflow
 
@@ -250,8 +253,10 @@ export TZ=America/Chicago
 
 ## Devcontainer storage
 
-Budget roughly **5.5GB for the first checkout**, plus about 2GB of persistent
-volumes for each additional checkout. The container image is shared.
+Budget the container image plus about **5.7GB of volumes** for the first
+sandbox checkout: 4.7GB of shared R, Python and TeX volumes, and 1GB of
+per-checkout volumes (AI CLIs and their config). Each additional checkout adds
+about 1GB, since the image and the package volumes are shared.
 
 Docker's default 20GB BuildKit garbage-collection budget is adequate. If you
 hit repeated slow rebuilds, raising it to 35GB gives headroom. See
@@ -260,8 +265,8 @@ to confirm that eviction is the actual problem.
 
 ## TeX Live host setup
 
-The devcontainer uses a shared, read-only TeX Live volume. Before TeX/LyX work,
-run `bash .setup/texlive.sh` on the Docker host; see
+The devcontainer uses a shared, read-only, pdfLaTeX-only TeX Live volume.
+Before TeX/LyX work, run `bash .setup/packages.sh tex` on the Docker host; see
 [host setup](.setup/README.md) for installation and validation instructions.
 
 ## License

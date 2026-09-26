@@ -63,12 +63,15 @@ this.
 
 ### TeX Live and LyX
 
-TeX Live 2026 is installed with `bash .setup/texlive.sh` **on the host**, using
-upstream `install-tl`. The full distribution, including matching biber, lives
-in the shared `texlive-2026-noble` volume, mounted read-only at
-`/usr/local/texlive`. The image puts the matching architecture's binaries on
-PATH; user TeX caches live in the writable home directory. The setup script
-refuses nonempty volumes. It does not manage updates.
+TeX Live 2026 is installed with `bash .setup/packages.sh tex` **on the host**,
+using upstream `install-tl`. It is minimal and pdfLaTeX-only: `scheme-small`
+without XeTeX, plus latexextra, fontsrecommended, bibtexextra (biblatex,
+biber), pictures, mathscience and fontsextra, plus latexindent and latexmk. It
+has no documentation files. It lives in the shared `texlive-2026-small-noble`
+volume, mounted read-only at `/usr/local/texlive`. The image puts the matching
+architecture's binaries on PATH; user TeX caches live in the writable home
+directory. Packages are added by listing them in `TEX_PKGS` and rerunning the
+builder; existing packages are never updated in place.
 
 `tex-refresh` runs LyX converter detection as `node` in `~/.lyx` at startup,
 after the firewall configuration step. A missing installation warns without
@@ -92,8 +95,9 @@ this helper. See the host setup README for installation and failure handling.
 - `check-yolo-boundaries.sh` — refuses supplied YOLO launchers unless the
   firewall is enabled and PID 1 has filtered seccomp.
 - `init-firewall.sh` — network firewall rules applied by `post-start.sh` when enabled.
-- `install-packages.sh` — installs the optional Python and R analysis stacks and
-  the AI CLIs into a running container (see "Analysis stacks and AI CLIs" below).
+- `install-packages.sh` — the package lists and installer for the R, Python and
+  TeX volumes (run on the host through `.setup/packages.sh`), and the AI CLI
+  installer inside the container (see "Package stacks and AI CLIs" below).
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
 - `agents/` — canonical agent guidance and settings, applied to the container's user-level config on every start (see "Agent Config" below).
 - `home/` — user-level dotfiles that must survive a rebuild. The container's
@@ -326,49 +330,57 @@ editing the file does not change live rules, and a bare `docker restart` skips
 the startup hook. The seccomp choice is independent of either firewall mode;
 enabling the firewall does not restore syscall filtering.
 
-### Analysis stacks and AI CLIs (`install-packages.sh`)
+### Package stacks and AI CLIs (`install-packages.sh`)
 
-The Python and R packages are **not** in the image. A freshly built container
-has R, an empty venv, and the system `-dev` libraries until `install-packages.sh`
-is run.
+The R, Python and TeX stacks are **not** in the image, and they are not
+installed from inside the container either. They live in three shared Docker
+volumes that the human builds on the host with `bash .setup/packages.sh` (see
+the [host setup README](../.setup/README.md)), and `devcontainer.json` mounts
+them read-only:
 
-The Claude Code and Codex CLIs are runtime-installed too — `install-packages.sh
-cli`, or the default `all`. They were a Dockerfile layer pinned to `@latest`,
-which turned out to mean "whatever was current the day the layer was first
-cached": rebuilds kept restoring a months-old Codex. They now install into
-`/usr/local/share/npm-global`, which is a **volume**, so updating Codex in a
-running container is no longer reverted by the next rebuild. That is the point
-of the change — the CLIs stay where you left them.
+| Volume | Mount |
+|---|---|
+| `r-site-library-noble-4.5.3-2026-07-15` | `/opt/R/4.5.3/lib/R/site-library` |
+| `venv-noble-py3.12` | `/opt/venv` |
+| `texlive-2026-small-noble` | `/usr/local/texlive` |
+
+The principle is that agents in the container only execute; the human maintains
+the environment (docs/journal/0921a). Inside the container,
+`install-packages.sh python|r|tex` refuses with the host command, and
+`install-packages.sh --verify python r tex` checks the stacks without writing.
+`pip install` and `install.packages()` into the stacks fail with a read-only or
+not-writable error. At startup, `post-start.sh` warns if a volume is not built.
+It tests a sentinel package (`pyfixest`, `fixest`, the TeX marker), because
+Docker seeds even a fresh read-only volume from the image, so an unbuilt venv
+still shows its skeleton. Interactive shells print a one-line note as well.
+
+The volumes are shared by every project on the Docker daemon, and they are
+built by this workspace's own devcontainer image. R packages link against the
+image's libraries and install from the dated P3M snapshot in `Rprofile.site`.
+System dependencies that need root (`gfortran`, `libcurl4-openssl-dev`,
+`libxml2-dev`, `libpq-dev`, `libsecret-1-dev`, freetype/harfbuzz/fribidi,
+`cmake`) stay in the Dockerfile. After a snapshot or interpreter bump, rebuild
+the container first, then build a new volume under a new name.
+
+The Claude Code and Codex CLIs are runtime-installed into a writable
+per-container volume with `install-packages.sh cli`, which is also what the
+script does with no arguments. They were a Dockerfile layer pinned to
+`@latest`, which turned out to mean "whatever was current the day the layer
+was first cached": rebuilds kept restoring a months-old Codex. They now install
+into `/usr/local/share/npm-global`, which is a **volume**, so updating Codex in
+a running container is no longer reverted by the next rebuild.
 
 Because the volume can start empty, `test-agent-policy.sh` reports `SKIP`
-(not `PASS`) for a CLI that is not installed, and interactive shells nudge the
-same way they do for a missing analysis stack. The npm-managed CLIs should not
-be assumed to self-update; re-run `install-packages.sh cli` to update both to
-their current releases.
+(not `PASS`) for a CLI that is not installed, and interactive shells nudge
+while either CLI is missing. The npm-managed CLIs should not be assumed to
+self-update; re-run `install-packages.sh cli` to update both to their current
+releases.
 
-Python and R re-runs skip what is already installed; the `cli` target requests
-`@latest` each time. The script fails loudly if anything in its list is missing
-at the end. Interactive shells print a one-line nudge while either stack or CLI
-is absent.
-
-Why not Dockerfile layers: baked-in packages made every change to the stack a
-full rebuild, and a broken package unrecoverable without one. As a script, the
-stack is editable and re-runnable in place — which is also what makes the
-single shared library (no user-level layering) defensible.
-
-The trade-off is state, not versions. R still resolves against the dated P3M
-snapshot pinned in `Rprofile.site`, and system dependencies needing root
-(`gfortran`, `libcurl4-openssl-dev`, `libxml2-dev`, `libpq-dev`,
-`libsecret-1-dev`, freetype/harfbuzz/fribidi, `cmake`) stay in the Dockerfile.
-What changes is that the stack costs minutes per container instead of being a
-cached image layer.
-
-Note that `docker build` runs with the **network open**. When `firewall = true`,
-runtime installs use the allowlist, so a command working in the Dockerfile is
-no evidence it works in a started container. This is why
-`rspm-sync.rstudio.com` (P3M's payload host) and
-`cran.r-project.org` (archived sources) had to be added to `init-firewall.sh`.
-Expect further redirect hosts to surface; they cannot be enumerated in advance.
+`tests/test-packages.sh`, run as `node` in a rebuilt container, is the
+acceptance check. It covers the read-only mounts, the declared stacks, every
+installed R package loading, a `fixest` regression, a parquet round trip
+between arrow and pyarrow, refused installs of absent packages, and pdflatex,
+biber, latexindent, latexmk and LyX export.
 
 ### Dockerfile ordering
 
