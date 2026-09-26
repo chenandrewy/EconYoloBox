@@ -2,7 +2,7 @@
 # Install the optional package set into the shared R, Python and TeX volumes.
 #
 # Run, inside the devcontainer as node, in SANDBOX.toml's install mode
-# (packages = "writable", firewall = false, then `bbox --rebuild`):
+# (packages = "writable", internet = "open", then `bbox --rebuild`):
 #   bash .devcontainer/install-optional.sh              # python r tex
 #   bash .devcontainer/install-optional.sh r            # one stack
 #   bash .devcontainer/install-optional.sh --verify     # check only; any mode
@@ -30,7 +30,7 @@ usage() {
 Usage: install-optional.sh [python] [r] [tex] [--verify]
 
 With no target, all three. --verify only checks, and works in any mode.
-Installing needs SANDBOX.toml packages = "writable" and firewall = false.
+Installing needs SANDBOX.toml packages = "writable" and internet = "open".
 USAGE
 }
 
@@ -135,7 +135,7 @@ require_install_mode() {
     if [ ${#problems[@]} -gt 0 ]; then
         echo "install-optional.sh: not in install mode:" >&2
         printf '  - %s\n' "${problems[@]}" >&2
-        echo 'Set packages = "writable" and firewall = false in SANDBOX.toml, run' >&2
+        echo 'Set packages = "writable" and internet = "open" in SANDBOX.toml, run' >&2
         echo 'bbox --rebuild on the host, and switch back afterwards.' >&2
         exit 1
     fi
@@ -277,7 +277,7 @@ if [ "$status" -ne 0 ]; then
     exit 1
 fi
 if [ "$VERIFY" -eq 0 ]; then
-    echo 'Done. Switch back: packages = "readonly" and firewall = true, then bbox --rebuild.'
+    echo 'Done. Switch back: packages = "readonly" and internet = "firewalled", then bbox --rebuild.'
 else
     echo "Done."
 fi

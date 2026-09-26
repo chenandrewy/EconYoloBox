@@ -28,5 +28,5 @@ else
 fi
 printf '%s\n' \
     "$launcher: $detail; refusing YOLO mode." \
-    'Set firewall = true and seccomp = "builtin" in SANDBOX.toml, then on the host run: bbox --rebuild' >&2
+    'Set internet = "firewalled" and seccomp = "builtin" in SANDBOX.toml, then on the host run: bbox --rebuild' >&2
 exit 1

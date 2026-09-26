@@ -28,7 +28,7 @@ printf 'seccomp = "builtin"\n' >"$tmp/builtin.toml"
 check_value 'accepts builtin' builtin "$tmp/builtin.toml"
 printf 'seccomp = "unconfined" # needed for bwrap\n' >"$tmp/unconfined.toml"
 check_value 'accepts unconfined' unconfined "$tmp/unconfined.toml"
-printf 'firewall = false\n' >"$tmp/missing.toml"
+printf 'internet = "open"\n' >"$tmp/missing.toml"
 check_value 'missing setting fails closed' builtin "$tmp/missing.toml"
 grep -q 'setting is missing' "$tmp/err" || fail 'missing setting warning'
 pass 'missing setting warns'

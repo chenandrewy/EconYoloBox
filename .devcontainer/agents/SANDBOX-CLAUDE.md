@@ -17,27 +17,27 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
 macOS screenshots (`screenshot_directory`). Read it when you need a location;
 do not assume or hard-code these paths.
 
-The same file holds two switches: `firewall`, which arms (`true`) or disables
-(`false`) the egress firewall at the next container start, and `packages`,
+The same file holds two switches: `internet`, which arms (`"firewalled"`) or disables
+(`"open"`) the egress firewall at the next container start, and `packages`,
 which mounts the R, Python and TeX volumes `"readonly"` (the default) or
 `"writable"` at the next `bbox --rebuild`. Never change either; that is the
 user's decision (see `USER PERMISSION REQUIRED`). Together they give three
 working modes; startup prints the current one:
 
-1. **YOLO work** (`firewall = true`, `packages = "readonly"`): everyday work.
-2. **Chaperoned internet work** (`false`, `"readonly"`): open web access, with
+1. **YOLO work** (`internet = "firewalled"`, `packages = "readonly"`): everyday work.
+2. **Chaperoned internet work** (`internet = "open"`, `packages = "readonly"`): open web access, with
    the user watching.
-3. **Careful package installs** (`false`, `"writable"`): the user installs
+3. **Careful package installs** (`internet = "open"`, `packages = "writable"`): the user installs
    packages, then switches back.
 
 ### Guidance that depends on `SANDBOX.toml`
 
 - Shared resources that are not projects include the research library (cellar),
   the finished and retired projects folder (done), and the screenshot drop.
-- **Network access depends on `firewall`.** When `true`, `init-firewall.sh`
+- **Network access depends on `internet`.** When `"firewalled"`, `init-firewall.sh`
   builds a deny-by-default IP allowlist at container start. Blocked hosts are
   REJECTed, so they fail fast rather than hanging — suspect the firewall before
-  the code. When `false`, the container starts without these network
+  the code. When `"open"`, the container starts without these network
   restrictions. The allowlist when the firewall is on:
   - **Packages**: npm and the VS Code marketplace (per-publisher
     `*.gallerycdn.vsassets.io` — a new extension publisher needs a new entry

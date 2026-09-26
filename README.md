@@ -12,9 +12,9 @@ Key features:
 
    - **Everyday work:** run the YOLO launchers (`cchat-yolo`, `gptchat-yolo`)
      behind the container's deny-by-default firewall and Docker's builtin
-     seccomp filter. These are the container defaults (`firewall = true`,
+     seccomp filter. These are the container defaults (`internet = "firewalled"`,
      `seccomp = "builtin"`); the launchers refuse to start without both.
-   - **Internet access:** set `firewall = false` in `SANDBOX.toml`, rebuild,
+   - **Internet access:** set `internet = "open"` in `SANDBOX.toml`, rebuild,
      and use Claude's auto mode. Its permission classifier is much cheaper than
      Codex's automatic review, which runs a full model call per escalation.
    - **Package installs:** also set `packages = "writable"` and run
@@ -91,7 +91,7 @@ Windows and Linux support is partially wired but has not been tested.
    shown in the lower-left corner when it is ready.
 
    The container firewall defaults on, allowing only the network allowlist.
-   For open internet access, set `firewall = false` in `SANDBOX.toml` before
+   For open internet access, set `internet = "open"` in `SANDBOX.toml` before
    starting the container; a shell warning then confirms that posture.
    Codex's sandboxed modes additionally need `seccomp = "unconfined"`, which
    disables Docker's outer syscall filter for every container process;
@@ -165,16 +165,17 @@ Windows and Linux support is partially wired but has not been tested.
 
 ### Switching firewall modes
 
-`SANDBOX.toml` controls the container's outbound network allowlist. `false`
-leaves the container network open; `true` enables the research and package
-allowlist. After changing it, stop the container and reopen it through VS Code
+`SANDBOX.toml` controls the container's outbound network allowlist.
+`internet = "open"` leaves the container network open;
+`internet = "firewalled"` enables the research and package allowlist.
+After changing it, stop the container and reopen it through VS Code
 Dev Containers, or use **Dev Containers: Rebuild Container**. Editing the file
 does not change the running firewall, and a bare `docker restart` skips the
 startup hook that reads the setting.
 
 The `cchat-yolo`, `gptchat-yolo`, and `gptmini-yolo` launchers skip permission
 checks and refuse to start unless the firewall is enabled and PID 1 has a
-filtered seccomp mode. Set `firewall = true` and `seccomp = "builtin"`, then use
+filtered seccomp mode. Set `internet = "firewalled"` and `seccomp = "builtin"`, then use
 `bbox --rebuild` before starting YOLO work. Keep ordinary approval modes for
 tasks that need review; neither a firewall nor automatic review guarantees the
 safety of mounted files or accessible credentials.
@@ -219,7 +220,7 @@ bash .setup/packages.sh all      # all three
 ```
 
 The rest of the usual stack is an optional set. To install it, switch to the
-package-install mode: set `packages = "writable"` and `firewall = false` in
+package-install mode: set `packages = "writable"` and `internet = "open"` in
 `SANDBOX.toml` and run `bbox --rebuild`. Then run
 `bash .devcontainer/install-optional.sh` in the container, and switch both
 back. The same mode is how you add a package later, with `install.packages()`,

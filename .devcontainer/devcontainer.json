@@ -161,7 +161,7 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/sandbox,type=bind,consistency=delegated",
   "workspaceFolder": "/sandbox",
-  // Arms the firewall (unless SANDBOX.toml says firewall = false), seeds
+  // Arms the firewall (unless SANDBOX.toml says internet = "open"), seeds
   // agent guidelines, checks policy, refreshes TeX.
   "postStartCommand": "bash .devcontainer/post-start.sh",
   "waitFor": "postStartCommand"

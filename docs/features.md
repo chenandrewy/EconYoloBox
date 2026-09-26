@@ -6,19 +6,19 @@ economics research, and the daily workflow around all of it is short.
 ## 1. Safe YOLO agents
 
 The container provides the outer execution boundary. The checked-in default
-is the YOLO posture: `firewall = true` raises the deny-by-default egress
+is the YOLO posture: `internet = "firewalled"` raises the deny-by-default egress
 firewall, and `seccomp = "builtin"` keeps Docker's outer syscall filter.
 Explicit YOLO launchers skip permissions and refuse to start unless the
 firewall is enabled and PID 1 has filtered seccomp. Egress blocking is a hard
 boundary; an LLM reviewer is a soft one.
 
-For internet access, set `firewall = false` and use Claude's
+For internet access, set `internet = "open"` and use Claude's
 `claude --permission-mode auto`. Its two-stage classifier skips in-project
 edits and is cheap per call. Codex's automatic review is a full model call per
 escalation, and with the firewall down every network action escalates, so it
 degrades noticeably; see
 [docs/journal/0919b](journal/0919b,claude-vs-codex-reviewer-speed.md). The
-firewall setting does not configure either agent's approval mode.
+internet setting does not configure either agent's approval mode.
 
 Codex's sandboxed modes (the `/etc/codex` defaults request workspace-write
 sandboxing and on-request approval; we recommend
@@ -78,10 +78,10 @@ tooling those changes exist to support is described in
 
 - **Startup scripts.** `postStartCommand` (`post-start.sh`) configures the firewall,
   seeds canonical agent guidance and shared skills, and checks the enforced
-  agent policy. Setting `firewall = false` in `SANDBOX.toml` switches the
+  agent policy. Setting `internet = "open"` in `SANDBOX.toml` switches the
   firewall off at the next container start (stop + reopen, or Rebuild
-  Container); every shell warns while it is off, and anything other than a bare
-  `false` arms. The switch is in the tracked, writable workspace - like the
+  Container); every shell warns while it is off, and anything other than
+  `"open"` arms. The switch is in the tracked, writable workspace - like the
   startup scripts themselves - so it is a convenience, not a security boundary
   against an agent that edits the repo; `git diff` before restarting is the
   review step. A
@@ -145,7 +145,7 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   inside the container.
 
 - **Three working modes.** A second switch, `packages = "readonly" |
-  "writable"`, sits beside `firewall` in `SANDBOX.toml`. Together they give
+  "writable"`, sits beside `internet` in `SANDBOX.toml`. Together they give
   YOLO work (firewall on, read-only), chaperoned internet work (firewall off,
   read-only) and careful package installs (firewall off, writable). In the
   last, the user installs with the ordinary `install.packages()`, `pip install`

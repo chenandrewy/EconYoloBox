@@ -315,26 +315,24 @@ The seed script handles guidance and settings differently:
   belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
 
 User-specific settings live in the root-level `SANDBOX.toml`: `seccomp`
-(`"builtin"` or `"unconfined"`), `firewall` (`true` or `false`), `packages`
+(`"builtin"` or `"unconfined"`), `internet` (`"firewalled"` or `"open"`), `packages`
 (`"readonly"` or `"writable"`), `timezone`
 (IANA zone; comment out to use the detected host zone), `cellar` (the research
 library), `done` (finished and retired projects), and `screenshot_directory`. Paths are container paths. Agents read path settings
 directly, so path edits take effect immediately.
-`firewall` is read by `post-start.sh` at every container start (stop + reopen
+`internet` is read by `post-start.sh` at every container start (stop + reopen
 or Rebuild Container); `timezone` becomes `TZ` at create time, so it needs a
 rebuild. General settings use `sandbox-setting.sh`, a `sed` over flat `key = "value"`
-/ `key = true|false` lines rather than a TOML parser: keep the file flat, and
-note that a malformed line, a duplicated key, or a quoted boolean
-(`firewall = "false"`) yields nothing, which for `firewall` means armed.
-Seccomp and packages use the stricter shared `strict-setting.sh` (through
-`seccomp-setting.sh` and `packages-setting.sh`): it rejects tables, duplicate
-keys, malformed lines, and unsupported TOML and falls back to `builtin` and
-`readonly`. Both are fixed at container creation, so they take
-`bbox --rebuild`.
+/ `key = true|false` lines rather than a TOML parser. Internet, seccomp, and
+packages use the stricter shared `strict-setting.sh` through their respective
+setting scripts. It rejects tables, duplicate keys, malformed lines, and
+unsupported TOML; an invalid internet value selects `"firewalled"`.
+Seccomp and packages fall back to `builtin` and `readonly`. They are fixed at
+container creation, so they take `bbox --rebuild`.
 
-The checked-in default is `firewall = true`: the YOLO posture, with the
-allowlist active and the YOLO wrappers permitted. Set `firewall = false` for
-internet access and use Claude's auto mode; the firewall switch does not
+The checked-in default is `internet = "firewalled"`: the YOLO posture, with the
+allowlist active and the YOLO wrappers permitted. Set `internet = "open"` for
+internet access and use Claude's auto mode; the internet switch does not
 configure either agent's approval mode. Apply changes through Dev Containers:
 editing the file does not change live rules, and a bare `docker restart` skips
 the startup hook. The seccomp choice is independent of either firewall mode;
@@ -342,16 +340,16 @@ enabling the firewall does not restore syscall filtering.
 
 ### Working modes
 
-Two independent switches in `SANDBOX.toml`, `firewall` and `packages`, give
+Two independent switches in `SANDBOX.toml`, `internet` and `packages`, give
 three working modes (docs/journal/0926a):
 
-| Mode | `firewall` | `packages` | Use |
+| Mode | `internet` | `packages` | Use |
 |---|---|---|---|
-| 1. YOLO work (default) | `true` | `"readonly"` | everyday work; agents ask when a package is missing |
-| 2. Chaperoned internet work | `false` | `"readonly"` | open web access, with the user watching |
-| 3. Careful package installs | `false` | `"writable"` | the user installs packages, then switches back |
+| 1. YOLO work (default) | `"firewalled"` | `"readonly"` | everyday work; agents ask when a package is missing |
+| 2. Chaperoned internet work | `"open"` | `"readonly"` | open web access, with the user watching |
+| 3. Careful package installs | `"open"` | `"writable"` | the user installs packages, then switches back |
 
-Changing `firewall` takes a container restart; changing `packages` takes
+Changing `internet` takes a container restart; changing `packages` takes
 `bbox --rebuild`, because mounts are fixed at container creation (a rebuild
 from the cached image is quick). `bbox` exports `SANDBOX_PKG_READONLY` for the
 three package mounts in `devcontainer.json` and checks the created container's

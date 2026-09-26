@@ -47,7 +47,7 @@ if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; th
 fi
 
 # Firewall window warning. post-start.sh skips init-firewall.sh when
-# SANDBOX.toml says firewall = false, leaving the container on
+# SANDBOX.toml says internet = "open", leaving the container on
 # Docker's default ACCEPT policies - no network restrictions at all. Nothing
 # else surfaces that state: startup looks entirely normal and the only symptom
 # is that blocked hosts start answering.
@@ -72,7 +72,7 @@ if [ -f /tmp/FIREWALL-WINDOW-OPEN ]; then
     fi
     printf '%s\n' \
         "${_fw_hi}Warning: Firewall Open${_fw_off}" \
-        "To close: set firewall = true in /sandbox/SANDBOX.toml, then rebuild container"
+        'To close: set internet = "firewalled" in /sandbox/SANDBOX.toml, then rebuild container'
     unset _fw_hi _fw_off
 fi
 

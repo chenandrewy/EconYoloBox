@@ -12,10 +12,10 @@ plus a small core; the optional set is everything else we use. First setup, and
 again after a version bump:
 
 1. On the host: `bash .setup/packages.sh all`.
-2. Switch to install mode: `packages = "writable"` and `firewall = false` in
+2. Switch to install mode: `packages = "writable"` and `internet = "open"` in
    `SANDBOX.toml`, then `bbox --rebuild`.
 3. In the container: `bash .devcontainer/install-optional.sh`.
-4. Switch back: `packages = "readonly"`, `firewall = true`, `bbox --rebuild`.
+4. Switch back: `packages = "readonly"`, `internet = "firewalled"`, `bbox --rebuild`.
 
 Skipping steps 2–4 is fine; the base passes its tests alone, and a project can
 install just what it needs in install mode instead.
