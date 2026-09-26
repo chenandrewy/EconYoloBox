@@ -423,10 +423,32 @@ tex_write_marker() {
     mv "$TEX_MARKER.tmp" "$TEX_MARKER"
 }
 
+# mirror.ctan.org redirects each request to a random mirror, and a few serve a
+# certificate wget cannot verify (ctan.math.utah.edu, 2026-09-26). Pick
+# one concrete mirror whose tlpdb downloads, retrying through the redirector,
+# and use it for the whole fresh install; install-tl records it as tlmgr's
+# repository, as it would a mirror it resolved itself. Prints the mirror.
+tex_pick_mirror() {
+    local attempt mirror
+    for attempt in 1 2 3 4 5; do
+        mirror=$(curl -s -o /dev/null -w '%{redirect_url}' "$TEX_REPOSITORY/tlpkg/texlive.tlpdb.xz") || mirror=""
+        mirror=${mirror%/tlpkg/texlive.tlpdb.xz}
+        [ -n "$mirror" ] || mirror=$TEX_REPOSITORY
+        if wget --no-verbose -O texlive.tlpdb.xz "$mirror/tlpkg/texlive.tlpdb.xz" >&2; then
+            echo "$mirror"
+            return 0
+        fi
+        echo "TeX mirror $mirror failed (attempt $attempt of 5)" >&2
+    done
+    echo "No TeX mirror reachable through $TEX_REPOSITORY; nothing was written to the volume." >&2
+    return 1
+}
+
 tex_fresh_install() {
-    local year=$1 platform=$2 repository_year coll
+    local year=$1 platform=$2 repository_year coll mirror
     cd "$WORK_DIR"
-    wget -q -O texlive.tlpdb.xz "$TEX_REPOSITORY/tlpkg/texlive.tlpdb.xz"
+    mirror=$(tex_pick_mirror) || exit 1
+    echo "TeX mirror: $mirror"
     xz -d texlive.tlpdb.xz
     repository_year=$(awk '$1 == "depend" && $2 ~ /^release\/[0-9]+$/ {sub(/^release\//, "", $2); print $2; exit}' texlive.tlpdb)
     if [ "$repository_year" != "$year" ]; then
@@ -434,7 +456,7 @@ tex_fresh_install() {
         echo "Bump TEXLIVE_YEAR in the Dockerfile and the volume name together." >&2
         exit 1
     fi
-    wget -q -O install-tl.tar.gz "$TEX_REPOSITORY/install-tl-unx.tar.gz"
+    wget --no-verbose -O install-tl.tar.gz "$mirror/install-tl-unx.tar.gz"
     tar -xzf install-tl.tar.gz
     {
         echo "selected_scheme scheme-small"
@@ -462,7 +484,7 @@ PROFILE
     (
         set -o errtrace
         trap 'echo "Installation/check failed. Inspect $TEX_LOG; the tree has been preserved." >&2' ERR
-        perl ./install-tl-*/install-tl -profile "$WORK_DIR/texlive.profile" -repository "$TEX_REPOSITORY"
+        perl ./install-tl-*/install-tl -profile "$WORK_DIR/texlive.profile" -repository "$mirror"
         tex_add_missing "$year"
         fmtutil-sys --all
         updmap-sys

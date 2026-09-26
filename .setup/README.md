@@ -105,7 +105,9 @@ come from the image's `/usr/local/texlive-bin` symlink (Dockerfile
 
 The installer decides by the `.sandbox-installed` marker in the volume:
 
-- **Empty volume:** installs with `install-tl`, adds `TEX_PKGS`, and runs
+- **Empty volume:** picks one CTAN mirror through `mirror.ctan.org`, retrying
+  past any that fails (some serve a certificate wget rejects), and installs
+  from it with `install-tl`. It then adds `TEX_PKGS` and runs
   `fmtutil-sys` and `updmap-sys`. Then it smoke-tests pdflatex + biber,
   latexindent, latexmk and a LyX PDF export, and only then writes the marker.
 - **Marked volume:** runs `tlmgr install` for any listed collection or package
