@@ -14,7 +14,8 @@ install packages the usual way (`install.packages()`, `pip install`,
 `tlmgr install`) while watching.
 
 With that route available, the host build shrinks to a lean base. Everything
-else we use today moves to a script the user runs once in the writable mode.
+else we use today moves to an optional set: a script the user runs once in the
+writable mode.
 
 ## three modes
 
@@ -46,25 +47,35 @@ It works the same way as the `seccomp` switch:
 installs in mode 3 work as `node` without sudo. `post-start.sh` prints the
 current mode, and in mode 3 a reminder to switch back.
 
-## lean base and standard set
+## lean base and optional set
 
 **Base (host build, `packages.sh`):** only what the sandbox itself needs, plus
 a small core. Proposal, for the user to adjust:
 
 - **Python:**
   - tools: `requests`, `PyMuPDF`, `pikepdf`, `openai`, `mistralai`;
-  - core: `numpy`, `pandas`, `pyarrow`, `matplotlib`, `statsmodels`,
-    `pyfixest`.
+  - core: `numpy`, `pandas`, `matplotlib`, `statsmodels`, `pyfixest`.
 - **R:**
   - tooling: `languageserver`;
-  - tests: `arrow`, `fixest`;
+  - tests: `fixest`;
   - core: `data.table`, `tidyverse`, `modelsummary`, `sandwich`, `lmtest`.
 - **TeX:** `scheme-small`, `collection-bibtexextra`, `latexindent`, `latexmk`,
   and whatever a default LyX export needs.
 
-**Standard set (mode 3, `install-standard-set.sh`):** everything else we use
-today, including `pryr` and Bioconductor. This removes the archive and
-Bioconductor code from the host builder. The script:
+`arrow` and `pyarrow` leave the base along with the parquet round-trip test
+in `test-packages.sh`. That test only checked that the two stacks agree on a
+file format, and nothing else in the sandbox needs them.
+
+**Optional set (mode 3, `install-optional.sh`):** everything else we use
+today, including `arrow`, `pyarrow`, `pryr` and Bioconductor. It is optional
+in two senses:
+
+- a user can skip it and install only what their projects need;
+- the sandbox's own tools and tests don't depend on it, so the base passes
+  the tests on its own.
+
+Moving `pryr` and Bioconductor here removes the archive and Bioconductor code
+from the host builder. The script:
 
 - refuses unless the mounts are writable;
 - uses the ordinary commands, so reading it also shows how to add a package by
@@ -79,7 +90,7 @@ Setup becomes:
 
 1. On the host, `bash .setup/packages.sh all`.
 2. Switch to mode 3.
-3. Run `bash .devcontainer/install-standard-set.sh`.
+3. Run `bash .devcontainer/install-optional.sh`.
 4. Switch back to mode 1.
 
 After a version bump, repeat.
@@ -90,17 +101,18 @@ After a version bump, repeat.
 2. `devcontainer.json` mounts; `chown` in `packages.sh`.
 3. Lean lists in `install-packages.sh`. Remove its archive and Bioconductor
    code. Point the startup sentinels at base packages.
-4. `install-standard-set.sh`.
+4. `install-optional.sh`.
 5. `post-start.sh` mode line; agent guidance for the three modes.
 6. Tests:
    - `test-packages.sh` checks that the mounts match the mode;
-   - an optional check of the standard set.
+   - drop the parquet round trip;
+   - a separate check of the optional set.
 7. Docs: `.setup/README.md`, `.devcontainer/README.md`, `docs/features.md`,
    root README.
 8. On the host:
    - build the lean base under new volume names;
    - `bbox --rebuild` in mode 1 and run the tests;
-   - switch to mode 3, run the standard set, switch back.
+   - switch to mode 3, run the optional set, switch back.
 
 ## things to check
 
