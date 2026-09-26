@@ -18,6 +18,22 @@ are run by the user on the host. Stop at each one, give the exact command,
 and wait for the user to report the output. Never try to reach Docker, and
 never build a volume some other way.
 
+## terminology
+
+- **Sandbox:** this infrastructure repo, bind-mounted at `/sandbox`.
+- **Devcontainer:** the one container `bbox` builds from the sandbox's
+  `.devcontainer/devcontainer.json`. `${devcontainerId}` identifies it.
+  A **per-devcontainer volume** has `${devcontainerId}` in its name.
+- **Workspace:** `/sandbox/workspace/`, the folder that holds the projects.
+- **Project:** one folder in the workspace, such as `Research-vs/`. It
+  reaches the container through the sandbox's bind mount. A **new project**
+  is a new folder there. It gets no container or volumes of its own: every
+  project runs in the same devcontainer and sees the same package volumes.
+
+0921a uses "project" to mean a separate devcontainer (for example "leaking
+between projects", "every new project pays a multi-minute stack rebuild").
+In this file, "project" always means a workspace folder.
+
 ## decisions since 0921a
 
 The user answered these on 2026-09-25.
@@ -60,7 +76,7 @@ The user answered these on 2026-09-25.
      pointing at `install.log`. A marked tree means add any missing
      packages.
 4. **Image resolution.** `.setup/packages.sh` uses the **exact image ID of
-   this workspace's running devcontainer**: find the container by its
+   the sandbox's running devcontainer**: find the container by its
    `devcontainer.local_folder` label, then `docker inspect -f '{{.Image}}'`.
    If there is no container, or more than one, refuse with "run
    `bbox --rebuild` first". Never fall back to another image. Run the
@@ -182,9 +198,10 @@ The user answered these on 2026-09-25.
 - [x] `grep -rn 'texlive.sh\|texlive-2026-noble\|install-packages.sh'`
       across the repo (excluding `docs/journal/`) turns up nothing stale.
 - [x] Commit 2, after the user approves.
-- [ ] **HOST:** `bbox --rebuild`, then in the new container run
-      `bash .devcontainer/tests/test-packages.sh`, and ideally repeat it in
-      a second project so the volumes are shared.
+- [x] **HOST:** `bbox --rebuild`, then in the new container run
+      `bash .devcontainer/tests/test-packages.sh`. No second run is needed:
+      all projects share the one devcontainer, so they already share the
+      volumes (see log, 2026-09-26).
 - [ ] **HOST:** consumer-first creation order. Mount a fresh throwaway
       venv volume read-only in a consumer container first (Docker seeds the
       skeleton), then build into it, then `--verify python` read-only. Remove
@@ -222,9 +239,9 @@ The user answered these on 2026-09-25.
   script in the container, `verify` reported `fuzzyjoin`, `lexicon` and
   `quanteda.textstats` absent from *this* container's site library. That
   contradicts decision 1's inventory, which was presumably taken from
-  another project's volume. The follow-up `install` run then put them and 12
-  dependencies from P3M into this devcontainer's old per-devcontainer R
-  volume. Nothing existing was replaced. Reported to the user, who chose
+  another devcontainer's per-devcontainer volume. The follow-up `install`
+  run then put them and 12 dependencies from P3M into this devcontainer's
+  old per-devcontainer R volume. Nothing existing was replaced. Reported to the user, who chose
   to leave the 15 packages in place. Decision 1's list stands.
 - 2026-09-25, phase 1 code checks done in the container: the TeX smoke test
   passes against the old full tree (about 12 s); R `verify` then passes
@@ -280,3 +297,12 @@ The user answered these on 2026-09-25.
   round trip, and the TeX/LyX checks against the old full tree. The
   read-only and refused-install sections need the rebuilt container. R's
   refusal wording (`not writable`) was confirmed on a read-only directory.
+- 2026-09-26: dropped the phase 2 step "repeat `test-packages.sh` in a second
+  project". That step took "project" in 0921a's sense, a separate
+  devcontainer. A new project (a workspace folder) runs in the existing
+  devcontainer, for example via `bbcode Research-vs/`, so it tests nothing
+  new. Only a second sandbox checkout gets its own devcontainer, and the
+  design doesn't use one. One pass in the rebuilt devcontainer is enough.
+  `packages.sh` builds each volume under the literal name in
+  `devcontainer.json`. If the mounted name didn't match, Docker would mount
+  an empty volume and the test's R and Python loads would fail.
