@@ -17,14 +17,23 @@ export PATH="/sandbox/.tools/pdf:/sandbox/.tools/latex:/sandbox/.tools/lit:/sand
 # tree (idempotent; silent once the links exist — see .tools/ai-sesh/README.md)
 sesh-init || true
 
-# The Python and R analysis stacks are installed at runtime rather than baked
-# into the image, so a freshly built container starts without them. Say so once
-# per shell instead of letting the first import fail mysteriously.
+# The Python and R stacks live in read-only shared volumes built on the host,
+# so an unbuilt volume means no stack. Say so once per shell instead of letting
+# the first import fail mysteriously. Test a sentinel package, not emptiness:
+# Docker seeds even a fresh read-only volume from the image, so an unbuilt venv
+# still holds the bare skeleton. post-start.sh does the slower import check.
 # (find, not a glob: an unmatched glob is a hard error under zsh's nomatch.)
-if [ -z "$(find /opt/venv/lib -maxdepth 3 -type d -name pandas -print -quit 2>/dev/null)" ] ||
-    [ -z "$(find /opt/R -maxdepth 5 -type d -name fixest -print -quit 2>/dev/null)" ]; then
-    echo "note: analysis stack not fully installed - run .devcontainer/install-packages.sh python r"
+_stacks_missing=""
+if [ -z "$(find /opt/venv/lib -maxdepth 3 -type d -name pyfixest -print -quit 2>/dev/null)" ]; then
+    _stacks_missing="python"
 fi
+if [ -z "$(find /opt/R -maxdepth 5 -type d -path '*/site-library/fixest' -print -quit 2>/dev/null)" ]; then
+    _stacks_missing="${_stacks_missing:+$_stacks_missing }r"
+fi
+if [ -n "$_stacks_missing" ]; then
+    echo "note: package volume not built ($_stacks_missing) - on the host run: bash .setup/packages.sh $_stacks_missing"
+fi
+unset _stacks_missing
 
 # Same idea for the AI CLIs, which are also runtime-installed now (into the
 # npm-global volume). This is the bootstrap path after a fresh volume: without
@@ -163,7 +172,10 @@ if [ ! -x /usr/local/texlive-bin/pdflatex ]; then
         echo "note: mounted TeX Live 2026 is not active; using $(command -v pdflatex)"
         echo "      Rebuild this container to activate the recent TeX-volume change."
     else
-        echo "note: TeX unavailable - on the host run: bash .setup/texlive.sh"
+        echo "note: TeX unavailable - on the host run: bash .setup/packages.sh tex"
         echo "      For a nonempty failed install, inspect the volume's install.log first."
     fi
+elif [ ! -f /usr/local/texlive/.sandbox-installed ]; then
+    echo "note: TeX volume has no install marker - on the host run: bash .setup/packages.sh tex"
+    echo "      If it refuses, an earlier install failed: see .setup/README.md."
 fi

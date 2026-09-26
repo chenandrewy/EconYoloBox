@@ -50,6 +50,13 @@ rebuilds.
 
 ## Persistent volumes
 
+**Update 2026-09-26 (docs/journal/0925b):** the venv and R site-library are now
+shared, read-only volumes built on the host (`venv-noble-py3.12`,
+`r-site-library-noble-4.5.3-2026-07-15`), joined by the minimal TeX volume
+`texlive-2026-small-noble`. One set serves every checkout on the Docker
+daemon. The per-checkout table below predates that change and has not been
+re-measured.
+
 Six Docker volumes survive container rebuilds. They are separate from both the
 image and the build cache, and none of the figures above include them. Measured
 inside the container on 2026-08-20:
@@ -81,7 +88,7 @@ Codex auth tokens (and, via `npm-global`, the executables they run). The folder
 name is kept as a readable prefix only, so `docker volume ls` stays scannable.
 The trade is that the id is derived from the host path: moving or renaming the
 project folder orphans its volumes, costing a re-login and an
-`install-packages.sh` re-run. Orphans are then hard to identify by name — find
+`install-packages.sh cli` re-run. Orphans are then hard to identify by name — find
 them with `docker volume ls -f dangling=true`. The version tokens (`noble`,
 `4.5.3`, `py3.12`, `node24`) mean an R, Python, node, or distro upgrade starts a
 *fresh* volume rather than reusing the old one — deliberate, since packages
@@ -108,8 +115,9 @@ roughly 550MB less on the next cold build. The main contributors are:
   metadata.
 
 Note what is *not* here any more. The R and Python **packages** left the image
-and now install at runtime via `install-packages.sh`; the Dockerfile creates
-only an empty venv at `/opt/venv` and the bare R library directory. The **AI
+and now live in shared volumes built on the host by `.setup/packages.sh`; the
+Dockerfile creates only an empty venv at `/opt/venv` and the bare R library
+directory. The **AI
 CLIs** left the same way, into the npm-global volume above — that move was about
 update persistence rather than size, but it takes their weight out of the image
 too.

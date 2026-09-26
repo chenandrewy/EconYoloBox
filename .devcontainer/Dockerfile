@@ -251,32 +251,25 @@ ENV DEVCONTAINER=true
 
 WORKDIR /sandbox
 
-# The Python and R analysis stacks are NOT baked into the image. They live in
-# .devcontainer/install-packages.sh, run on demand inside a started container.
-# Rationale: baked-in layers meant every package change cost a full rebuild, and
-# a broken package was unrecoverable without one. Version reproducibility is
-# unaffected (the dated P3M snapshot still pins R; pip still resolves PyPI) -
-# only *state* becomes opt-in.
+# The Python, R and TeX stacks are NOT baked into the image. They live in
+# shared volumes that the human builds on the host with .setup/packages.sh
+# (running .devcontainer/install-packages.sh in this image), and devcontainer.json
+# mounts them read-only. Agents in the container run the stacks; they do not
+# change them (docs/journal/0921a, 0925b).
 #
 # What stays here is what needs root or the build's open network: the system
-# -dev libraries above, R itself, the venv, and the write permissions below.
+# -dev libraries above, R itself, and the empty venv and site-library below.
 
-# Empty venv, owned by node so the install script can populate it at runtime.
-# noble's python3 is 3.12, so the venv volume name in devcontainer.json carries
-# py3.12 - a 3.11 volume from the bookworm image must not be mounted here.
+# Empty venv. Docker seeds a fresh volume from this directory, so it is also
+# the skeleton an unbuilt venv volume shows. noble's python3 is 3.12, so the
+# venv volume name in devcontainer.json carries py3.12.
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN chown -R node:node /opt/venv
 
-# Allow non-root user to install R packages at runtime - this is now the normal
-# path for the whole R stack, not just late additions. Packages land in
-# site-library (R's default first library whenever the directory exists), which
-# devcontainer.json mounts as a named volume so compiles survive container
-# recreation. The empty volume inherits this directory's node ownership on
-# first mount (Docker copy-on-first-use), so no chown at container setup.
-RUN chmod -R a+w /opt/R/${R_VERSION}/lib/R/library && \
-  mkdir -p /opt/R/${R_VERSION}/lib/R/site-library && \
-  chown node:node /opt/R/${R_VERSION}/lib/R/site-library
+# R adds site-library to .libPaths() only if the directory exists, so it must
+# exist here for the mounted volume to be found. Ownership does not matter:
+# the mount is read-only and the host builder runs as root.
+RUN mkdir -p /opt/R/${R_VERSION}/lib/R/site-library
 
 ARG GIT_DELTA_VERSION=0.18.2
 RUN ARCH=$(dpkg --print-architecture) && \
@@ -319,14 +312,14 @@ RUN sed -i "s/^export LANG=.*/export LANG='C.UTF-8'/" /home/node/.zshrc && \
   sed -i "s/^export LANGUAGE=.*/export LANGUAGE='C.UTF-8'/" /home/node/.zshrc && \
   sed -i "s/^export LC_ALL=.*/export LC_ALL='C.UTF-8'/" /home/node/.zshrc
 
-# The Claude Code and Codex CLIs are NOT baked into the image, for the same
-# reason as the analysis stacks above: a baked `npm install -g ...@latest` layer
-# pins itself to whenever it was first cached, so rebuilds kept serving whatever
-# was current on that day. They are installed at runtime by
-# install-packages.sh into NPM_CONFIG_PREFIX, which is a volume - so an update
-# made in a running container survives rebuilds instead of being reverted by
-# them. A fresh volume starts empty; shellrc.sh says so, and test-agent-policy.sh
-# skips rather than fails when a CLI is absent.
+# The Claude Code and Codex CLIs are NOT baked into the image either: a baked
+# `npm install -g ...@latest` layer pins itself to whenever it was first
+# cached, so rebuilds kept serving whatever was current on that day. They are
+# installed at runtime by `install-packages.sh cli` into NPM_CONFIG_PREFIX,
+# which is a writable per-container volume - so an update made in a running
+# container survives rebuilds instead of being reverted by them. A fresh volume
+# starts empty; shellrc.sh says so, and test-agent-policy.sh skips rather than
+# fails when a CLI is absent.
 
 USER root
 
@@ -345,9 +338,10 @@ RUN ARCH=$(dpkg --print-architecture) && \
   install -m 0755 /tmp/pandoc-crossref /usr/local/bin/pandoc-crossref && \
   rm -rf /tmp/pandoc.tar.gz /tmp/pandoc-crossref.tar.xz /tmp/pandoc-${PANDOC_VERSION} /tmp/pandoc-crossref
 
-# TeX is installed on the host into texlive-2026-noble and mounted read-only.
-# The symlink intentionally dangles during image build. Keep the year in step
-# with .setup/texlive.sh and the literal devcontainer.json volume mount.
+# TeX is installed on the host (.setup/packages.sh tex) into a shared volume
+# mounted read-only. The symlink intentionally dangles during image build; the
+# installer reads the year and platform from it. Keep the year in step with
+# the TeX volume name in devcontainer.json.
 RUN ARCH=$(dpkg --print-architecture) && \
   case "$ARCH" in \
     amd64) TEXLIVE_PLATFORM=x86_64-linux ;; \

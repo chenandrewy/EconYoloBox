@@ -36,6 +36,11 @@ volume: it overrides the live mount with the same target, so a new volume can be
 built and checked before any container mounts it. The builder refuses
 per-devcontainer (`${devcontainerId}`) names.
 
+Inside the container these volumes are read-only: `install-packages.sh
+python|r|tex` refuses and points here, and `--verify` checks without writing.
+After a rebuild, `bash .devcontainer/tests/test-packages.sh` (as `node`, in the
+container) is the acceptance check for all three.
+
 Stop R, Python and TeX work in every consuming container before a build. An
 unpinned pip addition can replace existing dependencies, not only add. Once the
 build finishes, restart R and Python sessions. After a TeX change, run

@@ -9,6 +9,7 @@
 #   Inside the devcontainer, as node:
 #     .devcontainer/install-packages.sh            # AI CLIs (same as `cli`)
 #     .devcontainer/install-packages.sh cli        # AI CLIs, always @latest
+#     .devcontainer/install-packages.sh --verify all cli   # check only
 #
 # Inputs:  the package lists below; the dated P3M snapshot pinned in the image's
 #          Rprofile.site (Dockerfile ARG CRAN_SNAPSHOT); PyPI; Bioconductor;
@@ -18,9 +19,11 @@
 #          marker there); cli -> NPM_CONFIG_PREFIX. Each target ends with an
 #          "... OK" line or exits nonzero.
 #
-# python, r and tex fill shared volumes that the devcontainer mounts; each
-# refuses to run unless its install directory is a mount, so an install can
-# never land in a disposable image layer. Adding a package means editing a list
+# python, r and tex fill shared volumes that the devcontainer mounts read-only.
+# Each refuses unless its install directory is a writable mount: an unmounted
+# directory would install into a disposable image layer, and a read-only one
+# means this is a consumer, where the answer is the host builder. --verify
+# only checks (imports, library loads, the TeX marker) and works anywhere. Adding a package means editing a list
 # here and re-running the builder: python and r are idempotent (present packages
 # are skipped unless --force), and tex adds whatever TEX_COLLECTIONS/TEX_PKGS
 # name that the marked tree lacks. See docs/journal/0921a and 0925b.
@@ -39,9 +42,10 @@ Usage: install-packages.sh [python] [r] [tex] [cli] [all] [--force]
   cli       install/update the Claude Code and Codex CLIs (the default)
   all       python r tex (the host builder's stacks; not cli)
   --force   reinstall present python/r packages (not accepted with tex)
+  --verify  check the named targets without installing anything
 
-Several targets may be given. python, r and tex are normally run on the host
-with bash .setup/packages.sh. Re-runs skip what is already installed.
+Several targets may be given. python, r and tex are built on the host with
+bash .setup/packages.sh. Re-runs skip what is already installed.
 USAGE
 }
 
@@ -50,6 +54,7 @@ DO_R=0
 DO_TEX=0
 DO_CLI=0
 FORCE=0
+VERIFY=0
 for arg in "$@"; do
     case "$arg" in
     python | py) DO_PYTHON=1 ;;
@@ -62,6 +67,7 @@ for arg in "$@"; do
         DO_TEX=1
         ;;
     --force | -f) FORCE=1 ;;
+    --verify) VERIFY=1 ;;
     -h | --help)
         usage
         exit 0
@@ -75,6 +81,10 @@ for arg in "$@"; do
 done
 if [ $((DO_PYTHON + DO_R + DO_TEX + DO_CLI)) -eq 0 ]; then
     DO_CLI=1
+fi
+if [ "$FORCE" -eq 1 ] && [ "$VERIFY" -eq 1 ]; then
+    echo "install-packages.sh: --force and --verify are mutually exclusive." >&2
+    exit 2
 fi
 if [ "$FORCE" -eq 1 ] && [ "$DO_TEX" -eq 1 ]; then
     echo "install-packages.sh: --force does not apply to tex; rebuilding TeX means a new volume." >&2
@@ -90,11 +100,18 @@ trap cleanup EXIT
 WORK_DIR=$(mktemp -d)
 
 # An unmounted target would install into this container's writable layer and
-# vanish with it, while the volume the devcontainer mounts stays unchanged.
-require_mount() {
+# vanish with it, while the volume the devcontainer mounts stays unchanged. A
+# read-only one is a consumer's view of a volume only the host builder writes.
+require_writable_mount() {
     if ! mountpoint -q "$1"; then
         echo "install-packages.sh: $1 is not a mounted volume; refusing to install into the image layer." >&2
         echo "On the host run: bash .setup/packages.sh $2" >&2
+        exit 1
+    fi
+    if findmnt -n -o OPTIONS -T "$1" | tr ',' '\n' | grep -qx ro; then
+        echo "install-packages.sh: $1 is mounted read-only; packages are managed from the host." >&2
+        echo "Add the package to the list in .devcontainer/install-packages.sh, then on the host run:" >&2
+        echo "  bash .setup/packages.sh $2" >&2
         exit 1
     fi
 }
@@ -125,39 +142,70 @@ PY_PKGS=(
 )
 
 install_python() {
-    require_mount /opt/venv python
     echo "==> Python stack (/opt/venv), ${#PY_PKGS[@]} packages"
-    local args=(--no-cache-dir)
-    if [ "$FORCE" -eq 1 ]; then
-        args+=(--force-reinstall)
+    if [ "$VERIFY" -eq 0 ]; then
+        require_writable_mount /opt/venv python
+        local args=(--no-cache-dir)
+        if [ "$FORCE" -eq 1 ]; then
+            args+=(--force-reinstall)
+        fi
+        # pip is already idempotent: satisfied requirements are skipped.
+        pip install "${args[@]}" "${PY_PKGS[@]}"
     fi
-    # pip is already idempotent: satisfied requirements are skipped.
-    pip install "${args[@]}" "${PY_PKGS[@]}"
 
-    # Verify by distribution name rather than import name, so the check does not
-    # need a dist->module mapping (scikit-learn/sklearn, PyMuPDF/fitz, ...).
+    # A fresh interpreter, so a --force reinstall cannot pass from memory.
     python3 - "${PY_PKGS[@]}" <<'PYEOF'
+import contextlib
+import importlib
+import io
 import sys
-from importlib.metadata import PackageNotFoundError, distribution
+import warnings
+from importlib.metadata import PackageNotFoundError, distribution, packages_distributions
 
-missing = []
+warnings.simplefilter("ignore")
+
+
+def norm(name):
+    return name.lower().replace("_", "-").replace(".", "-")
+
+
+# Import every public top-level module each distribution provides, so the
+# check needs no hand-kept dist->module map (scikit-learn/sklearn, PyMuPDF/fitz).
+modules = {}
+for module, dists in packages_distributions().items():
+    if not module.startswith("_"):
+        for dist in dists:
+            modules.setdefault(norm(dist), set()).add(module)
+
+missing, broken, imported = [], [], 0
 for name in sys.argv[1:]:
     try:
         distribution(name)
     except PackageNotFoundError:
         missing.append(name)
+        continue
+    for module in sorted(modules.get(norm(name), ())):
+        try:
+            # Some packages print notices on import (PyMuPDF's fitz).
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                importlib.import_module(module)
+            imported += 1
+        except Exception as exc:
+            broken.append("%s (%s): %s" % (module, name, exc))
 
 if missing:
     print("MISSING (python): " + ", ".join(missing))
+if broken:
+    print("BROKEN (python):\n  " + "\n  ".join(broken))
+if missing or broken:
     sys.exit(1)
-print("Python stack OK (%d packages)" % (len(sys.argv) - 1))
+print("Python stack OK (%d packages, %d modules import)" % (len(sys.argv) - 1, imported))
 PYEOF
 }
 
 install_r() {
     local lib
     lib=$(Rscript -e 'cat(.libPaths()[1])')
-    require_mount "$lib" r
     echo "==> R stack ($lib)"
     local r_script="$WORK_DIR/install-r.R"
 
@@ -283,7 +331,10 @@ if (length(missing)) {
 }
 REOF
 
-    STACK_FORCE="$FORCE" Rscript "$r_script" install
+    if [ "$VERIFY" -eq 0 ]; then
+        require_writable_mount "$lib" r
+        STACK_FORCE="$FORCE" Rscript "$r_script" install
+    fi
     Rscript "$r_script" verify
 }
 
@@ -480,13 +531,28 @@ PROFILE
 }
 
 install_tex() {
-    require_mount "$TEX_PREFIX" tex
     local bindir year platform installed
     bindir=$(readlink /usr/local/texlive-bin) # $TEX_PREFIX/<year>/bin/<platform>
     platform=${bindir##*/}
     year=${bindir#"$TEX_PREFIX"/}
     year=${year%%/*}
     echo "==> TeX Live $year ($TEX_PREFIX, $platform)"
+
+    if [ "$VERIFY" -eq 1 ]; then
+        if [ ! -f "$TEX_MARKER" ]; then
+            echo "MISSING (tex): no $TEX_MARKER; on the host run: bash .setup/packages.sh tex" >&2
+            return 1
+        fi
+        local absent=()
+        mapfile -t absent < <(tex_missing "$year")
+        if [ ${#absent[@]} -gt 0 ]; then
+            echo "MISSING (tex): ${absent[*]}; on the host run: bash .setup/packages.sh tex" >&2
+            return 1
+        fi
+        echo "TeX stack OK (marked; ${#TEX_COLLECTIONS[@]} collections, ${#TEX_PKGS[@]} extra packages present)"
+        return 0
+    fi
+    require_writable_mount "$TEX_PREFIX" tex
 
     if [ -f "$TEX_MARKER" ]; then
         local missing=()
@@ -531,12 +597,14 @@ CLI_PKGS=(
 # consulted because @latest is already the strongest request available.
 install_cli() {
     echo "==> AI CLIs (${NPM_CONFIG_PREFIX:-npm global}), ${#CLI_PKGS[@]} packages"
-    local pinned=()
     local pkg
-    for pkg in "${CLI_PKGS[@]}"; do
-        pinned+=("${pkg}@latest")
-    done
-    npm install -g "${pinned[@]}"
+    if [ "$VERIFY" -eq 0 ]; then
+        local pinned=()
+        for pkg in "${CLI_PKGS[@]}"; do
+            pinned+=("${pkg}@latest")
+        done
+        npm install -g "${pinned[@]}"
+    fi
 
     local missing=()
     for pkg in "${CLI_PKGS[@]}"; do

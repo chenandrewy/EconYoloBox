@@ -50,9 +50,12 @@ that is the user's decision (see `USER PERMISSION REQUIRED`).
   servers and are not subject to the devcontainer firewall. When the firewall
   is on, this does not make arbitrary URLs available to terminal commands or
   project code.
-- Installing *packages* from the sources listed above (pip, `install.packages()`,
-  or `install-packages.sh`) is fine and does not need permission. New **system**
-  libraries (`apt-get`, `-dev` packages) do — see `USER PERMISSION REQUIRED`.
+- The R, Python and TeX package stacks are **read-only** here; the human
+  builds them on the host. If a package is missing, **ASK THE USER TO ADD IT**
+  (name the package) rather than installing it some other way. They add it to
+  the list in `.devcontainer/install-packages.sh` and run
+  `bash .setup/packages.sh` on the host. New **system** libraries (`apt-get`,
+  `-dev` packages) also need permission — see `USER PERMISSION REQUIRED`.
 - If the firewall blocks a resource you need: **ASK THE USER TO ADD IT**
 - For "this screenshot," "the image," or "latest screenshot," look up
   `screenshot_directory` in `/sandbox/SANDBOX.toml`.
@@ -65,22 +68,29 @@ that is the user's decision (see `USER PERMISSION REQUIRED`).
   - Installed: numpy, pandas, polars, pyarrow, scipy, statsmodels, linearmodels,
     pyfixest, scikit-learn, matplotlib, openpyxl, wrds, PyMuPDF, pikepdf,
     beautifulsoup4, lxml, requests, openai, mistralai.
-- R 4.5.3 with packages pinned to a dated P3M snapshot, so `install.packages()`
-  resolves against that snapshot, not live CRAN.
-- **Neither stack is baked into the image.** Both come from
-  `.devcontainer/install-packages.sh`, which is re-runnable and skips what is
-  already installed. If an import fails right after a rebuild, notify the user.
+- R 4.5.3 with packages from a dated P3M snapshot (plus `pcaMethods` from
+  Bioconductor).
+- **The R, Python and TeX stacks live in shared read-only volumes**, built on
+  the host by `bash .setup/packages.sh` from the lists in
+  `.devcontainer/install-packages.sh`. Its `python`, `r` and `tex` targets
+  refuse in here; `install-packages.sh --verify python r tex` checks the
+  stacks without changing them. If an import fails, or startup warns that a
+  package volume is not built, notify the user.
 - **The Claude Code and Codex CLIs come from the same script**
-  (`install-packages.sh cli`), into an npm-global *volume* — so an update
-  survives rebuilds rather than being reverted by them. The npm-managed CLIs
-  should not be assumed to self-update; re-run the script's `cli` target to
-  update both. A rebuild is unnecessary.
-- TeX Live (full scheme, including biber) is host-installed with
-  `bash .setup/texlive.sh` into the shared `texlive-2026-noble` Docker volume,
-  mounted read-only at `/usr/local/texlive`. Do not install or update TeX in
-  the devcontainer. Run `tex-refresh` as node after initial host installation;
-  it also runs at container startup. Reopen an already-running LyX afterward.
-  The setup script refuses nonempty volumes; updates are separate manual work.
+  (`install-packages.sh cli`, its default), into a writable npm-global
+  *volume* — so an update survives rebuilds rather than being reverted by
+  them. The npm-managed CLIs should not be assumed to self-update; re-run the
+  script's `cli` target to update both. A rebuild is unnecessary.
+- TeX Live 2026 is **minimal and pdfLaTeX-only**: scheme-small plus
+  latexextra, fontsrecommended, bibtexextra (biblatex, biber), pictures
+  (TikZ), mathscience and fontsextra, plus latexindent and latexmk. There is
+  no XeLaTeX and no `texdoc` documentation; LuaLaTeX is present only because
+  core TeX Live needs it. Build with pdflatex. It lives in the shared
+  `texlive-2026-small-noble` volume, mounted read-only at
+  `/usr/local/texlive`. A missing LaTeX package goes to the user like any
+  other package (they add it to `TEX_PKGS`). Run `tex-refresh` as node after
+  the host changes TeX; it also runs at container startup. Reopen an
+  already-running LyX afterward.
 - **Connectors and Codex Apps/Plugins are disabled in this sandbox.** Claude's
   AI connectors are disabled by `/etc/claude-code/managed-settings.json`.
   Codex Apps, Plugins, and remote plugin catalogs are disabled by

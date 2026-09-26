@@ -140,7 +140,9 @@ done < <(echo "$goog_ranges" | jq -r '.prefixes[].ipv4Prefix | select(. != null)
 # Adding an extension from a new publisher requires a new entry here, or its
 # install will silently fail inside the container.
 #
-# Two hosts serve runtime R installs (install-packages.sh):
+# Two hosts serve R package downloads. The R stack itself is built on the host
+# (.setup/packages.sh), outside this firewall; these stay allowed for R
+# downloads made inside the container:
 #   cran.r-project.org    - archived-source tarballs (pryr), which P3M does not
 #     carry. Only touched by the explicit archive pin.
 #   rspm-sync.rstudio.com - P3M's package payload host - is NOT pinned here: it

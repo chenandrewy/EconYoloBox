@@ -136,55 +136,62 @@ The user answered these on 2026-09-25.
 - [x] `shellcheck` both scripts, and `bash -n` them.
 - [x] Commit 1. Show the user the diff summary first; commit only when they
       approve.
-- [ ] **HOST:** `bbox --rebuild` if the Dockerfile changed (it shouldn't in
+- [x] **HOST:** `bbox --rebuild` if the Dockerfile changed (it shouldn't in
       phase 1), then `bash .setup/packages.sh all`. Collect the tail of the
       output and each stack's OK line.
-- [ ] **HOST:** check the new volumes from a throwaway container of the
+- [x] **HOST:** check the new volumes from a throwaway container of the
       same image, mounted read-only: `library()` every R package, import
       every Python package, and a pdflatex + biber + LyX export against
       `texlive-2026-small-noble`. Give the user the exact `docker run`
       lines, adapted from `.setup/README.md`'s texlive-check recipe.
-- [ ] Re-run `packages.sh python r` on the host and confirm it downloads
+- [x] Re-run `packages.sh python r` on the host and confirm it downloads
       nothing (idempotence).
 
 ## phase 2 — cutover (commit 2)
 
-- [ ] `devcontainer.json`: switch the R, venv and TeX mounts to the shared
+- [x] `devcontainer.json`: switch the R, venv and TeX mounts to the shared
       names with `readonly`, drop `${devcontainerId}` from them, and
       rewrite the comment block to match. Remove the three
       `// packages.sh:` staging lines (their names become the live mounts);
       keep the explanation of staging for future bumps. Leave `npm-global`
       alone.
-- [ ] `Dockerfile`: remove `chmod -R a+w .../lib/R/library`, and the
+- [x] `Dockerfile`: remove `chmod -R a+w .../lib/R/library`, and the
       `chown` on site-library and `/opt/venv`. Keep the `mkdir` of
       site-library, since R only adds it to `.libPaths()` if it exists.
-- [ ] `install-packages.sh`: `python`, `r` and `tex` refuse inside the
+- [x] `install-packages.sh`: `python`, `r` and `tex` refuse inside the
       container when their target is read-only, with the host command. This
       mirrors `tex-refresh`.
-- [ ] `post-start.sh` / `shellrc.sh`: warn on a missing stack using
+- [x] `post-start.sh` / `shellrc.sh`: warn on a missing stack using
       sentinels (traps section). Fix the wording at `shellrc.sh:26,166`
       and `tex-refresh.sh:12` so it points to `packages.sh`.
-- [ ] `.devcontainer/tests/test-packages.sh` absorbs `test-texlive.sh`
+- [x] `.devcontainer/tests/test-packages.sh` absorbs `test-texlive.sh`
       (0921a scope item 7). Mounts are read-only; `library()` and import
       of everything; a `fixest` regression; an `arrow`↔`pyarrow` parquet
       round-trip; the existing LyX checks (pdflatex, no xelatex); and
       `install.packages()` / `pip install` of an absent package must
       fail. Delete `test-texlive.sh`.
-- [ ] Agent guidance: in `.devcontainer/agents/SANDBOX-CLAUDE.md` and
+- [x] Agent guidance: in `.devcontainer/agents/SANDBOX-CLAUDE.md` and
       `SANDBOX-AGENTS.md`, "installing packages is fine" becomes "ask the
       user to add it". Update the TeX paragraph (new volume name,
       `packages.sh`, minimal scheme). Tell the user that their
       `~/.claude/CLAUDE.md` copy is seeded from here.
-- [ ] Docs: `docs/features.md:137` and around `:66`/`:89`,
+- [x] Docs: `docs/features.md:137` and around `:66`/`:89`,
       `.devcontainer/README.md` (TeX section around `:66`, stacks section
       around `:329`), `.setup/README.md`. Include "how a user adds a package"
       from 0921a, plus the `TEX_PKGS` path.
-- [ ] `grep -rn 'texlive.sh\|texlive-2026-noble\|install-packages.sh'`
+- [x] `grep -rn 'texlive.sh\|texlive-2026-noble\|install-packages.sh'`
       across the repo (excluding `docs/journal/`) turns up nothing stale.
-- [ ] Commit 2, after the user approves.
+- [x] Commit 2, after the user approves.
 - [ ] **HOST:** `bbox --rebuild`, then in the new container run
       `bash .devcontainer/tests/test-packages.sh`, and ideally repeat it in
       a second project so the volumes are shared.
+- [ ] **HOST:** consumer-first creation order. Mount a fresh throwaway
+      venv volume read-only in a consumer container first (Docker seeds the
+      skeleton), then build into it, then `--verify python` read-only. Remove
+      the throwaway volume afterwards.
+- [ ] Re-measure the shared volumes from the rebuilt container (`du -sh`)
+      and update `docs/storage-needs.md` and the root README's storage
+      budget.
 - [ ] **HOST, only after everything passes:** the user prunes the old
       volumes (`texlive-2026-noble` and the per-devcontainer
       `*-r-site-library-*` / `*-venv-*`). Suggest the commands; don't
@@ -233,3 +240,43 @@ The user answered these on 2026-09-25.
   `.host/dc-resolve.py package-volumes`, which refuses `${...}` names.
   `shellrc.sh:26` now says `install-packages.sh python r`, because a bare
   call means `cli`.
+- 2026-09-26: host ran `bash .setup/packages.sh all` successfully. The pasted
+  tail began inside the TeX step and ended with `pdflatex, biber,
+  latexindent, latexmk OK`, `LyX export OK`, `TeX stack OK (10 collections,
+  2 extra packages)` and `Done.`. The Python and R OK lines and the
+  `Builder image:` line were above the paste. Both stacks must have passed:
+  the installer runs python, r, tex in order under `set -e`, so tex is only
+  reached after both verifications succeed.
+- 2026-09-26: phase 1 host checks all passed, per the user. The checks ran
+  as node against each new volume mounted read-only, in the devcontainer's
+  image. R: `library()` of every package in the site library, each in a
+  fresh process. Python: import of all 22 `PY_PKGS` modules. TeX:
+  read-only mount, marker, the installer's `tex_smoke`, `tex-refresh`, no
+  xetex. Idempotence: `packages.sh python r` rerun. Phase 1 is complete.
+- 2026-09-26, phase 2 code. `install-packages.sh` gains `--verify`, which
+  checks without writing. `test-packages.sh` uses it, so the package lists
+  stay in one place. The Python check now imports every public top-level
+  module of each `PY_PKGS` distribution, 27 modules in total, with import
+  noise captured. The read-only guard uses `findmnt` options. It covers
+  python, r and tex, and `--verify` bypasses it.
+- 2026-09-26: `SANDBOX-AGENTS.md` is a symlink to `SANDBOX-CLAUDE.md`, and
+  `seed-agent-guidelines.sh` symlinks `~/.claude/CLAUDE.md` and
+  `~/.codex/AGENTS.md` to them. So one edit changed the guidance, and it
+  was live in this container at once. A correction to my own draft:
+  scheme-small does install `fontspec` and `unicode-math`, and LuaLaTeX
+  works. The guidance now says "no XeLaTeX; build with pdflatex" and no
+  longer claims those packages are absent.
+- 2026-09-26: `init-firewall.sh` got a comment change only. The allowlist is
+  unchanged, since P3M and PyPI still serve in-container downloads.
+  Shellcheck's SC2154 at its line 21 predates this branch.
+  `docs/storage-needs.md` got a dated note instead of new numbers;
+  re-measuring is a checklist item for after the rebuild.
+- 2026-09-26: 0923a has not landed. Phase 2 removed the venv `chown` and
+  the site-library `chmod`/`chown` lines, left the
+  `mkdir -p /sandbox /home/node/...` line alone, and added the post-start
+  package check *before* the unchanged `tex-refresh` line.
+- 2026-09-26: `test-packages.sh` partial run in the old (phase 1) container
+  passed in 39 s: `--verify python r`, 223 R packages load, fixest, parquet
+  round trip, and the TeX/LyX checks against the old full tree. The
+  read-only and refused-install sections need the rebuilt container. R's
+  refusal wording (`not writable`) was confirmed on a read-only directory.

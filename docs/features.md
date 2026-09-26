@@ -84,9 +84,9 @@ tooling those changes exist to support is described in
   startup scripts themselves - so it is a convenience, not a security boundary
   against an agent that edits the repo; `git diff` before restarting is the
   review step. A
-  fresh container has the system toolchain immediately; the optional Python and
-  R stacks and the AI CLIs are installed once into persistent volumes with
-  `install-packages.sh`.
+  fresh container has the system toolchain immediately. The R, Python and TeX
+  stacks come from shared read-only volumes built on the host, and the AI CLIs
+  install once into a per-container volume with `install-packages.sh cli`.
 
 - **Enforced agent policy.** Root-owned configuration disables Claude's online
   connectors and Codex Apps, Plugins, and remote plugin catalogs. A startup
@@ -134,23 +134,23 @@ What the container makes reachable and installable: the analysis stacks, and the
 network allowlist that lets research data and package mirrors through. The
 commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
-- **One-command analysis stacks.** `install-packages.sh` populates a Python venv
-  and R site-library in version-named persistent volumes, so rebuilds are fast
-  and packages survive container recreation. A newly created volume starts
-  empty; the script is the explicit, one-time setup step and can be rerun to add
-  or repair packages.
-
-  With `firewall = true`, installs run behind the allowlist: package hosts and
-  their redirect mirrors must be allowed, and `docker build` having open network
-  is no evidence a command works in a running container. The default
-  `firewall = false` leaves these downloads unrestricted by the container.
+- **Host-built, read-only package stacks.** The Python venv, the R
+  site-library and a minimal pdfLaTeX TeX Live live in shared Docker volumes.
+  The human builds them on the host with `bash .setup/packages.sh`, which runs
+  `install-packages.sh` in the devcontainer's own image, and every project
+  mounts them read-only. Agents run the stacks but cannot change them. To add a
+  package, edit the list in `install-packages.sh` and rerun the builder: only
+  the new package downloads, and running containers see it at the next R or
+  Python session. The builder uses Docker's default network, so the container
+  firewall never blocks a stack build; it still governs anything fetched from
+  inside the container.
 
 - **Pinned R package state.** R resolves against a dated P3M snapshot rather
   than live CRAN, so an R environment rebuilt months later resolves the same
   package versions. Python intentionally resolves current packages from PyPI;
-  it is convenient, not lockfile-reproducible. Persistent volumes are
-  interpreter- and platform-versioned, so a stack upgrade starts a new volume
-  rather than mounting incompatible compiled packages.
+  it is convenient, not lockfile-reproducible. The shared volumes are named by
+  distro, interpreter version and snapshot date, so a stack upgrade builds a new
+  volume rather than mounting incompatible compiled packages.
 
 - **Research-friendly defaults.** A tracked user R profile suppresses stray
   `Rplots.pdf` files, while the container supplies TeX Live, Biber, LyX, Pandoc,
@@ -181,7 +181,8 @@ workable should each be one step.
 | `.tools/latex/` | `sync-lyx.sh` |
 | `.tools/lit/` | `cited_by.py` |
 | `.devcontainer/agents/` | `seed-agent-guidelines.sh` (runs at container start) |
-| `.devcontainer/` | `install-packages.sh`, `test-firewall.sh`, `test-agent-policy.sh` |
+| `.devcontainer/` | `install-packages.sh` (`cli`, `--verify`), `test-firewall.sh`, `test-agent-policy.sh` |
+| `.setup/` (host shell) | `packages.sh` |
 
 Everything in `.tools/` is on `PATH` via `shellrc.sh`, so the filenames are the
 commands.
