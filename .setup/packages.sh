@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Run on the host, with Docker running, from anywhere in this checkout (bash 3.2+):
-#   bash .setup/packages.sh                  # python r (the default)
-#   bash .setup/packages.sh tex              # TeX Live only (opt-in)
+#   bash .setup/packages.sh                  # python r tex (the default)
+#   bash .setup/packages.sh tex              # TeX Live only
 #   bash .setup/packages.sh all              # python r tex
 #   bash .setup/packages.sh r --force        # reinstall present R packages
+#   bash .setup/packages.sh --force          # reinstall present python/r packages
 # Inputs: this workspace's devcontainer (created by bbox, running or stopped),
 #   whose exact image is the builder; the shared volume names in
 #   .devcontainer/devcontainer.json; the package lists in
@@ -24,8 +25,9 @@ usage() {
     cat <<'USAGE'
 Usage: bash .setup/packages.sh [python] [r] [tex] [all] [--force]
 
-With no target, builds python and r. tex is opt-in; all = python r tex.
---force reinstalls present python/r packages (not accepted with tex).
+With no target, builds all three (all = python r tex).
+--force reinstalls present python/r packages; it is refused with an explicit
+tex, and with no target it builds python and r only.
 USAGE
 }
 
@@ -47,8 +49,14 @@ for arg in "$@"; do
         ;;
     esac
 done
+# TeX is part of the base: the devcontainer always mounts its volume.
+# --force does not apply to TeX, so a bare --force means python and r.
 if [ ${#targets[@]} -eq 0 ]; then
-    targets=(python r)
+    if [ ${#force[@]} -gt 0 ]; then
+        targets=(python r)
+    else
+        targets=(python r tex)
+    fi
 fi
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)

@@ -11,7 +11,7 @@ set**, which the user installs from inside the container in install mode
 plus a small core; the optional set is everything else we use. First setup, and
 again after a version bump:
 
-1. On the host: `bash .setup/packages.sh all`.
+1. On the host: `bash .setup/packages.sh`.
 2. Switch to install mode: `packages = "writable"` and `internet = "open"` in
    `SANDBOX.toml`, then `bbox --rebuild`.
 3. In the container: `bash .devcontainer/install-optional.sh`.
@@ -23,9 +23,9 @@ install just what it needs in install mode instead.
 From anywhere in the repository, on the host with Docker running:
 
 ```sh
-bash .setup/packages.sh            # python r (the default)
-bash .setup/packages.sh tex        # minimal TeX Live, opt-in
-bash .setup/packages.sh all        # python r tex
+bash .setup/packages.sh            # python r tex (the default)
+bash .setup/packages.sh tex        # minimal TeX Live only
+bash .setup/packages.sh r          # R only
 bash .setup/packages.sh r --force  # reinstall present R packages
 ```
 

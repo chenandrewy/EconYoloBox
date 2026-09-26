@@ -214,9 +214,8 @@ host. After the container exists (it supplies the builder image), run from the
 checkout root on the host:
 
 ```bash
-bash .setup/packages.sh          # Python and R
-bash .setup/packages.sh tex      # minimal pdfLaTeX TeX Live
-bash .setup/packages.sh all      # all three
+bash .setup/packages.sh          # Python, R and minimal pdfLaTeX TeX Live
+bash .setup/packages.sh tex      # TeX only
 ```
 
 The rest of the usual stack is an optional set. To install it, switch to the
