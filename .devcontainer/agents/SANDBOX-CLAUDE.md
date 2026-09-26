@@ -30,20 +30,20 @@ that is the user's decision (see `USER PERMISSION REQUIRED`).
   REJECTed, so they fail fast rather than hanging — suspect the firewall before
   the code. When `false`, the container starts without these network
   restrictions. The allowlist when the firewall is on:
-  - **Packages**: npm, PyPI (`pypi.org`, `files.pythonhosted.org`), Posit P3M
-    (plus `rspm-sync.rstudio.com`, where P3M redirects the payload) and
-    `cran.r-project.org` for archived sources, VS Code marketplace
-    (per-publisher `*.gallerycdn.vsassets.io` — a new extension publisher needs
-    a new entry or its install silently fails).
+  - **Packages**: npm and the VS Code marketplace (per-publisher
+    `*.gallerycdn.vsassets.io` — a new extension publisher needs a new entry
+    or its install silently fails). PyPI, P3M and CRAN are deliberately
+    **not** allowed: the R and Python stacks are built on the host, so a
+    missing package goes to the user.
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
   - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
     (`goog.json`), which cover Google's first-party fleet. GCP customer ranges
     (`cloud.json`) are deliberately **not** allowed.
   - **Data**: WRDS, FRED, Ken French's data library
-    (`mba.tuck.dartmouth.edu`) and `global-q.org`.
+    (`mba.tuck.dartmouth.edu`).
   - With the firewall on, there is no general web access — assume a fetch of
-    an arbitrary URL will fail. A package install that dies on an unlisted
+    an arbitrary URL will fail. A download that dies on an unlisted
     **redirect** host is the common surprise; report the host so it can be added.
 - For general web information, Claude should use `WebSearch`, and Codex should
   use the `web` tool. These tools access the web through the model providers'

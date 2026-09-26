@@ -70,8 +70,9 @@ tooling those changes exist to support is described in
 
 - **Firewall.** Upstream's allowlist covers what a software engineer needs.
   This one runs its own dnsmasq for domain-based allowlisting and adds the
-  sources econ research runs on — data providers, paper repositories, R and
-  Python package mirrors. It is also **fail-closed**: any setup failure drops
+  sources econ research runs on — data providers and paper repositories. R and
+  Python package registries are left out, since those stacks are built on the
+  host. It is also **fail-closed**: any setup failure drops
   all traffic rather than leaving the container open, and blocked hosts are
   REJECTed so they fail fast instead of hanging.
 
@@ -131,7 +132,7 @@ scoped to and spreads to places nobody thinks to check.
 ## 2. Economics research
 
 What the container makes reachable and installable: the analysis stacks, and the
-network allowlist that lets research data and package mirrors through. The
+network allowlist that lets research data through. The
 commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
 - **Host-built, read-only package stacks.** The Python venv, the R
@@ -157,12 +158,13 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   and the native libraries needed by the R and Python stacks.
 
 - **Research-tuned network allowlist.** When enabled, the firewall is deny-by-default and
-  allows FRED, OpenAlex, arXiv, SSRN, WRDS, the Ken French data library,
-  global-q, and JKP factor data alongside package registries, code hosting, and
-  agent APIs. Google's published first-party ranges are also allowed, so
-  Google-hosted services resolve; arbitrary GCP customer ranges are not.
-  CDN-fronted package and documentation hosts are added at DNS resolution time
-  so ordinary address rotation does not break installs.
+  allows FRED, OpenAlex, arXiv, SSRN, WRDS and the Ken French data library
+  alongside npm, code hosting, and agent APIs. Google's published first-party
+  ranges are also allowed, so Google-hosted services resolve; arbitrary GCP
+  customer ranges are not. R and Python package registries are deliberately
+  blocked: the stacks are built on the host, outside the firewall. CDN-fronted
+  documentation hosts are added at DNS resolution time so ordinary address
+  rotation does not break them.
 
 ## 3. Ergonomic research tooling
 

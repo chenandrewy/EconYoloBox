@@ -335,3 +335,15 @@ The user answered these on 2026-09-25.
   (1.0 GB per checkout). `docs/storage-needs.md` and the README budget now
   use these figures. The image itself was not re-measured (no Docker in the
   container); its 3.42 GB figure predates TeX Live and the CLIs leaving it.
+- 2026-09-26: tightened the firewall. With the stacks host-built and
+  read-only, nothing in the container needs a package registry, so
+  `init-firewall.sh` drops `pypi.org`, `files.pythonhosted.org`,
+  `packagemanager.posit.co`, `cran.r-project.org` and the volatile
+  `rspm-sync.rstudio.com` and `apache.jfrog.io`. This closes the scratch
+  install route (`pip --user`, a personal R library) that 0921a had left
+  open. The user also removed `global-q.org` and the volatile
+  `jkpfactors-data.s3.amazonaws.com`. `developers.openai.com` is now the only
+  volatile domain, and `test-firewall.sh` probes it for the dnsmasq path and
+  checks that PyPI and P3M are blocked. npm stays for the AI CLIs. Agent
+  guidance and `docs/features.md` updated. Needs a container restart with
+  `firewall = true`, then `bash .devcontainer/test-firewall.sh`.
