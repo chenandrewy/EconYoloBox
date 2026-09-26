@@ -202,13 +202,32 @@ The user answered these on 2026-09-25.
       `bash .devcontainer/tests/test-packages.sh`. No second run is needed:
       all projects share the one devcontainer, so they already share the
       volumes (see log, 2026-09-26).
-- [ ] **HOST:** consumer-first creation order. Mount a fresh throwaway
+- [x] **HOST:** consumer-first creation order. Mount a fresh throwaway
       venv volume read-only in a consumer container first (Docker seeds the
       skeleton), then build into it, then `--verify python` read-only. Remove
       the throwaway volume afterwards.
-- [ ] Re-measure the shared volumes from the rebuilt container (`du -sh`)
+- [x] Re-measure the shared volumes from the rebuilt container (`du -sh`)
       and update `docs/storage-needs.md` and the root README's storage
       budget.
+- [ ] Test the new setup for a few days of real research work.
+      Suggestions, as time allows:
+      - Rerun an existing R and a Python analysis end to end in a real
+        project. The new R library was built fresh from the declared list,
+        so anything only in the old per-devcontainer volume is gone
+        (`spacyr`, for one). Note each missing package.
+      - Build a real paper with pdflatex + biber, and export a real LyX
+        note. The TeX tree is now minimal, so expect the odd missing
+        `.sty`; add it to `TEX_PKGS`. Also watch for documents that
+        need XeLaTeX.
+      - Try LaTeX Workshop's build and `latexindent` formatting in VS Code.
+      - Add one missing package the documented way (list,
+        `packages.sh`, restart the session), and confirm that no rebuild
+        is needed.
+      - Watch agents: they should ask for missing packages, not install
+        them. Also look for project scripts that call
+        `install.packages()` or `pip install` themselves; those now fail.
+      - Check that container start is quiet, with no missing-stack warning
+        and no `tex-refresh` error.
 - [ ] **HOST, only after everything passes:** the user prunes the old
       volumes (`texlive-2026-noble` and the per-devcontainer
       `*-r-site-library-*` / `*-venv-*`). Suggest the commands; don't
@@ -306,3 +325,13 @@ The user answered these on 2026-09-25.
   `packages.sh` builds each volume under the literal name in
   `devcontainer.json`. If the mounted name didn't match, Docker would mount
   an empty volume and the test's R and Python loads would fail.
+- 2026-09-26: consumer-first creation order passed on the host, per the
+  user: a throwaway venv volume mounted read-only first held the skeleton and
+  failed `--verify python`; building into it and re-verifying read-only
+  passed.
+- 2026-09-26, re-measured with `du -sh` in the rebuilt devcontainer (all
+  three package mounts `ro`): TeX 3.0 GB, venv 1.2 GB, R 536 MB (4.7 GB
+  shared); npm-global 560 MB, codex 396 MB, claude 26 MB, history 48 KB
+  (1.0 GB per checkout). `docs/storage-needs.md` and the README budget now
+  use these figures. The image itself was not re-measured (no Docker in the
+  container); its 3.42 GB figure predates TeX Live and the CLIs leaving it.

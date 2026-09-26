@@ -253,8 +253,10 @@ export TZ=America/Chicago
 
 ## Devcontainer storage
 
-Budget roughly **5.5GB for the first checkout**, plus about 2GB of persistent
-volumes for each additional checkout. The container image is shared.
+Budget the container image plus about **5.7GB of volumes** for the first
+sandbox checkout: 4.7GB of shared R, Python and TeX volumes, and 1GB of
+per-checkout volumes (AI CLIs and their config). Each additional checkout adds
+about 1GB, since the image and the package volumes are shared.
 
 Docker's default 20GB BuildKit garbage-collection budget is adequate. If you
 hit repeated slow rebuilds, raising it to 35GB gives headroom. See
