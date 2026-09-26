@@ -6,19 +6,20 @@ and `.devcontainer/` defines the container.
 ## Package volumes: R, Python and TeX Live
 
 The volumes hold a lean **base**, built here on the host, and an **optional
-set**, which the user installs from inside the container in install mode
-(docs/journal/0926a). The base is what the sandbox's own tools and tests need
-plus a small core; the optional set is everything else we use. First setup, and
-again after a version bump:
+set**, which the user installs from inside the container in normie mode
+(docs/journal/0926a, 0926b). The base is what the sandbox's own tools and tests
+need plus a small core; the optional set is everything else we use. First setup,
+and again after a version bump:
 
 1. On the host: `bash .setup/packages.sh`.
-2. Switch to install mode: `packages = "writable"` and `internet = "open"` in
-   `SANDBOX.toml`, then `bbox --rebuild`.
+2. Switch to normie mode: `internet = "open"`, `packages = "writable"` and
+   `seccomp = "unconfined"` in `SANDBOX.toml`, then `bbox --rebuild`.
 3. In the container: `bash .devcontainer/install-optional.sh`.
-4. Switch back: `packages = "readonly"`, `internet = "firewalled"`, `bbox --rebuild`.
+4. Switch back to YOLO mode: `internet = "firewalled"`, `packages =
+   "readonly"` and `seccomp = "builtin"`, then `bbox --rebuild`.
 
 Skipping steps 2–4 is fine; the base passes its tests alone, and a project can
-install just what it needs in install mode instead.
+install just what it needs in normie mode instead.
 
 From anywhere in the repository, on the host with Docker running:
 
@@ -31,14 +32,14 @@ bash .setup/packages.sh r --force  # reinstall present R packages
 
 The script runs `.devcontainer/install-packages.sh` as root in a throwaway
 container of **this workspace's devcontainer image**, with the shared volumes
-mounted read-write, then runs `chown -R node:node` over them so that install
-mode works as `node` without sudo. It finds that image by looking up the container labelled
-with this folder (`devcontainer.local_folder`). If there is no such container,
-or more than one, it refuses: run `bbox --rebuild` first. It never falls back to
-another image, because R packages link against the image's libraries and
-install from its pinned P3M snapshot. After a `CRAN_SNAPSHOT`, `R_VERSION` or
-base image change, the order is: edit the Dockerfile, `bbox --rebuild`, then
-build the volume.
+mounted read-write, then runs `chown -R node:node` over them so that normie mode
+works as `node` without sudo. It finds that image by looking up the container
+labelled with this folder (`devcontainer.local_folder`). If there is no such
+container, or more than one, it refuses: run `bbox --rebuild` first. It never
+falls back to another image, because R packages link against the image's
+libraries and install from its pinned P3M snapshot. After a `CRAN_SNAPSHOT`,
+`R_VERSION` or base image change, the order is: edit the Dockerfile,
+`bbox --rebuild`, then build the volume.
 
 The builder uses Docker's default network, so the devcontainer firewall does
 not apply. P3M, PyPI, Bioconductor and CTAN are reached from here. The AI CLIs
@@ -54,7 +55,7 @@ per-devcontainer (`${devcontainerId}`) names.
 
 Inside the container these volumes are read-only by default:
 `install-packages.sh python|r|tex` refuses and points here, and `--verify`
-checks without writing. In install mode they are writable (see
+checks without writing. In normie mode they are writable (see
 `.devcontainer/README.md`, "Working modes"). After a rebuild,
 `bash .devcontainer/tests/test-packages.sh` (as `node`, in the container) is
 the acceptance check for the base in either mode;
@@ -67,7 +68,7 @@ build finishes, restart R and Python sessions. After a TeX change, run
 
 ### Adding a package
 
-Usually in install mode: `install.packages("x")`, `pip install x` or
+Usually in normie mode: `install.packages("x")`, `pip install x` or
 `tlmgr install x` in the container, as `node`. If the package is generally
 useful, also add it to a list in `.devcontainer/install-optional.sh` so the
 next rebuild of the volume brings it back; an ad hoc install that is not added
@@ -119,8 +120,8 @@ The installer decides by the `.sandbox-installed` marker in the volume:
   log and decide explicitly whether to recreate the volume.
 
 The volume is shared across projects on that daemon and mounted read-only in
-devcontainers (writable in install mode), one architecture per volume. Opening a project never downloads
-TeX; startup warns when TeX is missing.
+devcontainers (writable in normie mode), one architecture per volume. Opening
+a project never downloads TeX; startup warns when TeX is missing.
 
 To read the TeX log without changing anything:
 

@@ -17,18 +17,21 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
 macOS screenshots (`screenshot_directory`). Read it when you need a location;
 do not assume or hard-code these paths.
 
-The same file holds two switches: `internet`, which arms (`"firewalled"`) or disables
-(`"open"`) the egress firewall at the next container start, and `packages`,
-which mounts the R, Python and TeX volumes `"readonly"` (the default) or
-`"writable"` at the next `bbox --rebuild`. Never change either; that is the
-user's decision (see `USER PERMISSION REQUIRED`). Together they give three
-working modes; startup prints the current one:
+The same file holds three switches: `internet`, which arms (`"firewalled"`) or
+disables (`"open"`) the egress firewall at the next container start;
+`packages`, which mounts the R, Python and TeX volumes `"readonly"` or
+`"writable"`; and `seccomp`, Docker's outer syscall filter (`"builtin"` or
+`"unconfined"`). The last two take effect at the next `bbox --rebuild`. Never
+change any of them; that is the user's decision (see `USER PERMISSION
+REQUIRED`). They combine into two modes, and startup prints the current one:
 
-1. **YOLO work** (`internet = "firewalled"`, `packages = "readonly"`): everyday work.
-2. **Chaperoned internet work** (`internet = "open"`, `packages = "readonly"`): open web access, with
-   the user watching.
-3. **Careful package installs** (`internet = "open"`, `packages = "writable"`): the user installs
-   packages, then switches back.
+1. **YOLO mode** (`"firewalled"`, `"readonly"`, `"builtin"`), the default:
+   everyday work, with agents free to run unsupervised.
+2. **Normie mode** (`"open"`, `"writable"`, `"unconfined"`): like ordinary
+   work on the Mac, with the user watching and agents in approval modes. This
+   is where the web is open and packages get installed.
+
+Other combinations work and are reported as a custom posture.
 
 ### Guidance that depends on `SANDBOX.toml`
 
@@ -43,7 +46,7 @@ working modes; startup prints the current one:
     `*.gallerycdn.vsassets.io` — a new extension publisher needs a new entry
     or its install silently fails). PyPI, P3M, CRAN, Bioconductor and CTAN
     are deliberately **not** allowed: packages are installed on the host or
-    in mode 3, so a missing package goes to the user.
+    in normie mode, so a missing package goes to the user.
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
   - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
@@ -59,14 +62,15 @@ working modes; startup prints the current one:
   servers and are not subject to the devcontainer firewall. When the firewall
   is on, this does not make arbitrary URLs available to terminal commands or
   project code.
-- **Package installs depend on `packages`.** In modes 1 and 2 the R, Python
-  and TeX stacks are **read-only**. If a package is missing, **ASK THE USER TO
-  ADD IT** (name the package) rather than installing it some other way. They
-  add it in mode 3, or to a list in `.devcontainer/install-packages.sh` (base)
-  or `.devcontainer/install-optional.sh` (optional set). In mode 3 the volumes
+- **Package installs depend on `packages`.** When `"readonly"` (YOLO mode), the
+  R, Python and TeX stacks are **read-only**. If a package is missing, **ASK THE
+  USER TO ADD IT** (name the package) rather than installing it some other way.
+  They add it in normie mode, or to a list in
+  `.devcontainer/install-packages.sh` (base) or
+  `.devcontainer/install-optional.sh` (optional set). In normie mode the volumes
   are writable, but install **only what the user asks for**, with the ordinary
-  commands (`install.packages()`, `pip install`, `tlmgr install`), and say
-  when pip replaced a dependency. New **system** libraries (`apt-get`, `-dev`
+  commands (`install.packages()`, `pip install`, `tlmgr install`), and say when
+  pip replaced a dependency. New **system** libraries (`apt-get`, `-dev`
   packages) always need permission — see `USER PERMISSION REQUIRED`.
 - If the firewall blocks a resource you need: **ASK THE USER TO ADD IT**
 - For "this screenshot," "the image," or "latest screenshot," look up
@@ -88,10 +92,10 @@ working modes; startup prints the current one:
   `pcaMethods` from Bioconductor); `install-optional.sh --verify` says whether
   it is present.
 - **The R, Python and TeX stacks live in shared volumes**, mounted read-only
-  unless the user chose mode 3. The base is built on the host by
+  unless the user chose normie mode. The base is built on the host by
   `bash .setup/packages.sh` from the lists in
   `.devcontainer/install-packages.sh`; the optional set is installed by the
-  user in mode 3 with `.devcontainer/install-optional.sh`.
+  user in normie mode with `.devcontainer/install-optional.sh`.
   `install-packages.sh --verify python r tex` checks the base without changing
   it. If an import fails, or startup warns that a package volume is not built,
   notify the user.

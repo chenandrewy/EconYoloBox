@@ -12,7 +12,8 @@ Explicit YOLO launchers skip permissions and refuse to start unless the
 firewall is enabled and PID 1 has filtered seccomp. Egress blocking is a hard
 boundary; an LLM reviewer is a soft one.
 
-For internet access, set `internet = "open"` and use Claude's
+For internet access, switch to normie mode (`internet = "open"`, with
+`packages = "writable"` and `seccomp = "unconfined"`) and use Claude's
 `claude --permission-mode auto`. Its two-stage classifier skips in-project
 edits and is cheap per call. Codex's automatic review is a full model call per
 escalation, and with the firewall down every network action escalates, so it
@@ -23,7 +24,8 @@ internet setting does not configure either agent's approval mode.
 Codex's sandboxed modes (the `/etc/codex` defaults request workspace-write
 sandboxing and on-request approval; we recommend
 `approvals_reviewer = "auto_review"` in your user config for "Approve for me")
-need `seccomp = "unconfined"`, applied with `bbox --rebuild`. Builtin seccomp
+need `seccomp = "unconfined"`, which normie mode sets, applied with
+`bbox --rebuild`. Builtin seccomp
 blocks Bubblewrap setup, and automatic review could not reliably recover
 native editing tools. Unconfined removes Docker's outer syscall filter for
 every process, including Claude and unsandboxed commands, and requires
@@ -144,15 +146,16 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   firewall never blocks a stack build; it still governs anything fetched from
   inside the container.
 
-- **Three working modes.** A second switch, `packages = "readonly" |
-  "writable"`, sits beside `internet` in `SANDBOX.toml`. Together they give
-  YOLO work (firewall on, read-only), chaperoned internet work (firewall off,
-  read-only) and careful package installs (firewall off, writable). In the
-  last, the user installs with the ordinary `install.packages()`, `pip install`
-  and `tlmgr install`, then switches back. `bbox --rebuild` applies the switch
-  and checks the resulting mounts; startup prints the mode, and shells warn
-  while the volumes are writable. The rest of what we use beyond the base is
-  an optional set that `install-optional.sh` installs this way.
+- **Two working modes.** A second switch, `packages = "readonly" |
+  "writable"`, sits beside `internet` and `seccomp` in `SANDBOX.toml`. YOLO
+  mode, the default, is firewalled, read-only and builtin: agents run
+  unsupervised. Normie mode is open, writable and unconfined: supervised work
+  that feels like the Mac, with agents in approval modes. There the user
+  installs with the ordinary `install.packages()`, `pip install` and `tlmgr
+  install`, then switches back. `bbox --rebuild` applies the switches and
+  checks the resulting mounts; startup prints the mode, and shells warn while
+  the volumes are writable. The rest of what we use beyond the base is an
+  optional set that `install-optional.sh` installs in normie mode.
 
 - **Pinned R package state.** R resolves against a dated P3M snapshot rather
   than live CRAN, so an R environment rebuilt months later resolves the same

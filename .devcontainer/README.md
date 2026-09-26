@@ -71,7 +71,7 @@ pictures, mathscience and fontsextra. It has no documentation files. It lives
 in the shared `texlive-2026-base-noble` volume at `/usr/local/texlive`. The
 image puts the matching architecture's binaries on PATH; user TeX caches live
 in the writable home directory. Packages are added with `tlmgr install` in
-install mode, or by listing them in `TEX_PKGS` and rerunning the builder;
+normie mode, or by listing them in `TEX_PKGS` and rerunning the builder;
 existing packages are never updated in place.
 
 `tex-refresh` runs LyX converter detection as `node` in `~/.lyx` at startup,
@@ -101,7 +101,7 @@ this helper. See the host setup README for installation and failure handling.
   the AI CLI installer inside the container (see "Package stacks and AI CLIs"
   below).
 - `install-optional.sh` — the optional package set, installed by the user in
-  install mode (see "Working modes" below).
+  normie mode (see "Working modes" below).
 - `strict-setting.sh`, with its wrappers `seccomp-setting.sh` and
   `packages-setting.sh` — strict readers for SANDBOX.toml's enumerated
   switches; `package-mode.sh` reports how the package volumes are mounted.
@@ -340,38 +340,43 @@ enabling the firewall does not restore syscall filtering.
 
 ### Working modes
 
-Two independent switches in `SANDBOX.toml`, `internet` and `packages`, give
-three working modes (docs/journal/0926a):
+Three independent switches in `SANDBOX.toml`, `internet`, `packages` and
+`seccomp`, combine into two named modes (docs/journal/0926b):
 
-| Mode | `internet` | `packages` | Use |
-|---|---|---|---|
-| 1. YOLO work (default) | `"firewalled"` | `"readonly"` | everyday work; agents ask when a package is missing |
-| 2. Chaperoned internet work | `"open"` | `"readonly"` | open web access, with the user watching |
-| 3. Careful package installs | `"open"` | `"writable"` | the user installs packages, then switches back |
+| Mode | `internet` | `packages` | `seccomp` | Use |
+|---|---|---|---|---|
+| YOLO mode (default) | `"firewalled"` | `"readonly"` | `"builtin"` | everyday work; YOLO launchers allowed; agents ask when a package is missing |
+| Normie mode | `"open"` | `"writable"` | `"unconfined"` | supervised work, like the Mac: open web, package installs, agents in approval modes |
 
-Changing `internet` takes a container restart; changing `packages` takes
-`bbox --rebuild`, because mounts are fixed at container creation (a rebuild
+Normie mode needs `unconfined` because Codex's approval modes run commands in
+Bubblewrap, which builtin seccomp blocks (see
+[Codex sandbox modes](#codex-sandbox-modes-and-launchers)). Other combinations
+still work; `post-start.sh` reports them as a custom posture.
+
+Changing `internet` takes a container restart; changing `packages` or `seccomp`
+takes `bbox --rebuild`, because both are fixed at container creation (a rebuild
 from the cached image is quick). `bbox` exports `SANDBOX_PKG_READONLY` for the
 three package mounts in `devcontainer.json` and checks the created container's
 mounts, as it does for seccomp. A container created without `bbox`, for example
 by VS Code directly, mounts them read-only. `post-start.sh` prints the current
 mode, and interactive shells warn while the volumes are writable.
 
-In mode 3, install as `node` with the ordinary commands: `install.packages()`
-writes to the shared site library, `pip install` to `/opt/venv`, and
-`tlmgr install` to the TeX tree (then run `tex-refresh`). `.setup/packages.sh`
-chowns the volumes to `node` so no sudo is needed. pip resolves against current
-PyPI and can replace dependencies, one reason the mode is supervised. Agents
-install in mode 3 only when the user asks. `install-optional.sh` installs the
-optional set this way; `install-optional.sh --verify` and
-`tests/test-optional.sh` check it in any mode.
+In normie mode, install as `node` with the ordinary commands:
+`install.packages()` writes to the shared site library, `pip install` to
+`/opt/venv`, and `tlmgr install` to the TeX tree (then run `tex-refresh`).
+`.setup/packages.sh` chowns the volumes to `node` so no sudo is needed. pip
+resolves against current PyPI and can replace dependencies, one reason the mode
+is supervised. Agents install in normie mode only when the user asks.
+`install-optional.sh` installs the optional set this way;
+`install-optional.sh --verify` and `tests/test-optional.sh` check it in any
+mode.
 
 ### Package stacks and AI CLIs (`install-packages.sh`)
 
 The R, Python and TeX stacks are **not** in the image. They live in three
 shared Docker volumes. The human builds a lean base on the host with
 `bash .setup/packages.sh` (see the [host setup README](../.setup/README.md)),
-and optionally adds the rest in mode 3 with `install-optional.sh`.
+and optionally adds the rest in normie mode with `install-optional.sh`.
 `devcontainer.json` mounts them read-only unless `packages = "writable"`:
 
 | Volume | Mount |

@@ -8,22 +8,16 @@ actual research work).
 
 Key features:
 
-1. **YOLO agents by default, with a chaperoned switch**
+1. **YOLO agents by default, with a toggle for "normie" mode**
 
-   - **Everyday work:** run the YOLO launchers (`cchat-yolo`, `gptchat-yolo`)
-     behind the container's deny-by-default firewall and Docker's builtin
-     seccomp filter. These are the container defaults (`internet = "firewalled"`,
-     `seccomp = "builtin"`); the launchers refuse to start without both.
-   - **Internet access:** set `internet = "open"` in `SANDBOX.toml`, rebuild,
-     and use Claude's auto mode. Its permission classifier is much cheaper than
-     Codex's automatic review, which runs a full model call per escalation.
-   - **Package installs:** also set `packages = "writable"` and run
-     `bbox --rebuild`, then install R, Python or TeX packages the usual way
-     while watching. Switch back afterwards; the package volumes are read-only
-     otherwise.
-   - **Codex sandboxed modes:** also set `seccomp = "unconfined"` and run
-     `bbox --rebuild`, since builtin blocks Bubblewrap setup here. This
-     disables Docker's outer syscall filter for every process.
+   - **YOLO mode:** set `"firewalled"`, `"readonly"`, and `"builtin"` in
+     `SANDBOX.toml` for security. Then run Claude Code and Codex in yolo mode
+     using the convenient aliases `cchat-yolo` and `gptchat-yolo`. Cook!
+   - **Normie mode:** set `"open"`, `"writable"`, and `"unconfined"` in
+     `SANDBOX.toml` and rebuild the container with `bbox --rebuild`. Then you
+     can work with the sandbox like a normie to do stuff that requires internet
+     access and (probably) babysitting of the agents (e.g. install R packages,
+     test new software, search arbitrary websites).
    - See [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
 
 2. **Ergonomic container and AI access**
@@ -90,12 +84,14 @@ Windows and Linux support is partially wired but has not been tested.
    Wait for the first build to finish. VS Code reloads with `Dev Container`
    shown in the lower-left corner when it is ready.
 
-   The container firewall defaults on, allowing only the network allowlist.
-   For open internet access, set `internet = "open"` in `SANDBOX.toml` before
-   starting the container; a shell warning then confirms that posture.
-   Codex's sandboxed modes additionally need `seccomp = "unconfined"`, which
-   disables Docker's outer syscall filter for every container process;
-   see [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
+   The container starts in YOLO mode: firewall on, allowing only the network
+   allowlist, with read-only package volumes and builtin seccomp. For open
+   internet access and package installs, switch `SANDBOX.toml` to normie mode
+   (`internet = "open"`, `packages = "writable"`, `seccomp = "unconfined"`)
+   and run `bbox --rebuild`; startup names the mode and shells warn while it
+   is open. Unconfined disables Docker's outer syscall filter for every
+   container process; see
+   [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
 
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
    The sandbox repository is mounted at `/sandbox`; all user content goes
@@ -163,22 +159,21 @@ Windows and Linux support is partially wired but has not been tested.
    it. Codex also has its own command network policy, so an open container
    firewall does not guarantee that every sandboxed command can reach the web.
 
-### Switching firewall modes
+### Switching modes
 
-`SANDBOX.toml` controls the container's outbound network allowlist.
-`internet = "open"` leaves the container network open;
-`internet = "firewalled"` enables the research and package allowlist.
-After changing it, stop the container and reopen it through VS Code
-Dev Containers, or use **Dev Containers: Rebuild Container**. Editing the file
-does not change the running firewall, and a bare `docker restart` skips the
-startup hook that reads the setting.
+`SANDBOX.toml` names two presets. YOLO mode (`internet = "firewalled"`,
+`packages = "readonly"`, `seccomp = "builtin"`) is the default. Normie mode
+(`"open"`, `"writable"`, `"unconfined"`) is for supervised work. Edit the
+three keys, then run `bbox --rebuild`; `packages` and `seccomp` are fixed at
+container creation, so a restart is not enough. Editing the file does not
+change the running container. Startup prints `YOLO mode`, `Normie mode` or
+`Custom posture` for any other combination.
 
 The `cchat-yolo`, `gptchat-yolo`, and `gptmini-yolo` launchers skip permission
 checks and refuse to start unless the firewall is enabled and PID 1 has a
-filtered seccomp mode. Set `internet = "firewalled"` and `seccomp = "builtin"`, then use
-`bbox --rebuild` before starting YOLO work. Keep ordinary approval modes for
-tasks that need review; neither a firewall nor automatic review guarantees the
-safety of mounted files or accessible credentials.
+filtered seccomp mode, so they run only in YOLO mode. In normie mode, keep
+agents in ordinary approval modes; neither a firewall nor automatic review
+guarantees the safety of mounted files or accessible credentials.
 
 ## Recommended additions
 
@@ -218,13 +213,14 @@ bash .setup/packages.sh          # Python, R and minimal pdfLaTeX TeX Live
 bash .setup/packages.sh tex      # TeX only
 ```
 
-The rest of the usual stack is an optional set. To install it, switch to the
-package-install mode: set `packages = "writable"` and `internet = "open"` in
-`SANDBOX.toml` and run `bbox --rebuild`. Then run
-`bash .devcontainer/install-optional.sh` in the container, and switch both
-back. The same mode is how you add a package later, with `install.packages()`,
-`pip install` or `tlmgr install`. See [host setup](.setup/README.md) and the
-[devcontainer README](.devcontainer/README.md#working-modes) for the details.
+The rest of the usual stack is an optional set. To install it, switch to
+normie mode: set `internet = "open"`, `packages = "writable"` and
+`seccomp = "unconfined"` in `SANDBOX.toml` and run `bbox --rebuild`. Then run
+`bash .devcontainer/install-optional.sh` in the container, and switch back to
+YOLO mode. The same mode is how you add a package later, with
+`install.packages()`, `pip install` or `tlmgr install`. See [host
+setup](.setup/README.md) and the [devcontainer
+README](.devcontainer/README.md#working-modes) for the details.
 
 ## Optional host command workflow
 

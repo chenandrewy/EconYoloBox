@@ -3,8 +3,8 @@
 Working checklist, 2026-09-26, branch `feature/package-install-modes`.
 Implements [0926a](0926a,package-install-modes-plan.md); read it first. Where
 they differ, this file wins: the three modes of 0926a became two (see
-[decisions](#decisions)). Container-side work is done except the doc pass in
-step 7b. What is left runs on the host (**HOST**): the container has no
+[decisions](#decisions)). Container-side work is done, including the doc pass
+in step 7b. What is left runs on the host (**HOST**): the container has no
 Docker socket, so nothing here has been built or rebuilt yet.
 
 ## done in the container
@@ -44,7 +44,7 @@ Docker socket, so nothing here has been built or rebuilt yet.
 - [x] 7. Docs: `.setup/README.md`, `.devcontainer/README.md` (new "Working
   modes" section), `docs/features.md`, root README, and a note in
   `docs/storage-needs.md` that its sizes predate the rename.
-- [ ] 7b. Doc pass for two modes. Still written for 0926a's three modes, or
+- [x] 7b. Doc pass for two modes. Still written for 0926a's three modes, or
   with "chaperoned": `.devcontainer/README.md` "Working modes",
   `docs/features.md` "Three working modes", the root README's feature list,
   `.setup/README.md` setup steps, the agent guidance's numbered modes, and
@@ -127,3 +127,7 @@ will catch it if not).
 - 2026-09-26: `firewall` renamed to `internet` (`313834d`); `SANDBOX.toml`
   rewritten around two presets, YOLO and normie. `post-start.sh` now names
   the posture; docs still to follow (7b).
+- 2026-09-26: 7b doc pass. The root README, `.devcontainer/README.md`,
+  `docs/features.md`, `.setup/README.md`, the agent guidance and
+  `install-optional.sh`'s messages now describe YOLO and normie mode, with all
+  three keys; "chaperoned", "mode 3" and "install mode" are gone.
