@@ -1,28 +1,26 @@
 # Big Sandbox settings
-#
-# YOLO launchers require both the egress firewall and Docker's builtin seccomp
-# filter. These settings do not select an agent's approval mode.
 
-# true raises the deny-by-default firewall; false leaves egress open for
-# sessions such as Claude auto mode. Applies at the next container start.
+## Security 
+# YOLO launchers require both firewall = true and seccomp = "builtin"
+# Codex auto mode works more smoothly with seccomp = "unconfined"
+
+# `firewall = true` raises the deny-by-default firewall
+# `firewall = false` leaves internet access open
 firewall = true
 
-# builtin keeps Docker's syscall filter. Codex/Bubblewrap sandboxing needs
-# unconfined here; it removes that filter from every process. Apply changes
-# with `bbox --rebuild`; direct VS Code builds default to builtin.
+## Docker's system call filter
+# `seccomp = "builtin"` uses Docker's default protections
+# `seccomp = "unconfined"` allows Codex's bubblewrap sandboxing
 seccomp = "builtin"
 
-# IANA zone for TZ and for human-facing timestamps. Comment out to use the
-# host's detected zone.
-timezone = "America/New_York"
-
-# Container paths. Agents read these directly.
-# The cellar is the research library: PDFs of papers, drafts, and other
-# reference material. "Look in the cellar for the Azoulay paper" means here.
-# It is shared reference material, not a project, so it sits beside
-# workspace/ at the sandbox root.
+## Container paths. 
+# The SANDBOX-AGENTS.md points to these paths
 cellar = "/sandbox/cellar/"
 # Finished and retired projects. Moving a project here means it is no longer
 # active work; workspace/ holds only what is in progress.
 done = "/sandbox/done/"
 screenshot_directory = "/sandbox/workspace/dev/screenshots/"
+
+# IANA zone for TZ and for human-facing timestamps. Comment out to use the
+# host's detected zone.
+timezone = "America/New_York"
