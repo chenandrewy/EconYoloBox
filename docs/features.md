@@ -88,7 +88,7 @@ tooling those changes exist to support is described in
   against an agent that edits the repo; `git diff` before restarting is the
   review step. A
   fresh container has the system toolchain immediately. The R, Python and TeX
-  stacks come from shared volumes built on the host, and the AI CLIs
+  stacks come from shared volumes filled in normie mode, and the AI CLIs
   install once into a per-container volume with `install-base.sh cli`.
 
 - **Enforced agent policy.** Root-owned configuration disables Claude's online
@@ -137,14 +137,12 @@ What the container makes reachable and installable: the analysis stacks, and the
 network allowlist that lets research data through. The
 commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
-- **Host-built, read-only package stacks.** The Python venv, the R
-  site-library and a minimal pdfLaTeX TeX Live live in shared Docker volumes.
-  The human builds a lean base on the host with `bash .setup/install-base.sh`,
-  which runs itself in the devcontainer's own image, and every
+- **Read-only package stacks.** The Python venv, the R site-library and a
+  minimal pdfLaTeX TeX Live live in shared Docker volumes. The human installs
+  a lean base with `bash .setup/install-base.sh` from inside the container in
+  normie mode, with the firewall off and the volumes writable, and every
   project mounts them read-only by default. Agents run the stacks but cannot
-  change them. The builder uses Docker's default network, so the container
-  firewall never blocks a stack build; it still governs anything fetched from
-  inside the container.
+  change them. Packages change only in normie mode, from inside.
 
 - **Two working modes.** A second switch, `packages = "readonly" |
   "writable"`, sits beside `internet` and `seccomp` in `SANDBOX.toml`. YOLO
@@ -173,7 +171,7 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   alongside npm, code hosting, and agent APIs. Google's published first-party
   ranges are also allowed, so Google-hosted services resolve; arbitrary GCP
   customer ranges are not. R and Python package registries are deliberately
-  blocked: the stacks are built on the host, outside the firewall. CDN-fronted
+  blocked: the stacks are installed in normie mode, with the firewall off. CDN-fronted
   documentation hosts are added at DNS resolution time so ordinary address
   rotation does not break them.
 
@@ -195,7 +193,7 @@ workable should each be one step.
 | `.tools/lit/` | `cited_by.py` |
 | `.devcontainer/agents/` | `seed-agent-guidelines.sh` (runs at container start) |
 | `.devcontainer/` | `test-firewall.sh`, `test-agent-policy.sh` |
-| `.setup/` (host, or container for `cli`) | `install-base.sh` (`cli`, `--verify`), `install-optional.sh` (normie mode) |
+| `.setup/` (container; normie mode except `cli`, `--verify`) | `install-base.sh`, `install-optional.sh` |
 
 Everything in `.tools/` is on `PATH` via `shellrc.sh`, so the filenames are the
 commands.

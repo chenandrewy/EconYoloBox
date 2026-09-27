@@ -117,8 +117,8 @@ Windows and Linux support is partially wired but has not been tested.
 
 6. **Install the AI CLIs.** They are not baked into the image — they live in a
    persistent volume so that updating them is not undone by the next rebuild.
-   `bash .setup/install-base.sh` on the host (below) installs them with the
-   rest of the base; to install or update just the CLIs from inside:
+   `bash .setup/install-base.sh` in normie mode (below) installs them with
+   the rest of the base; to install or update just the CLIs, in any mode:
 
    ```bash
    bash /sandbox/.setup/install-base.sh cli
@@ -205,21 +205,20 @@ not built the container yet.
 ### Build the package stacks
 
 R, Python and TeX Live are not in the image. They live in shared volumes that
-every project mounts, read-only by default. You build a lean base on the Docker
-host. After the container exists (it supplies the builder image), run from the
-checkout root on the host:
+every project mounts, read-only by default. You install them from inside the
+container, in normie mode: set `internet = "open"`, `packages = "writable"`
+and `seccomp = "unconfined"` in `SANDBOX.toml` and run `bbox --rebuild`. Then,
+in the container:
 
 ```bash
 bash .setup/install-base.sh          # Python, R, minimal pdfLaTeX TeX Live, AI CLIs
-bash .setup/install-base.sh tex      # TeX only
+bash .setup/install-optional.sh      # optional: the rest of the usual stack
 ```
 
-The rest of the usual stack is an optional set. To install it, switch to
-normie mode: set `internet = "open"`, `packages = "writable"` and
-`seccomp = "unconfined"` in `SANDBOX.toml` and run `bbox --rebuild`. Then run
-`bash .setup/install-optional.sh` in the container, and switch back to
-YOLO mode. The same mode is how you add a package later, with
-`install.packages()`, `pip install` or `tlmgr install`. See [setup](.setup/README.md) and the [devcontainer
+Switch back to YOLO mode (`"firewalled"`, `"readonly"`, `"builtin"`, then
+`bbox --rebuild`) and run `bash .devcontainer/tests/test-packages.sh`. The same
+normie mode is how you add a package later, with `install.packages()`,
+`pip install` or `tlmgr install`. See [setup](.setup/README.md) and the [devcontainer
 README](.devcontainer/README.md#working-modes) for the details.
 
 ## Optional host command workflow
@@ -267,11 +266,12 @@ hit repeated slow rebuilds, raising it to 35GB gives headroom. See
 [Devcontainer storage needs](docs/storage-needs.md) for the settings and for how
 to confirm that eviction is the actual problem.
 
-## TeX Live host setup
+## TeX Live setup
 
 The devcontainer uses a shared, pdfLaTeX-only TeX Live volume, read-only by default.
-Before TeX/LyX work, run `bash .setup/install-base.sh tex` on the Docker host; see
-[setup](.setup/README.md) for installation and validation instructions.
+Before TeX/LyX work, run `bash .setup/install-base.sh tex` in the container in
+normie mode; see [setup](.setup/README.md) for installation and validation
+instructions.
 
 ## License
 

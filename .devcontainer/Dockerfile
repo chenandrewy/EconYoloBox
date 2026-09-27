@@ -252,13 +252,14 @@ ENV DEVCONTAINER=true
 WORKDIR /sandbox
 
 # The Python, R and TeX stacks are NOT baked into the image. They live in
-# shared volumes that the human builds on the host with .setup/install-base.sh
-# (which runs itself in this image), and devcontainer.json
-# mounts them read-only. Agents in the container run the stacks; they do not
-# change them (docs/journal/0921a, 0925b).
+# shared volumes that the human fills from inside this container, in normie
+# mode, with .setup/install-base.sh; devcontainer.json mounts them read-only
+# otherwise. Agents in the container run the stacks; they do not change them
+# (docs/journal/0921a, 0925b, 0926e).
 #
 # What stays here is what needs root or the build's open network: the system
-# -dev libraries above, R itself, and the empty venv and site-library below.
+# -dev libraries above, R itself, and the empty venv, site-library and TeX
+# mount point below.
 
 # Empty venv. Docker seeds a fresh volume from this directory, so it is also
 # the skeleton an unbuilt venv volume shows. noble's python3 is 3.12, so the
@@ -267,9 +268,15 @@ RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # R adds site-library to .libPaths() only if the directory exists, so it must
-# exist here for the mounted volume to be found. Ownership does not matter:
-# the mount is read-only and the host builder runs as root.
-RUN mkdir -p /opt/R/${R_VERSION}/lib/R/site-library
+# exist here for the mounted volume to be found. TeX's mount point is created
+# too, or Docker would make it root-owned.
+#
+# All three go to node: Docker seeds a fresh volume from the image directory,
+# ownership included, so a new volume starts node-owned and install-base.sh
+# fills it as node in normie mode. The read-only mount, not the owner, is what
+# protects them in YOLO mode (docs/journal/0926e).
+RUN mkdir -p /opt/R/${R_VERSION}/lib/R/site-library /usr/local/texlive && \
+  chown -R node:node /opt/venv /opt/R/${R_VERSION}/lib/R/site-library /usr/local/texlive
 
 ARG GIT_DELTA_VERSION=0.18.2
 RUN ARCH=$(dpkg --print-architecture) && \
@@ -338,8 +345,8 @@ RUN ARCH=$(dpkg --print-architecture) && \
   install -m 0755 /tmp/pandoc-crossref /usr/local/bin/pandoc-crossref && \
   rm -rf /tmp/pandoc.tar.gz /tmp/pandoc-crossref.tar.xz /tmp/pandoc-${PANDOC_VERSION} /tmp/pandoc-crossref
 
-# TeX is installed on the host (.setup/install-base.sh tex) into a shared volume
-# mounted read-only. The symlink intentionally dangles during image build; the
+# TeX is installed in normie mode (.setup/install-base.sh tex) into a shared
+# volume, mounted read-only otherwise. The symlink intentionally dangles during image build; the
 # installer reads the year and platform from it. Keep the year in step with
 # the TeX volume name in devcontainer.json.
 RUN ARCH=$(dpkg --print-architecture) && \

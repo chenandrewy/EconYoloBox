@@ -26,15 +26,7 @@
 #     Output:  readonly or writable when the python, r and tex package mounts
 #              all agree, else an unverified description.
 #
-#   python3 dc-resolve.py package-volumes <devcontainer.json>
-#     Input:   path to a devcontainer.json (JSONC allowed).
-#     Output:  one "<stack> <volume> <target>" line each for python, r and tex:
-#              the shared package volumes .setup/install-base.sh builds.
-#              A `// install-base.sh: <mount>` comment line stages a volume and
-#              overrides the live mount with the same target.
-#
-# Called by _dc_resolve/bbox in devcontainer.zsh and by .setup/install-base.sh;
-# not meant to be run by hand.
+# Called by _dc_resolve/bbox in devcontainer.zsh; not meant to be run by hand.
 
 import json
 import pathlib
@@ -174,33 +166,6 @@ def package_access(src):
     return "unverified (mixed: " + ", ".join(f"{s} {access[s]}" for s in ("python", "r", "tex")) + ")"
 
 
-def parse_mount(spec):
-    return dict(part.split("=", 1) for part in spec.split(",") if "=" in part)
-
-
-def package_volumes(devcontainer_json):
-    with open(devcontainer_json, encoding="utf-8") as fh:
-        src = fh.read()
-    live = [m for m in json.loads(strip_jsonc(src)).get("mounts", []) if isinstance(m, str)]
-    staged = re.findall(r"^\s*//\s*install-base\.sh:\s*(\S+)\s*$", src, re.MULTILINE)
-    volumes = {}
-    for spec in live + staged:  # staged last, so it wins
-        mount = parse_mount(spec)
-        stack = package_stack(mount.get("target", ""))
-        if stack and mount.get("type") == "volume":
-            volumes[stack] = (mount.get("source", ""), mount["target"])
-    lines = []
-    for stack in ("python", "r", "tex"):
-        if stack not in volumes:
-            raise SystemExit(f"package-volumes: no {stack} volume mount in {devcontainer_json}")
-        source, target = volumes[stack]
-        # A per-devcontainer name is not a shared volume the host should fill.
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", source):
-            raise SystemExit(f"package-volumes: {stack} volume {source!r} is not a literal shared name")
-        lines.append(f"{stack} {source} {target}")
-    return "\n".join(lines)
-
-
 command = sys.argv[1]
 if command == "remote-path":
     print(remote_path(sys.argv[2], sys.argv[3]))
@@ -212,7 +177,5 @@ elif command == "security-policy":
     print(security_policy(sys.argv[2]))
 elif command == "package-access":
     print(package_access(sys.argv[2]))
-elif command == "package-volumes":
-    print(package_volumes(sys.argv[2]))
 else:
     raise SystemExit(f"unknown command: {command}")

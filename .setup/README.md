@@ -1,83 +1,93 @@
 # Setup
 
-`.setup/` is provisioning you run by hand, on the host or in the container:
-the package volumes and the AI CLIs. Each script's header says where it runs.
-`.host/` is the launcher (`bbox`), and `.devcontainer/` is the container
-itself: its definition, its startup, and the tools baked into it
-(docs/journal/0926d).
+`.setup/` is provisioning you run by hand, inside the container: the package
+volumes and the AI CLIs. `.host/` is the launcher (`bbox`), and
+`.devcontainer/` is the container itself: its definition, its startup, and the
+tools baked into it (docs/journal/0926d).
 
 | Script | What it installs | Where it runs |
 |---|---|---|
-| `install-base.sh` | the base: Python, R, TeX Live and the AI CLIs | host (builds in a throwaway container); `cli` also inside the devcontainer |
-| `install-optional.sh` | the optional set | inside the devcontainer, normie mode |
+| `install-base.sh` | the base: Python, R, TeX Live and the AI CLIs | in the container, normie mode; `cli` and `--verify` in any mode |
+| `install-optional.sh` | the optional set | in the container, normie mode; `--verify` in any mode |
+
+Packages change only in normie mode, from inside (docs/journal/0926e). Run
+both as `node`; `install-base.sh` refuses on the host.
 
 ## Package volumes: R, Python and TeX Live
 
-The volumes hold a lean **base**, built here on the host, and an **optional
-set**, which the user installs from inside the container in normie mode
-(docs/journal/0926a, 0926b). The base is what the sandbox's own tools and tests
-need plus a small core, and the AI CLIs; the optional set is everything else we
-use. First setup, and again after a version bump:
+The volumes hold a lean **base** and an **optional set** (docs/journal/0926a,
+0926b). The base is what the sandbox's own tools and tests need plus a small
+core, and the AI CLIs; the optional set is everything else we use. First setup,
+and again after a version bump:
 
-1. On the host: `bash .setup/install-base.sh`.
-2. Switch to normie mode: `internet = "open"`, `packages = "writable"` and
+1. Switch to normie mode: `internet = "open"`, `packages = "writable"` and
    `seccomp = "unconfined"` in `SANDBOX.toml`, then `bbox --rebuild`.
-3. In the container: `bash .setup/install-optional.sh`.
+2. In the container: `bash .setup/install-base.sh`.
+3. Optionally, in the container: `bash .setup/install-optional.sh`.
 4. Switch back to YOLO mode: `internet = "firewalled"`, `packages =
    "readonly"` and `seccomp = "builtin"`, then `bbox --rebuild`.
+5. In the container: `bash .devcontainer/tests/test-packages.sh`.
 
-Skipping steps 2–4 is fine; the base passes its tests alone, and a project can
+Skipping step 3 is fine; the base passes its tests alone, and a project can
 install just what it needs in normie mode instead.
 
-From anywhere in the repository, on the host with Docker running:
+From anywhere in the repository, in the container:
 
 ```sh
 bash .setup/install-base.sh            # python r tex cli (the default)
 bash .setup/install-base.sh tex        # minimal TeX Live only
 bash .setup/install-base.sh r          # R only
 bash .setup/install-base.sh r --force  # reinstall present R packages
-bash .setup/install-base.sh --verify   # check the base; writes nothing
+bash .setup/install-base.sh cli        # AI CLIs only; any mode
+bash .setup/install-base.sh --verify   # check the base; writes nothing; any mode
 ```
 
-On the host, the script runs itself as root in a throwaway container of
-**this workspace's devcontainer image**, with the volumes mounted read-write
-(read-only for `--verify`) and `.setup/` at `/setup`, then runs
-`chown -R node:node` over them so that normie mode works as `node` without
-sudo. It never installs anything on the host itself. It finds that image by looking up the container
-labelled with this folder (`devcontainer.local_folder`). If there is no such
-container, or more than one, it refuses: run `bbox --rebuild` first. It never
-falls back to another image, because R packages link against the image's
-libraries and install from its pinned P3M snapshot. After a `CRAN_SNAPSHOT`,
-`R_VERSION` or base image change, the order is: edit the Dockerfile,
-`bbox --rebuild`, then build the volume.
+`python`, `r` and `tex` check for normie mode before installing anything, the
+same way `install-optional.sh` does: running as `node`, their mounts writable
+and `node`-owned, and the firewall open (`post-start.sh`'s marker). They check
+the mounts, not `SANDBOX.toml`, which may have been edited since the container
+was created. In YOLO mode they refuse and say how to switch.
 
-The builder uses Docker's default network, so the devcontainer firewall does
-not apply. P3M, PyPI, Bioconductor, CTAN and npm are reached from here.
+The devcontainer's own image is the builder, which is the point: R packages
+link against the image's libraries and install from its pinned P3M snapshot.
+After a `CRAN_SNAPSHOT`, `R_VERSION` or base image change, the order is: edit
+the Dockerfile, give the volume a new name in `devcontainer.json`, then the
+steps above.
 
-The AI CLIs live in the per-checkout npm-global volume, whose name the script
-reads from the devcontainer's own mount. That volume is always writable in the
-container, so `bash .setup/install-base.sh cli` also updates them from inside,
-in either mode.
+The AI CLIs live in the per-checkout npm-global volume, which is writable in
+every mode, so `bash .setup/install-base.sh cli` updates them in YOLO mode too.
 
-Volume names are written once, in `.devcontainer/devcontainer.json`, and read by
-`.host/dc-resolve.py package-volumes`. The python, r and tex mounts are found by
-their targets. A comment line of the form `// install-base.sh: <mount>` stages a
-volume: it overrides the live mount with the same target, so a new volume can be
-built and checked before any container mounts it. The builder refuses
-per-devcontainer (`${devcontainerId}`) names.
+Volume names are written once, in `.devcontainer/devcontainer.json`. To try a
+new volume, rename it there and `bbox --rebuild` in normie mode; Docker creates
+it from the image's (nearly empty) directory, and `install-base.sh` fills it. Rename back to abandon it, and remove
+the unused volume with `docker volume rm`.
 
-Inside the container these volumes are read-only by default:
-`install-base.sh python|r|tex` refuses and points here, and `--verify`
-checks without writing. In normie mode they are writable (see
-`.devcontainer/README.md`, "Working modes"). After a rebuild,
-`bash .devcontainer/tests/test-packages.sh` (as `node`, in the container) is
-the acceptance check for the base in either mode;
+After a rebuild, `bash .devcontainer/tests/test-packages.sh` (as `node`, in the
+container) is the acceptance check for the base in either mode;
 `bash .devcontainer/tests/test-optional.sh` checks the optional set.
 
-Stop R, Python and TeX work in every consuming container before a build. An
-unpinned pip addition can replace existing dependencies, not only add. Once the
-build finishes, restart R and Python sessions. After a TeX change, run
-`tex-refresh` as `node` and reopen LyX.
+Stop R, Python and TeX work in every other container that mounts the volumes
+before an install. An unpinned pip addition can replace existing dependencies,
+not only add. Once it finishes, restart R and Python sessions. After a TeX
+change, run `tex-refresh` as `node` and reopen LyX (`install-base.sh tex` runs
+`tex-refresh` in the container it installs from).
+
+### Volume ownership
+
+The volumes are `node`-owned. Docker seeds a new volume from the image
+directory it is mounted over, ownership included, and the Dockerfile creates
+`/opt/venv`, the R site library and `/usr/local/texlive` owned by `node`.
+Ownership is not the protection: in YOLO mode the mount is read-only, which
+the kernel enforces whatever the owner, and `node` cannot remount
+(docs/journal/0926e).
+
+A volume that is not `node`-owned was created by an older image, before 0926e.
+`node` cannot fix that from inside. Either give the volume a new name and fill
+it again, or, on the host, chown it once:
+
+```sh
+docker run --rm --mount type=volume,source=<volume>,target=/v ubuntu:24.04 chown -R 1000:1000 /v
+```
 
 ### Adding a package
 
@@ -93,17 +103,18 @@ The base changes only when the sandbox itself needs something:
 1. Edit the list in `.setup/install-base.sh`: `PY_PKGS`,
    `cran_pkgs`, or `TEX_PKGS` (TeX package or collection names). Commit it;
    the list is the environment's declaration.
-2. On the host: `bash .setup/install-base.sh r` (or `python`, `tex`). It re-runs the
-   idempotent installer into the existing volume, so only the new package
-   downloads.
-3. Restart sessions in running containers; the mount sees the new files
-   immediately. No rebuild or `devcontainer.json` change is needed.
+2. In normie mode, in the container: `bash .setup/install-base.sh r` (or
+   `python`, `tex`). It re-runs the idempotent installer into the existing
+   volume, so only the new package downloads.
+3. Switch back to YOLO mode. Restart sessions in other running containers;
+   the mount sees the new files immediately. No `devcontainer.json` change is
+   needed.
 
 Rerunning the same command is the repair after a partial failure.
 
 A snapshot or interpreter bump is the other path. Change the version in the
-Dockerfile, then give the volume a new name in `devcontainer.json`. Build it
-fresh after `bbox --rebuild`, and prune the old volume later.
+Dockerfile, then give the volume a new name in `devcontainer.json`. Fill it
+fresh after `bbox --rebuild` in normie mode, and prune the old volume later.
 
 ### TeX Live
 

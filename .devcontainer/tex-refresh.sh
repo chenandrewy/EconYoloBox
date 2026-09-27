@@ -9,7 +9,7 @@ if [ "$(id -un)" != node ]; then
   exit 1
 fi
 if [ ! -x /usr/local/texlive-bin/pdflatex ] || ! /usr/local/texlive-bin/pdflatex --version >/dev/null 2>&1; then
-  echo 'TeX unavailable or incompatible. On the host run: bash .setup/install-base.sh tex' >&2
+  echo 'TeX unavailable or incompatible. In normie mode, in the container: bash .setup/install-base.sh tex' >&2
   echo 'For a nonempty failed installation, inspect the volume install.log first.' >&2
   exit 1
 fi

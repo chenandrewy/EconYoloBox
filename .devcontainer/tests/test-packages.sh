@@ -37,7 +37,7 @@ for mount in /opt/venv "$site_library" /usr/local/texlive; do
             fail "consumer can write to $mount"
         fi
     else
-        # install-base.sh chowns the volumes, so node installs without sudo.
+        # The image seeds the volumes node-owned, so node installs without sudo.
         [ "$(stat -c %U "$mount")" = node ] || fail "$mount is owned by $(stat -c %U "$mount"), not node"
         touch "$mount/consumer-write-test" || fail "node cannot write to $mount"
         rm -f "$mount/consumer-write-test"
@@ -46,6 +46,7 @@ done
 if [ "$mode" = readonly ]; then
     bash "$here/../../.setup/install-base.sh" python >refuse-python.log 2>&1 && fail "install-base.sh python ran in a consumer"
     grep -q 'mounted read-only' refuse-python.log || fail "install-base.sh python did not explain the refusal"
+    grep -q 'install-base.sh cli' refuse-python.log || fail "install-base.sh python refusal did not point to cli"
 fi
 
 echo '--- declared stacks (install-base.sh --verify)'

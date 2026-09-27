@@ -89,13 +89,13 @@
   },
   "remoteUser": "node",
   "mounts": [
-    // Shared package volumes: R, Python and TeX, built on the host by
-    // `bash .setup/install-base.sh` (docs/journal/0921a, 0925b, 0926a) and mounted
-    // read-only, so agents in here can run the stacks but never change them.
-    // They are shared across projects on this Docker daemon; only per-project
-    // writable state needs the ${devcontainerId} key used further down.
-    // install-base.sh reads these names from here. Adding a package does not
-    // change them: edit the list in .setup/install-base.sh and rerun it.
+    // Shared package volumes: R, Python and TeX, filled in normie mode by
+    // `bash .setup/install-base.sh` in the container (docs/journal/0921a,
+    // 0925b, 0926a, 0926e) and otherwise mounted read-only, so agents in here
+    // can run the stacks but never change them. They are shared across
+    // projects on this Docker daemon; only per-project writable state needs
+    // the ${devcontainerId} key used further down. Adding a package does not
+    // change these names: edit the list in .setup/install-base.sh and rerun it.
     //
     // Names carry distro, interpreter version and (for R) the P3M snapshot
     // date, so a bump builds a fresh volume instead of serving stale binaries.
@@ -106,10 +106,9 @@
     // load-bearing: packages compiled against one distro's libraries must never
     // be mounted into another.
     //
-    // To build a new volume before any container mounts it, stage it with a
-    // comment line of the form `// install-base.sh: <mount string>`. It overrides
-    // the live mount with the same target for install-base.sh only; move it here
-    // once the volume passes its checks.
+    // A new volume is tried by renaming it here and running bbox --rebuild in
+    // normie mode: Docker seeds it, node-owned, from the image's empty
+    // directory, and install-base.sh fills it. Rename back to abandon it.
     //
     // Read-only unless SANDBOX.toml says packages = "writable": bbox exports
     // SANDBOX_PKG_READONLY and checks the created mounts, and direct VS Code

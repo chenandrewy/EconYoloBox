@@ -2,7 +2,7 @@
 
 `.host/` is the supported host launcher for this sandbox,
 [`.setup/`](../.setup/README.md) is provisioning you run by hand (package
-volumes and AI CLIs, on the host or in the container), and `.devcontainer/` is
+volumes and AI CLIs, in the container), and `.devcontainer/` is
 the container itself: its definition, its startup, and the tools baked into
 it.
 

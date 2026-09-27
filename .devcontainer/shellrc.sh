@@ -17,7 +17,7 @@ export PATH="/sandbox/.tools/pdf:/sandbox/.tools/latex:/sandbox/.tools/lit:/sand
 # tree (idempotent; silent once the links exist — see .tools/ai-sesh/README.md)
 sesh-init || true
 
-# The Python and R stacks live in read-only shared volumes built on the host,
+# The Python and R stacks live in shared volumes, read-only outside normie mode,
 # so an unbuilt volume means no stack. Say so once per shell instead of letting
 # the first import fail mysteriously. Test a sentinel package, not emptiness:
 # Docker seeds even a fresh read-only volume from the image, so an unbuilt venv
@@ -31,7 +31,7 @@ if [ -z "$(find /opt/R -maxdepth 5 -type d -path '*/site-library/fixest' -print 
     _stacks_missing="${_stacks_missing:+$_stacks_missing }r"
 fi
 if [ -n "$_stacks_missing" ]; then
-    echo "note: package volume not built ($_stacks_missing) - on the host run: bash .setup/install-base.sh $_stacks_missing"
+    echo "note: package volume not built ($_stacks_missing) - in normie mode, in the container: bash .setup/install-base.sh $_stacks_missing"
 fi
 unset _stacks_missing
 
@@ -189,10 +189,10 @@ if [ ! -x /usr/local/texlive-bin/pdflatex ]; then
         echo "note: mounted TeX Live 2026 is not active; using $(command -v pdflatex)"
         echo "      Rebuild this container to activate the recent TeX-volume change."
     else
-        echo "note: TeX unavailable - on the host run: bash .setup/install-base.sh tex"
+        echo "note: TeX unavailable - in normie mode, in the container: bash .setup/install-base.sh tex"
         echo "      For a nonempty failed install, inspect the volume's install.log first."
     fi
 elif [ ! -f /usr/local/texlive/.sandbox-installed ]; then
-    echo "note: TeX volume has no install marker - on the host run: bash .setup/install-base.sh tex"
+    echo "note: TeX volume has no install marker - in normie mode, in the container: bash .setup/install-base.sh tex"
     echo "      If it refuses, an earlier install failed: see .setup/README.md."
 fi

@@ -15,8 +15,9 @@
 #          /usr/local/texlive; an "... OK" line per stack, or MISSING lines and
 #          a nonzero exit.
 #
-# The base stacks come from the host builder (.setup/install-base.sh); this is the
-# rest of what we use, installed by the user while watching (docs/journal/0926a).
+# The base stacks come from .setup/install-base.sh, in the same mode and with the
+# same check; this is the rest of what we use, installed by the user while
+# watching (docs/journal/0926a, 0926e).
 # The sandbox's own tools and tests never depend on it. Each step is the
 # ordinary command - pip install, install.packages(), BiocManager::install(),
 # tlmgr install - printed before it runs, so this script also shows how to add
@@ -132,7 +133,7 @@ require_install_mode() {
         elif findmnt -n -o OPTIONS -T "$mount" | tr ',' '\n' | grep -qx ro; then
             problems+=("$mount is mounted read-only")
         elif [ ! -w "$mount" ]; then
-            problems+=("$mount is not writable by $(id -un); rebuild it with .setup/install-base.sh from the host, which chowns it")
+            problems+=("$mount is not writable by $(id -un) (see .setup/README.md, \"Volume ownership\")")
         fi
     done
     # post-start.sh leaves this marker when it skips the firewall. Armed, the

@@ -53,8 +53,8 @@ if command -v test-agent-policy.sh >/dev/null; then
     test-agent-policy.sh --warn-only || true
 fi
 
-# The R, Python and TeX base is built on the host, into volumes mounted
-# read-only unless packages = "writable". Test a sentinel, not emptiness:
+# The R, Python and TeX base is installed in normie mode, from inside, into
+# volumes mounted read-only unless packages = "writable". Test a sentinel, not emptiness:
 # Docker seeds even a fresh read-only volume from the image, so an unbuilt
 # venv still holds the bare skeleton. Importing (not just
 # finding) the sentinels also catches a volume built for another image.
@@ -64,7 +64,7 @@ Rscript -e 'quit(status = !requireNamespace("fixest", quietly = TRUE))' >/dev/nu
 [ -f /usr/local/texlive/.sandbox-installed ] || missing+=(tex)
 if [ ${#missing[@]} -gt 0 ]; then
     echo "post-start.sh: package volume not built or not loadable: ${missing[*]}" >&2
-    echo "  on the host run: bash .setup/install-base.sh ${missing[*]}" >&2
+    echo "  in normie mode, in the container: bash .setup/install-base.sh ${missing[*]}" >&2
 fi
 
 # The posture. internet is as armed above. packages and seccomp are fixed at

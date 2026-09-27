@@ -1,50 +1,48 @@
 #!/usr/bin/env bash
 # Install the lean base: the Python, R and TeX stacks and the AI CLIs.
 #
-# Run:
-#   On the host, with Docker running, from anywhere in this checkout (bash 3.2+):
+# Run, inside the devcontainer as node, from anywhere in this checkout:
+#   In normie mode (internet = "open", packages = "writable", seccomp =
+#   "unconfined" in SANDBOX.toml, then `bbox --rebuild`; only the first two
+#   are required):
 #     bash .setup/install-base.sh                # python r tex cli (all)
 #     bash .setup/install-base.sh tex            # TeX Live only
 #     bash .setup/install-base.sh r --force      # reinstall present R packages
-#     bash .setup/install-base.sh --verify       # check only; writes nothing
-#   Inside the devcontainer, as node (the CLI volume is always writable):
+#   In any mode:
 #     bash .setup/install-base.sh cli            # AI CLIs, always @latest
+#     bash .setup/install-base.sh --verify       # check only; writes nothing
 #
 # Inputs:  the package lists below; the dated P3M snapshot pinned in the image's
 #          Rprofile.site (Dockerfile ARG CRAN_SNAPSHOT); PyPI; the rolling
-#          TeX Live tlnet repository; npm. On the host also: this checkout's
-#          devcontainer (created by bbox, running or stopped), whose exact
-#          image is the builder and whose npm-global mount names the CLI
-#          volume; the shared volume names in .devcontainer/devcontainer.json.
+#          TeX Live tlnet repository; npm.
 # Outputs: python -> /opt/venv; r -> the R site library; tex -> TeX Live in
 #          /usr/local/texlive (with install.log and the .sandbox-installed
 #          marker there); cli -> NPM_CONFIG_PREFIX. Each target ends with an
-#          "... OK" line or exits nonzero. From the host the volumes are then
-#          owned by node, so normie mode can install into them without sudo.
+#          "... OK" line or exits nonzero.
 #
-# Two contexts, one file. On the host (no /.dockerenv) this script runs itself
-# as root in a throwaway container of the devcontainer's own image, with the
-# named volumes mounted and this folder at /setup, then chowns the volumes. It
-# never installs anything on the host. Why that image: R packages link against
-# its shared libraries and use its Rprofile.site snapshot, so the volume must be
-# built by the image that will consume it. There is no fallback to another
-# image. The builder uses Docker's default network, so the devcontainer
-# firewall does not apply.
+# Packages change only in normie mode, from inside (docs/journal/0926e). The
+# devcontainer's own image is the builder, which matters: R packages link
+# against its shared libraries and install from its Rprofile.site snapshot, so
+# a volume must be built by the image that will consume it. The volumes are
+# node-owned (the Dockerfile seeds them so), and everything here runs as node.
 #
-# In a container, it installs. Each target refuses unless its install directory
-# is a writable mount: an unmounted directory would install into a disposable
-# image layer, and a read-only one means a YOLO-mode consumer, where the answer
-# is the host. --verify only checks (imports, library loads, the TeX marker,
-# npm ls) and works anywhere. Adding a package means editing a list here and
-# re-running: python and r are idempotent (present packages are skipped unless
-# --force), and tex adds whatever TEX_COLLECTIONS/TEX_PKGS name that the marked
-# tree lacks. See docs/journal/0921a, 0925b and 0926d.
+# python, r and tex refuse unless the container is in normie mode: run as
+# node, their mounts writable and node-owned, and the firewall open (checked
+# like install-optional.sh does, on the mounts rather than SANDBOX.toml). An
+# unmounted directory would install into a disposable image layer. cli needs
+# only its own mount, the per-checkout npm-global volume, which is writable in
+# every mode. --verify only checks (imports, library loads, the TeX marker, npm
+# ls) and works in any mode. Outside a container everything refuses.
+#
+# Adding a package means editing a list here and re-running: python and r are
+# idempotent (present packages are skipped unless --force), and tex adds
+# whatever TEX_COLLECTIONS/TEX_PKGS name that the marked tree lacks. See
+# docs/journal/0921a, 0925b, 0926d and 0926e.
 #
 # The lists are a lean base: what the sandbox's own tools and tests need, plus a
 # small core. Everything else we use is the optional set, installed by the user
-# into the same volumes with install-optional.sh in SANDBOX.toml's
-# packages = "writable" mode (docs/journal/0926a). Nothing here may depend on
-# the optional set.
+# into the same volumes with install-optional.sh, also in normie mode
+# (docs/journal/0926a). Nothing here may depend on the optional set.
 #
 # Deliberately no user-level layering: one declared stack per language.
 
@@ -63,9 +61,9 @@ Usage: install-base.sh [python] [r] [tex] [cli] [all] [--force] [--verify]
             with no target, python r cli)
   --verify  check the named targets without installing anything
 
-Several targets may be given. Run on the host, it builds in a throwaway
-container of this checkout's devcontainer image. Inside the devcontainer,
-only cli is writable outside normie mode. Re-runs skip what is installed.
+Several targets may be given. Runs only inside the devcontainer, as node.
+python, r and tex install only in normie mode; cli and --verify work in any
+mode. Re-runs skip what is installed.
 USAGE
 }
 
@@ -117,104 +115,17 @@ if [ "$FORCE" -eq 1 ] && [ "$DO_TEX" -eq 1 ]; then
     exit 2
 fi
 
-# ---- On the host: build in a throwaway container ---------------------------
-# Must stay bash 3.2 (macOS /bin/bash); everything past this block runs only
-# in a container, where bash is current.
-
-in_container() {
-    [ -f /.dockerenv ] || [ -f /run/.containerenv ]
-}
-
-CLI_TARGET=/usr/local/share/npm-global
-
-build_from_host() {
-    local root logical_root json volumes containers count image line volume path target npm_volume
-    root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
-    logical_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -L)
-    json="$root/.devcontainer/devcontainer.json"
-
-    # shellcheck source=SCRIPTDIR/../.devcontainer/find-python.sh
-    source "$root/.devcontainer/find-python.sh"
-    volumes=$("$PYTHON" "$root/.host/dc-resolve.py" package-volumes "$json")
-
-    # The devcontainer CLI labels the container with the host folder it was
-    # opened from. bbox resolves symlinks; another opener may not.
-    containers=$(docker ps -aq --no-trunc --filter "label=devcontainer.local_folder=$root")
-    if [ -z "$containers" ] && [ "$logical_root" != "$root" ]; then
-        containers=$(docker ps -aq --no-trunc --filter "label=devcontainer.local_folder=$logical_root")
-    fi
-    count=$(printf '%s' "$containers" | grep -c . || true)
-    if [ "$count" -ne 1 ]; then
-        echo "install-base.sh: found $count devcontainers for $root; need exactly one to take its image from." >&2
-        echo "Run bbox --rebuild first." >&2
-        exit 1
-    fi
-    image=$(docker inspect -f '{{.Image}}' "$containers")
-    echo "Builder image: $image (from container ${containers:0:12})"
-
-    # --verify mounts read-only, so a check can never write.
-    local ro="" mounts=() paths=()
-    if [ "$VERIFY" -eq 1 ]; then ro=",readonly"; fi
-    for target in python r tex; do
-        case "$target" in
-        python) [ "$DO_PYTHON" -eq 1 ] || continue ;;
-        r) [ "$DO_R" -eq 1 ] || continue ;;
-        tex) [ "$DO_TEX" -eq 1 ] || continue ;;
-        esac
-        line=$(awk -v s="$target" '$1 == s' <<<"$volumes")
-        read -r _ volume path <<<"$line"
-        echo "  $target -> $volume ($path)"
-        mounts+=(--mount "type=volume,source=$volume,target=$path$ro")
-        paths+=("$path")
-    done
-    # The CLI volume is per-checkout (keyed by devcontainerId), so its name
-    # comes from the container's own mount, not from devcontainer.json.
-    if [ "$DO_CLI" -eq 1 ]; then
-        npm_volume=$(docker inspect -f "{{range .Mounts}}{{if eq .Destination \"$CLI_TARGET\"}}{{.Name}}{{end}}{{end}}" "$containers")
-        if [ -z "$npm_volume" ]; then
-            echo "install-base.sh: the devcontainer has no volume at $CLI_TARGET; run bbox --rebuild first." >&2
-            exit 1
-        fi
-        echo "  cli -> $npm_volume ($CLI_TARGET)"
-        mounts+=(--mount "type=volume,source=$npm_volume,target=$CLI_TARGET$ro")
-        paths+=("$CLI_TARGET")
-    fi
-
-    local chown_paths=""
-    if [ "$VERIFY" -eq 0 ]; then
-        chown_paths="${paths[*]}"
-        echo "Stop R, Python, TeX and AI CLI work in every container that mounts these volumes first."
-    fi
-    # The chown runs even after a failed install, so a half-built volume can
-    # still be finished by hand in normie mode; the install's status is what
-    # returns. The paths are fixed mount targets with no spaces.
-    # shellcheck disable=SC2016 # expanded by the builder's bash
-    docker run --rm --user root \
-        -e PIP_ROOT_USER_ACTION=ignore \
-        -e CHOWN_PATHS="$chown_paths" \
-        "${mounts[@]}" \
-        --mount "type=bind,source=$root/.setup,target=/setup,readonly" \
-        "$image" bash -c '
-            status=0
-            bash /setup/install-base.sh "$@" || status=$?
-            if [ -n "$CHOWN_PATHS" ]; then
-                echo "==> chown -R node:node $CHOWN_PATHS"
-                chown -R node:node $CHOWN_PATHS
-            fi
-            exit "$status"
-        ' _ "$@"
-
-    if [ "$VERIFY" -eq 0 ]; then
-        echo "Consumers: restart R/Python sessions and AI CLIs; after a TeX change run tex-refresh and reopen LyX."
-    fi
-}
-
-if ! in_container; then
-    build_from_host "$@"
-    exit 0
+# Everything above is plain enough for macOS bash 3.2, so that on the host this
+# refusal is what runs.
+if [ ! -f /.dockerenv ] && [ ! -f /run/.containerenv ]; then
+    echo "install-base.sh: runs only inside the devcontainer; nothing was installed." >&2
+    echo "Switch to normie mode (see .setup/README.md), then in the container run:" >&2
+    echo "  bash .setup/install-base.sh $*" >&2
+    exit 1
 fi
 
-# ---- In a container: install -----------------------------------------------
+CLI_TARGET=/usr/local/share/npm-global
+TEX_PREFIX=/usr/local/texlive
 
 WORK_DIR=""
 cleanup() {
@@ -223,23 +134,65 @@ cleanup() {
 trap cleanup EXIT
 WORK_DIR=$(mktemp -d)
 
-# An unmounted target would install into this container's writable layer and
-# vanish with it, while the volume the devcontainer mounts stays unchanged. A
-# read-only one is a YOLO-mode consumer's view of a volume the host builds.
-require_writable_mount() {
-    if ! mountpoint -q "$1"; then
-        echo "install-base.sh: $1 is not a mounted volume; refusing to install into the image layer." >&2
-        echo "On the host run: bash .setup/install-base.sh $2" >&2
-        exit 1
-    fi
-    if findmnt -n -o OPTIONS -T "$1" | tr ',' '\n' | grep -qx ro; then
-        echo "install-base.sh: $1 is mounted read-only; packages are managed from the host." >&2
-        echo "Add the package to the list in .setup/install-base.sh, then on the host run:" >&2
-        echo "  bash .setup/install-base.sh $2" >&2
-        echo "To update the AI CLIs from here: bash .setup/install-base.sh cli" >&2
+# The same check as install-optional.sh: normie mode is the user's switch, the
+# mounts writable, which only bbox --rebuild can arrange. Checked on the mounts,
+# not on SANDBOX.toml, which may have been edited since the container was
+# created. All of it before anything installs, so a refusal writes nothing.
+require_install_mode() {
+    local mount owner problems=()
+    [ "$(id -un)" = node ] || problems+=("run as node, not $(id -un)")
+    for mount in "$@"; do
+        if ! mountpoint -q "$mount"; then
+            problems+=("$mount is not a mounted volume; refusing to install into the image layer")
+        elif findmnt -n -o OPTIONS -T "$mount" | tr ',' '\n' | grep -qx ro; then
+            problems+=("$mount is mounted read-only")
+        else
+            owner=$(stat -c %U "$mount")
+            if [ "$owner" != node ]; then
+                problems+=("$mount is owned by $owner, not node (see .setup/README.md, \"Volume ownership\")")
+            elif [ ! -w "$mount" ]; then
+                problems+=("$mount is not writable by $(id -un)")
+            fi
+        fi
+    done
+    # post-start.sh leaves this marker when it skips the firewall. Armed, the
+    # firewall blocks PyPI, P3M and CTAN, so every install fails.
+    [ -f /tmp/FIREWALL-WINDOW-OPEN ] || problems+=("the firewall is armed; PyPI, P3M and CTAN are blocked")
+    if [ ${#problems[@]} -gt 0 ]; then
+        echo "install-base.sh: not in normie mode:" >&2
+        printf '  - %s\n' "${problems[@]}" >&2
+        echo 'Switch to normie mode: internet = "open", packages = "writable" and' >&2
+        echo 'seccomp = "unconfined" in SANDBOX.toml, run bbox --rebuild on the host,' >&2
+        echo "then in the container: bash .setup/install-base.sh $STACK_TARGETS" >&2
+        echo 'Switch back to YOLO mode afterwards.' >&2
+        echo 'The AI CLIs update in any mode: bash .setup/install-base.sh cli' >&2
         exit 1
     fi
 }
+
+# The CLI volume is writable in every mode; it only has to be mounted, or npm
+# would install into a disposable image layer.
+require_cli_mount() {
+    if ! mountpoint -q "$CLI_TARGET"; then
+        echo "install-base.sh: $CLI_TARGET is not a mounted volume; refusing to install into the image layer." >&2
+        echo "Run bbox --rebuild on the host, then bash .setup/install-base.sh cli" >&2
+        exit 1
+    fi
+}
+
+R_LIB=""
+if [ "$DO_R" -eq 1 ]; then R_LIB=$(Rscript -e 'cat(.libPaths()[1])'); fi
+
+STACK_TARGETS=""
+if [ "$VERIFY" -eq 0 ]; then
+    stack_mounts=()
+    if [ "$DO_PYTHON" -eq 1 ]; then stack_mounts+=(/opt/venv) && STACK_TARGETS+=" python"; fi
+    if [ "$DO_R" -eq 1 ]; then stack_mounts+=("$R_LIB") && STACK_TARGETS+=" r"; fi
+    if [ "$DO_TEX" -eq 1 ]; then stack_mounts+=("$TEX_PREFIX") && STACK_TARGETS+=" tex"; fi
+    STACK_TARGETS=${STACK_TARGETS# }
+    if [ ${#stack_mounts[@]} -gt 0 ]; then require_install_mode "${stack_mounts[@]}"; fi
+    if [ "$DO_CLI" -eq 1 ]; then require_cli_mount; fi
+fi
 
 PY_PKGS=(
     # sandbox tools (.tools/pdf, .tools/lit)
@@ -259,7 +212,6 @@ PY_PKGS=(
 install_python() {
     echo "==> Python stack (/opt/venv), ${#PY_PKGS[@]} packages"
     if [ "$VERIFY" -eq 0 ]; then
-        require_writable_mount /opt/venv python
         local args=(--no-cache-dir)
         if [ "$FORCE" -eq 1 ]; then
             args+=(--force-reinstall)
@@ -319,9 +271,7 @@ PYEOF
 }
 
 install_r() {
-    local lib
-    lib=$(Rscript -e 'cat(.libPaths()[1])')
-    echo "==> R stack ($lib)"
+    echo "==> R stack ($R_LIB)"
     local r_script="$WORK_DIR/install-r.R"
 
     # Plain Rscript, not --vanilla: the site Rprofile is what pins the repo to
@@ -390,7 +340,6 @@ if (length(missing)) {
 REOF
 
     if [ "$VERIFY" -eq 0 ]; then
-        require_writable_mount "$lib" r
         STACK_FORCE="$FORCE" Rscript "$r_script" install
     fi
     Rscript "$r_script" verify
@@ -404,7 +353,6 @@ REOF
 # collections, install-tl ignores the scheme's collection list: TEX_COLLECTIONS
 # must therefore spell out all of them (install-tl manual, "Profiles").
 # LuaTeX stays: luatex/luahbtex are in collection-basic, which nothing can drop.
-TEX_PREFIX=/usr/local/texlive
 TEX_MARKER="$TEX_PREFIX/.sandbox-installed"
 TEX_LOG="$TEX_PREFIX/install.log"
 TEX_REPOSITORY=https://mirror.ctan.org/systems/texlive/tlnet
@@ -514,8 +462,8 @@ TEX
     latexmk -v >/dev/null
     echo "pdflatex, biber, latexindent, latexmk OK"
 
-    # LyX run as root here, so it gets a private userdir; configure.py is
-    # what tex-refresh runs for node in the consuming container.
+    # LyX gets a private userdir, so the smoke test leaves node's ~/.lyx
+    # alone; configure.py there is what tex-refresh runs afterwards.
     (cd lyx-userdir && python3 /usr/local/share/lyx/configure.py >../lyx-configure.log 2>&1)
     tex2lyx -userdir "$dir/lyx-userdir" -f smoke.tex smoke.lyx >/dev/null 2>&1
     QT_QPA_PLATFORM=offscreen lyx -userdir "$dir/lyx-userdir" -batch -f all \
@@ -598,7 +546,7 @@ PROFILE
     } >texlive.profile
 
     # From here on the log lives in the volume, so a failure is inspectable
-    # after the builder container is gone. The preflight above writes nothing
+    # after this run. The preflight above writes nothing
     # there, so a failed download never makes the volume look installed.
     (
         set -o errtrace
@@ -625,19 +573,18 @@ install_tex() {
 
     if [ "$VERIFY" -eq 1 ]; then
         if [ ! -f "$TEX_MARKER" ]; then
-            echo "MISSING (tex): no $TEX_MARKER; on the host run: bash .setup/install-base.sh tex" >&2
+            echo "MISSING (tex): no $TEX_MARKER; in normie mode, in the container: bash .setup/install-base.sh tex" >&2
             return 1
         fi
         local absent=()
         mapfile -t absent < <(tex_missing "$year")
         if [ ${#absent[@]} -gt 0 ]; then
-            echo "MISSING (tex): ${absent[*]}; on the host run: bash .setup/install-base.sh tex" >&2
+            echo "MISSING (tex): ${absent[*]}; in normie mode, in the container: bash .setup/install-base.sh tex" >&2
             return 1
         fi
         echo "TeX stack OK (marked; ${#TEX_COLLECTIONS[@]} collections, ${#TEX_PKGS[@]} extra packages present)"
         return 0
     fi
-    require_writable_mount "$TEX_PREFIX" tex
 
     if [ -f "$TEX_MARKER" ]; then
         local missing=()
@@ -684,7 +631,6 @@ install_cli() {
     echo "==> AI CLIs (${NPM_CONFIG_PREFIX:-npm global}), ${#CLI_PKGS[@]} packages"
     local pkg
     if [ "$VERIFY" -eq 0 ]; then
-        require_writable_mount "$CLI_TARGET" cli
         local pinned=()
         for pkg in "${CLI_PKGS[@]}"; do
             pinned+=("${pkg}@latest")
@@ -713,4 +659,15 @@ if [ "$DO_R" -eq 1 ]; then install_r; fi
 if [ "$DO_TEX" -eq 1 ]; then install_tex; fi
 if [ "$DO_CLI" -eq 1 ]; then install_cli; fi
 
-echo "Done."
+if [ "$VERIFY" -eq 0 ] && [ -n "$STACK_TARGETS" ]; then
+    if [ "$DO_TEX" -eq 1 ]; then
+        echo "+ tex-refresh"
+        tex-refresh
+    fi
+    echo "Restart R/Python sessions in every container that mounts these volumes;"
+    echo "after a TeX change run tex-refresh there too and reopen LyX."
+    echo 'Done. Back to YOLO mode: internet = "firewalled", packages = "readonly",'
+    echo 'seccomp = "builtin" in SANDBOX.toml, then bbox --rebuild.'
+else
+    echo "Done."
+fi

@@ -45,8 +45,8 @@ Other combinations work and are reported as a custom posture.
   - **Packages**: npm and the VS Code marketplace (per-publisher
     `*.gallerycdn.vsassets.io` — a new extension publisher needs a new entry
     or its install silently fails). PyPI, P3M, CRAN, Bioconductor and CTAN
-    are deliberately **not** allowed: packages are installed on the host or
-    in normie mode, so a missing package goes to the user.
+    are deliberately **not** allowed: packages are installed in normie
+    mode, so a missing package goes to the user.
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
   - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
@@ -91,9 +91,10 @@ Other combinations work and are reported as a custom posture.
   `pcaMethods` from Bioconductor); `install-optional.sh --verify` says whether
   it is present.
 - **The R, Python and TeX stacks live in shared volumes**, mounted read-only
-  unless the user chose normie mode. The base is built on the host by
-  `bash .setup/install-base.sh`, which holds the base lists; the optional set
-  is installed by the user in normie mode with `.setup/install-optional.sh`.
+  unless the user chose normie mode. The user installs both in normie mode,
+  from inside the container: the base with `bash .setup/install-base.sh`,
+  which holds the base lists, and the optional set with
+  `.setup/install-optional.sh`.
   `install-base.sh --verify python r tex` checks the base without changing
   it. If an import fails, or startup warns that a package volume is not built,
   notify the user.

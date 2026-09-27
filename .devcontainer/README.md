@@ -60,13 +60,13 @@ this.
 
 `.devcontainer/` is the container itself: its definition, its startup, and the
 tools baked into it. `.host/` is the launcher (`bbox`), and
-[`.setup/`](../.setup/README.md) is provisioning you run by hand, on the host
-or in the container: the package volumes and the AI CLIs.
+[`.setup/`](../.setup/README.md) is provisioning you run by hand, in the
+container: the package volumes and the AI CLIs.
 
 ### TeX Live and LyX
 
-TeX Live 2026 is installed with `bash .setup/install-base.sh tex` **on the host**,
-using upstream `install-tl`. It is minimal and pdfLaTeX-only. The base is
+TeX Live 2026 is installed with `bash .setup/install-base.sh tex` in the
+container, **in normie mode**, using upstream `install-tl`. It is minimal and pdfLaTeX-only. The base is
 `scheme-small` without XeTeX, plus bibtexextra (biblatex, biber), latexindent,
 latexmk and cm-super; `install-optional.sh` adds latexextra, fontsrecommended,
 pictures, mathscience and fontsextra. It has no documentation files. It lives
@@ -360,19 +360,20 @@ mode, and interactive shells warn while the volumes are writable.
 In normie mode, install as `node` with the ordinary commands:
 `install.packages()` writes to the shared site library, `pip install` to
 `/opt/venv`, and `tlmgr install` to the TeX tree (then run `tex-refresh`).
-`.setup/install-base.sh` chowns the volumes to `node` so no sudo is needed. pip
+The image seeds the volumes `node`-owned, so no sudo is needed. pip
 resolves against current PyPI and can replace dependencies, one reason the mode
 is supervised. Agents install in normie mode only when the user asks.
-`.setup/install-optional.sh` installs the optional set this way;
+`.setup/install-base.sh` installs the base this way, and
+`.setup/install-optional.sh` the optional set;
 `install-optional.sh --verify` and `tests/test-optional.sh` check it in any
 mode.
 
 ### Package stacks and AI CLIs (`.setup/install-base.sh`)
 
 The R, Python and TeX stacks are **not** in the image. They live in three
-shared Docker volumes. The human builds a lean base on the host with
+shared Docker volumes. The human installs a lean base in normie mode with
 `bash .setup/install-base.sh` (see the [setup README](../.setup/README.md)),
-and optionally adds the rest in normie mode with `.setup/install-optional.sh`.
+and optionally adds the rest with `.setup/install-optional.sh`.
 `devcontainer.json` mounts them read-only unless `packages = "writable"`:
 
 | Volume | Mount |
@@ -382,8 +383,9 @@ and optionally adds the rest in normie mode with `.setup/install-optional.sh`.
 | `texlive-2026-base-noble` | `/usr/local/texlive` |
 
 The principle is that agents in the container only execute; the human maintains
-the environment (docs/journal/0921a). In the default read-only mode,
-`install-base.sh python|r|tex` refuses with the host command, and
+the environment, watching in normie mode (docs/journal/0921a, 0926e). In the
+default read-only mode, `install-base.sh python|r|tex` refuses and says how to
+switch, and
 `install-base.sh --verify python r tex` checks the base without writing.
 `pip install` and `install.packages()` into the stacks fail with a read-only or
 not-writable error. At startup, `post-start.sh` warns if a volume is not built.
@@ -392,16 +394,15 @@ Docker seeds even a fresh read-only volume from the image, so an unbuilt venv
 still shows its skeleton. Interactive shells print a one-line note as well.
 
 The volumes are shared by every project on the Docker daemon, and they are
-built by this workspace's own devcontainer image. R packages link against the
+built in this workspace's own devcontainer. R packages link against the
 image's libraries and install from the dated P3M snapshot in `Rprofile.site`.
 System dependencies that need root (`gfortran`, `libcurl4-openssl-dev`,
 `libxml2-dev`, `libpq-dev`, `libsecret-1-dev`, freetype/harfbuzz/fribidi,
-`cmake`) stay in the Dockerfile. After a snapshot or interpreter bump, rebuild
-the container first, then build a new volume under a new name.
+`cmake`) stay in the Dockerfile. After a snapshot or interpreter bump, give
+the volume a new name, rebuild the container in normie mode, then fill it.
 
 The Claude Code and Codex CLIs are part of the base, installed into a writable
-per-container volume by the same script: from the host with the rest of the
-base, or from inside the container with `bash .setup/install-base.sh cli`,
+per-container volume by the same script, `bash .setup/install-base.sh cli`,
 which works in any mode. They were a Dockerfile layer pinned to
 `@latest`, which turned out to mean "whatever was current the day the layer
 was first cached": rebuilds kept restoring a months-old Codex. They now install
