@@ -151,6 +151,35 @@ _bbox_clear_containers() {
   done
 }
 
+# _bbox_check_duplicates <root> <container_id> <rebuild>
+# The clear before up is not enough: a container can appear for the folder
+# while up runs (a rebuild without cache takes minutes). On rebuild, every
+# other labeled container predates the new image, so remove it. Otherwise
+# refuse, since the other one may be in use.
+_bbox_check_duplicates() {
+  local root="$1" keep="$2" rebuild="$3" listed container
+  local -a others
+
+  listed=$(docker ps -aq --no-trunc --filter "label=devcontainer.local_folder=$root") || return 1
+  for container in ${(f)listed}; do
+    [[ -n "$container" && "$container" != "$keep" ]] && others+=("$container")
+  done
+  (( ${#others} )) || return 0
+  if (( rebuild )); then
+    for container in "${others[@]}"; do
+      print -u2 -- "bbox: removing stray container ${container:0:12} for $root (started during the rebuild)"
+      docker rm -f "$container" >/dev/null || return 1
+    done
+    return 0
+  fi
+  print -u2 -- "bbox: ERROR: more than one container for $root; bbox is using ${keep:0:12}."
+  print -u2 -- 'bbox: remove the others with docker rm -f <id>, or run bbox --rebuild:'
+  for container in "${others[@]}"; do
+    print -u2 -- "  ${container:0:12}"
+  done
+  return 1
+}
+
 # bbox [--rebuild|--rebuild-without-cache] [--shell|--code] [DIRECTORY]
 bbox() {
   local action='' project_dir='.' rebuild=0 positional_seen=0 arg resolved root remote_path
@@ -223,6 +252,7 @@ bbox() {
   fi
   _bbox_verify_policy "$container_id" "$seccomp" "$created" "$root" || return 1
   _bbox_verify_packages "$container_id" "$packages" "$created" "$root" || return 1
+  _bbox_check_duplicates "$root" "$container_id" "$rebuild" || return 1
 
   case "$action" in
     shell)
