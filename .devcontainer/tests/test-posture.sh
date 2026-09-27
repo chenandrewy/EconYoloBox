@@ -85,16 +85,20 @@ cmp -s "$tmp/settings.json" "$tmp/yolo.json" || fail 'yolo must leave VS Code se
 pass 'yolo mode leaves the window alone'
 bash "$colors" "$tmp/settings.json" 'normie internet=open packages=writable seccomp=unconfined'
 bash "$colors" "$tmp/settings.json" 'normie internet=open packages=writable seccomp=unconfined'
-[ "$(jq -r '."window.title"' "$tmp/settings.json")" = 'NORMIE - <${rootName}>' ] || fail 'normie title, once'
+[ "$(jq -r '."window.title"' "$tmp/settings.json")" = 'NORMIE:<${rootName}>' ] || fail 'normie title, once'
 [ "$(jq -c '."workbench.colorCustomizations"' "$tmp/settings.json")" = '{"editor.background":"#000000"}' ] || fail 'normie must not color the window'
 pass 'normie mode titles the window once, uncolored, keeping other settings'
 printf '{"window.title": "NORMIE MODE - x", "workbench.colorCustomizations": {"titleBar.activeBackground": "#b91c1c", "statusBar.background": "#123456"}}\n' >"$tmp/old.json"
 bash "$colors" "$tmp/old.json" 'normie internet=open packages=writable seccomp=unconfined'
-[ "$(jq -r '."window.title"' "$tmp/old.json")" = 'NORMIE - x' ] || fail 'old title prefix replaced'
+[ "$(jq -r '."window.title"' "$tmp/old.json")" = 'NORMIE:x' ] || fail 'old title prefix replaced'
 [ "$(jq -c '."workbench.colorCustomizations"' "$tmp/old.json")" = '{"statusBar.background":"#123456"}' ] || fail 'old colors removed, own colors kept'
 pass 'earlier versions'"'"' title prefix and colors are replaced, the user'"'"'s own colors kept'
+printf '{"window.title": "NORMIE - x"}\n' >"$tmp/dash.json"
+bash "$colors" "$tmp/dash.json" 'normie internet=open packages=writable seccomp=unconfined'
+[ "$(jq -r '."window.title"' "$tmp/dash.json")" = 'NORMIE:x' ] || fail 'dash prefix replaced'
+pass 'the "NORMIE - " prefix becomes "NORMIE:"'
 bash "$colors" "$tmp/new/settings.json" 'custom internet=open packages=readonly seccomp=builtin'
-[ "$(jq -r '."window.title"' "$tmp/new/settings.json")" = 'CUSTOM - ${rootName}${separator}${activeEditorShort}' ] || fail 'custom title in a new file'
+[ "$(jq -r '."window.title"' "$tmp/new/settings.json")" = 'CUSTOM:${rootName}${separator}${activeEditorShort}' ] || fail 'custom title in a new file'
 pass 'a custom posture is marked too, in a file that did not exist'
 printf '{ // a comment\n}\n' >"$tmp/jsonc.json"
 bash "$colors" "$tmp/jsonc.json" 'normie x' 2>"$tmp/colors.err" || fail 'unparseable settings must not fail'

@@ -6,7 +6,7 @@
 # Inputs:  posture.sh's line (or POSTURE, for tests); VS Code's machine
 #          settings, ~/.vscode-server/data/Machine/settings.json by default.
 # Outputs: in normie mode or a custom posture, that file with the mode at the
-#          front of the window title (NORMIE or CUSTOM), and without the
+#          front of the window title (NORMIE: or CUSTOM:), and without the
 #          title and status bar colors earlier versions set. In YOLO mode, nothing. Always exits 0;
 #          a file jq cannot parse (JSONC comments, say) is left alone with a
 #          warning.
@@ -33,8 +33,8 @@ tmp=$(mktemp "$settings.XXXXXX") || exit 0
 # removed where they are still exactly those.
 if jq --arg label "$label" '
     (.["window.title"] // "${rootName}${separator}${activeEditorShort}"
-        | sub("^(NORMIE MODE|CUSTOM POSTURE) - "; "")) as $title
-    | .["window.title"] = (if ($title | startswith("\($label) - ")) then $title else "\($label) - \($title)" end)
+        | sub("^(NORMIE MODE|CUSTOM POSTURE|NORMIE|CUSTOM) - "; "")) as $title
+    | .["window.title"] = (if ($title | startswith("\($label):")) then $title else "\($label):\($title)" end)
     | if (.["workbench.colorCustomizations"] | type) == "object" then
         .["workbench.colorCustomizations"] |= with_entries(select(
             [.key, .value] as $kv
