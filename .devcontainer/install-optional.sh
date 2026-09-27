@@ -106,6 +106,11 @@ TEX_PKGS=(
     collection-pictures # tikz
     collection-mathscience
     collection-fontsextra # fontawesome5
+    # workspace/goners: LuaLaTeX style branch and LyX journal header.
+    # undertilde is excluded: CTAN does not include it in TeX Live.
+    luacolor
+    lua-ul
+    mathdots
 )
 
 TEX_PREFIX=/usr/local/texlive
@@ -236,7 +241,7 @@ tex_missing() {
 }
 
 optional_tex() {
-    echo "==> TeX optional set ($TEX_PREFIX), ${#TEX_PKGS[@]} collections"
+    echo "==> TeX optional set ($TEX_PREFIX), ${#TEX_PKGS[@]} items"
     local missing=() out
     mapfile -t missing < <(tex_missing)
     if [ "$VERIFY" -eq 0 ] && [ ${#missing[@]} -gt 0 ]; then
@@ -258,7 +263,7 @@ optional_tex() {
         echo "MISSING (tex optional): ${missing[*]}" >&2
         return 1
     fi
-    echo "TeX optional set OK (${#TEX_PKGS[@]} collections)"
+    echo "TeX optional set OK (${#TEX_PKGS[@]} items)"
 }
 
 if [ "$VERIFY" -eq 0 ]; then
