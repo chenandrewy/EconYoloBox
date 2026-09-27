@@ -12,7 +12,7 @@ open_marker=${2:-/tmp/FIREWALL-WINDOW-OPEN}
 proc_status=${3:-/proc/1/status}
 
 if [ -e "$open_marker" ]; then
-    printf '%s: firewall is open; refusing (see shell warning)\n' "$launcher" >&2
+    printf '%s: firewall is open; refusing. For YOLO mode, on the host: bbcode or bbe without --normie\n' "$launcher" >&2
     exit 1
 fi
 
@@ -28,5 +28,5 @@ else
 fi
 printf '%s\n' \
     "$launcher: $detail; refusing YOLO mode." \
-    'Set internet = "firewalled" and seccomp = "builtin" in SANDBOX.toml, then on the host run: bbox --rebuild' >&2
+    'For YOLO mode, on the host: bbcode or bbe without --normie (bbox --rebuild if it persists)' >&2
 exit 1

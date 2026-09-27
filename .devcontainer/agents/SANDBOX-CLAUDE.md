@@ -17,30 +17,32 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
 macOS screenshots (`screenshot_directory`). Read it when you need a location;
 do not assume or hard-code these paths.
 
-The same file holds three switches: `internet`, which arms (`"firewalled"`) or
-disables (`"open"`) the egress firewall at the next container start;
-`packages`, which mounts the R, Python and TeX volumes `"readonly"` or
-`"writable"`; and `seccomp`, Docker's outer syscall filter (`"builtin"` or
-`"unconfined"`). The last two take effect at the next `bbox --rebuild`. Never
-change any of them; that is the user's decision (see `USER PERMISSION
-REQUIRED`). They combine into two modes, and startup prints the current one:
+The security posture is **not** in that file. The user picks it on the host
+when the container is created, and it is fixed for the container's life. It
+is one of two modes, and startup prints the current one:
 
-1. **YOLO mode** (`"firewalled"`, `"readonly"`, `"builtin"`), the default:
-   everyday work, with agents free to run unsupervised.
-2. **Normie mode** (`"open"`, `"writable"`, `"unconfined"`): like ordinary
-   work on the Mac, with the user watching and agents in approval modes. This
-   is where the web is open and packages get installed.
+1. **YOLO mode** (`bbcode` or `bbe` on the host; the default): firewall on,
+   R, Python and TeX volumes read-only, Docker's seccomp filter on. Everyday
+   work, with agents free to run unsupervised.
+2. **Normie mode** (`bbcode --normie` or `bbe --normie`): firewall off,
+   volumes writable, seccomp unconfined. Like ordinary work on the Mac, with
+   the user watching and agents in approval modes. This is where the web is
+   open and packages get installed.
 
-Other combinations work and are reported as a custom posture.
+Anything else is reported as a custom posture. To see the current mode, run
+`bash /sandbox/.devcontainer/posture.sh` (it prints `yolo`, `normie` or
+`custom`, then the three settings). Switching modes is the user's decision
+(see `USER PERMISSION REQUIRED`), made on the host; nothing in the container
+can switch it.
 
-### Guidance that depends on `SANDBOX.toml`
+### Guidance that depends on the mode
 
 - Shared resources that are not projects include the research library (cellar),
   the finished and retired projects folder (done), and the screenshot drop.
-- **Network access depends on `internet`.** When `"firewalled"`, `init-firewall.sh`
+- **Network access depends on the mode.** In YOLO mode, `init-firewall.sh`
   builds a deny-by-default IP allowlist at container start. Blocked hosts are
   REJECTed, so they fail fast rather than hanging — suspect the firewall before
-  the code. When `"open"`, the container starts without these network
+  the code. In normie mode, the container starts without these network
   restrictions. The allowlist when the firewall is on:
   - **Packages**: npm and the VS Code marketplace (per-publisher
     `*.gallerycdn.vsassets.io` — a new extension publisher needs a new entry
@@ -62,7 +64,7 @@ Other combinations work and are reported as a custom posture.
   servers and are not subject to the devcontainer firewall. When the firewall
   is on, this does not make arbitrary URLs available to terminal commands or
   project code.
-- **Package installs depend on `packages`.** When `"readonly"` (YOLO mode), the
+- **Package installs depend on the mode.** In YOLO mode, the
   R, Python and TeX stacks are **read-only**. If a package is missing, **ASK THE
   USER TO ADD IT** (name the package) rather than installing it some other way.
   They add it in normie mode, or to a list in `.setup/install-base.sh`

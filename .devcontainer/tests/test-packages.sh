@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run as node in a rebuilt devcontainer: bash .devcontainer/tests/test-packages.sh
-# Inputs: the shared R, Python and TeX volumes, mounted as SANDBOX.toml's
-#   `packages` asks (read-only by default); .setup/install-base.sh (its --verify
+# Inputs: the shared R, Python and TeX volumes, mounted read-only (YOLO mode,
+#   the default) or writable (bbox --normie); .setup/install-base.sh (its --verify
 #   mode holds the declared base lists). In read-only mode pip reaches PyPI
 #   only to prove an install is refused. Passes on the base alone; the
 #   optional set has its own check, tests/test-optional.sh.
@@ -25,10 +25,12 @@ case "$site_library" in
 *) fail "R's first library is $site_library, not the mounted site-library" ;;
 esac
 
-requested=$(bash "$here/../packages-setting.sh")
 mode=$(bash "$here/../package-mode.sh")
-echo "--- mounts match SANDBOX.toml: packages = \"$requested\""
-[ "$mode" = "$requested" ] || fail "package mounts are $mode, but SANDBOX.toml asks for $requested; run bbox --rebuild"
+echo "--- package mounts agree: $mode"
+case "$mode" in
+readonly | writable) ;;
+*) fail "package mounts are $mode; on the host run bbox --rebuild (add --normie for writable)" ;;
+esac
 for mount in /opt/venv "$site_library" /usr/local/texlive; do
     mountpoint -q "$mount" || fail "$mount is not a mounted volume"
     if [ "$mode" = readonly ]; then

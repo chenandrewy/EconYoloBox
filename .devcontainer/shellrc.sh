@@ -50,60 +50,53 @@ if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; th
     echo "note: AI CLIs not installed - run .setup/install-base.sh cli"
 fi
 
-# Firewall window warning. post-start.sh skips init-firewall.sh when
-# SANDBOX.toml says internet = "open", leaving the container on
-# Docker's default ACCEPT policies - no network restrictions at all. Nothing
-# else surfaces that state: startup looks entirely normal and the only symptom
-# is that blocked hosts start answering.
-#
-# post-start.sh touches this marker on the open path and removes it on the
-# armed one, so no network probe is needed here. Not inferred from dnsmasq or resolv.conf:
-# both look "open" on init-firewall.sh's legitimate armed-but-dnsmasq-failed
-# path, and iptables itself needs root. The open side writes the marker rather
-# than the armed side because /tmp is not tmpfs here - a stale "armed" marker
-# would fail silent, whereas a stale open one only cries wolf.
-#
-# Knows what devcontainer.json declared at the last container start, not the
-# live kernel state: a bare `docker restart` skips postStartCommand entirely
-# and leaves the container open with whatever marker was there before.
-if [ -f /tmp/FIREWALL-WINDOW-OPEN ]; then
+# Posture banner and prompt tag. bbox on the host fixes the posture when it
+# creates the container (--yolo, the default, or --normie), so outside YOLO
+# mode every shell says so, and zsh's prompt carries a tag, so the mode stays
+# in view. posture.sh reads the container itself: the firewall-open marker
+# post-start.sh leaves, the package mounts, and PID 1's seccomp mode (PID 1,
+# since an inner agent sandbox may add a filter to the checking process).
+_sbx_posture=$(bash /sandbox/.devcontainer/posture.sh)
+_sbx_mode=${_sbx_posture%% *}
+if [ "$_sbx_mode" != yolo ]; then
     if [ -t 1 ]; then
-        _fw_hi=$'\033[1;3;38;5;214m'
-        _fw_off=$'\033[0m'
+        _sbx_hi=$'\033[1;3;38;5;214m'
+        _sbx_off=$'\033[0m'
     else
-        _fw_hi=''
-        _fw_off=''
+        _sbx_hi=''
+        _sbx_off=''
     fi
-    printf '%s\n' \
-        "${_fw_hi}Warning: Firewall Open${_fw_off}" \
-        'To close: set internet = "firewalled" in /sandbox/SANDBOX.toml, then rebuild container'
-    unset _fw_hi _fw_off
-fi
-
-# Writable package volumes (SANDBOX.toml packages = "writable") are meant to
-# be a short supervised window, like the open firewall, so say so in every
-# shell. Read from the live mounts: they are fixed at container creation.
-if [ "$(bash /sandbox/.devcontainer/package-mode.sh)" != readonly ]; then
-    if [ -t 1 ]; then
-        _pk_hi=$'\033[1;3;38;5;214m'
-        _pk_off=$'\033[0m'
+    if [ "$_sbx_mode" = normie ]; then
+        printf '%s\n' \
+            "${_sbx_hi}Normie mode: firewall open, package volumes writable, seccomp unconfined${_sbx_off}" \
+            'Back to YOLO mode: on the host, bbcode or bbe without --normie'
     else
-        _pk_hi=''
-        _pk_off=''
+        printf '%s\n' \
+            "${_sbx_hi}Custom posture: ${_sbx_posture#* }${_sbx_off}" \
+            'On the host, recreate it: bbox --rebuild (YOLO) or bbox --rebuild --normie'
     fi
-    printf '%s\n' \
-        "${_pk_hi}Warning: Package Volumes Writable${_pk_off}" \
-        'To close: set packages = "readonly" in /sandbox/SANDBOX.toml, then run bbox --rebuild on the host'
-    unset _pk_hi _pk_off
+    unset _sbx_hi _sbx_off
 fi
-
-# Docker's outer seccomp filter is a separate safety boundary from the
-# firewall. Each interactive shell compares current SANDBOX.toml with PID 1;
-# config edits cannot alter an already-created container. PID 1 is used because
-# an inner agent sandbox may add a filter to the checking process itself.
-case $- in
-    *i*) bash /sandbox/.devcontainer/check-seccomp.sh ;;
-esac
+# A powerlevel10k segment at the front of the prompt. This file is sourced
+# before oh-my-zsh, and ~/.zshrc sets the element list after it, so a
+# one-time precmd hook adds the segment once that list is final.
+if [ -n "${ZSH_VERSION:-}" ] && [ "$_sbx_mode" != yolo ]; then
+    typeset -g _SBX_MODE=$_sbx_mode
+    prompt_sandbox_mode() {
+        if [ "$_SBX_MODE" = normie ]; then
+            p10k segment -b 1 -f 15 -t normie
+        else
+            p10k segment -b 3 -f 0 -t custom
+        fi
+    }
+    _sbx_prompt_segment() {
+        POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(sandbox_mode ${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]:#sandbox_mode})
+        add-zsh-hook -d precmd _sbx_prompt_segment
+    }
+    autoload -Uz add-zsh-hook
+    add-zsh-hook precmd _sbx_prompt_segment
+fi
+unset _sbx_posture _sbx_mode
 
 # cchat-yolo [claude args...]
 # Start Claude in the container, always under --remote-control so the session is
@@ -115,7 +108,8 @@ esac
 # flag here because the container is the blast radius — host-side launchers
 # that target a container pass the flag themselves. That premise requires both
 # the firewall and Docker's seccomp filter, so every -yolo launcher checks the
-# live container boundaries before bypassing agent permissions.
+# live container boundaries before bypassing agent permissions: in normie mode
+# they refuse.
 _cc_session_name() {
     local base host n=1 running
     # Strip the user-workspace prefix first, then the sandbox root, so both
@@ -153,7 +147,7 @@ alias hostname-local='echo "$LOCAL_HOSTNAME"'
 alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'
 
 # Everyday work is the -yolo launchers. Standard codex is the sandboxed mode,
-# which needs seccomp = "unconfined"; see README.md for the recommended
+# which needs unconfined seccomp (normie mode); see README.md for the recommended
 # approvals_reviewer="auto_review" user preference. Only YOLO needs a wrapper
 # here, to refuse startup unless the container's outer boundaries are active.
 gptchat-yolo() {

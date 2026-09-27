@@ -24,12 +24,13 @@
   "runArgs": [
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
-    // bbox supplies SANDBOX.toml's strictly validated seccomp value. Direct VS
-    // Code creation cannot read SANDBOX.toml, so it falls back to builtin: the
-    // default YOLO posture (Docker's outer syscall filter on; the -yolo
-    // launchers require it). Codex's sandboxed modes need unconfined for
-    // Bubblewrap, at the cost of that filter for every process: set
-    // seccomp = "unconfined" in SANDBOX.toml and run `bbox --rebuild`.
+    // The posture is chosen by bbox on the host when it creates the container
+    // (--yolo, the default, or --normie), through three variables:
+    // SANDBOX_SECCOMP here, SANDBOX_PKG_READONLY on the package mounts and
+    // SANDBOX_INTERNET in containerEnv. Creation that bypasses bbox (VS Code's
+    // own Rebuild Container) sees none of them and falls back to YOLO mode.
+    // Normie mode's unconfined seccomp also lets Codex's sandboxed modes use
+    // Bubblewrap, at the cost of Docker's outer syscall filter for every process.
     "--security-opt=seccomp=${localEnv:SANDBOX_SECCOMP:builtin}",
     "--env-file=/tmp/devcontainer-local.env"
   ],
@@ -117,10 +118,10 @@
     // Docker seeds it, node-owned, from the image's directory, which already
     // holds the base. Rename back to abandon it.
     //
-    // Read-only unless SANDBOX.toml says packages = "writable": bbox exports
+    // Read-only unless bbox --normie created the container: bbox exports
     // SANDBOX_PKG_READONLY and checks the created mounts, and direct VS Code
-    // creation, which cannot read SANDBOX.toml, falls back to read-only.
-    // Writable mode is for the user installing packages (docs/journal/0926a).
+    // creation falls back to read-only. Writable mode is for the user
+    // installing packages (docs/journal/0926a).
     "source=r-site-library-noble-4.5.3-2026-07-15-base,target=/opt/R/4.5.3/lib/R/site-library,type=volume,readonly=${localEnv:SANDBOX_PKG_READONLY:true}",
     "source=venv-noble-py3.12-base,target=/opt/venv,type=volume,readonly=${localEnv:SANDBOX_PKG_READONLY:true}",
     // Minimal pdfLaTeX-only TeX Live; the year must match TEXLIVE_YEAR.
@@ -157,6 +158,10 @@
     // containerEnv becomes `docker run --env`, which
     // outranks --env-file, so setting it here would clobber the detected value.
     // Fallback if detection finds nothing: the Dockerfile's baked-in ARG TZ.
+    // Read by post-start.sh at every start; anything but "open" arms the
+    // firewall. Fixed at creation like the rest of the posture, so editing a
+    // file in the workspace cannot open it.
+    "SANDBOX_INTERNET": "${localEnv:SANDBOX_INTERNET:firewalled}",
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "CLAUDE_CONFIG_DIR": "/home/node/.claude",
     "AI_SESH_MACHINE": "${localEnv:AI_SESH_MACHINE}",
@@ -167,8 +172,11 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/sandbox,type=bind,consistency=delegated",
   "workspaceFolder": "/sandbox",
-  // Arms the firewall (unless SANDBOX.toml says internet = "open"), seeds
+  // Arms the firewall (unless bbox --normie created the container), seeds
   // agent guidelines, checks policy, refreshes TeX.
   "postStartCommand": "bash .devcontainer/post-start.sh",
+  // Colors and titles the VS Code window outside YOLO mode. On attach, since
+  // the Dev Containers extension writes the machine settings it edits.
+  "postAttachCommand": "bash .devcontainer/vscode-posture.sh",
   "waitFor": "postStartCommand"
 }

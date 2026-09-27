@@ -2,9 +2,7 @@
 # Install the lean base: the Python, R and TeX stacks and the AI CLIs.
 #
 # Run, inside the devcontainer as node, from anywhere in this checkout:
-#   In normie mode (internet = "open", packages = "writable", seccomp =
-#   "unconfined" in SANDBOX.toml, then `bbox --rebuild`; only the first two
-#   are required):
+#   In normie mode (on the host, `bbcode --normie` or `bbe --normie`):
 #     bash .setup/install-base.sh                # python r tex cli (all)
 #     bash .setup/install-base.sh tex            # TeX Live only
 #     bash .setup/install-base.sh r --force      # reinstall present R packages
@@ -30,7 +28,7 @@
 #
 # python, r and tex refuse unless the container is in normie mode: run as
 # node, their mounts writable and node-owned, and the firewall open (checked
-# like install-optional.sh does, on the mounts rather than SANDBOX.toml). An
+# like install-optional.sh does, on the mounts and the firewall marker). An
 # unmounted directory would install into a disposable image layer. cli needs
 # only its own mount, the per-checkout npm-global volume, which is writable in
 # every mode. --verify only checks (imports, library loads, the TeX marker, npm
@@ -165,9 +163,9 @@ trap cleanup EXIT
 WORK_DIR=$(mktemp -d)
 
 # The same check as install-optional.sh: normie mode is the user's switch, the
-# mounts writable, which only bbox --rebuild can arrange. Checked on the mounts,
-# not on SANDBOX.toml, which may have been edited since the container was
-# created. All of it before anything installs, so a refusal writes nothing.
+# mounts writable, which only bbox --normie can arrange, at creation. Checked
+# on the container itself. All of it before anything installs, so a refusal
+# writes nothing.
 require_install_mode() {
     local mount owner problems=()
     [ "$(id -un)" = node ] || problems+=("run as node, not $(id -un)")
@@ -191,10 +189,9 @@ require_install_mode() {
     if [ ${#problems[@]} -gt 0 ]; then
         echo "install-base.sh: not in normie mode:" >&2
         printf '  - %s\n' "${problems[@]}" >&2
-        echo 'Switch to normie mode: internet = "open", packages = "writable" and' >&2
-        echo 'seccomp = "unconfined" in SANDBOX.toml, run bbox --rebuild on the host,' >&2
+        echo 'Switch to normie mode: on the host, bbcode --normie (or bbe --normie),' >&2
         echo "then in the container: bash .setup/install-base.sh $STACK_TARGETS" >&2
-        echo 'Switch back to YOLO mode afterwards.' >&2
+        echo 'Switch back to YOLO mode afterwards: bbcode or bbe without --normie.' >&2
         echo 'The AI CLIs update in any mode: bash .setup/install-base.sh cli' >&2
         exit 1
     fi
@@ -737,8 +734,7 @@ elif [ "$VERIFY" -eq 0 ] && [ -n "$STACK_TARGETS" ]; then
     fi
     echo "Restart R/Python sessions in every container that mounts these volumes;"
     echo "after a TeX change run tex-refresh there too and reopen LyX."
-    echo 'Done. Back to YOLO mode: internet = "firewalled", packages = "readonly",'
-    echo 'seccomp = "builtin" in SANDBOX.toml, then bbox --rebuild.'
+    echo 'Done. Back to YOLO mode: on the host, bbcode or bbe without --normie.'
 else
     echo "Done."
 fi

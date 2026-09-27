@@ -17,14 +17,12 @@
 #     Input:   `devcontainer up` JSON on stdin.
 #     Output:  its exact containerId.
 #
-#   python3 dc-resolve.py security-policy <docker-security-options-json>
-#     Input:   Docker inspect's HostConfig.SecurityOpt JSON array.
-#     Output:  builtin, unconfined, or an unverified description.
-#
-#   python3 dc-resolve.py package-access <docker-mounts-json>
-#     Input:   Docker inspect's .Mounts JSON array.
-#     Output:  readonly or writable when the python, r and tex package mounts
-#              all agree, else an unverified description.
+#   python3 dc-resolve.py posture
+#     Input:   `docker inspect <container>` JSON on stdin.
+#     Output:  the container's security posture, fixed at its creation:
+#              "yolo", "normie" or "custom", then internet=, packages= and
+#              seccomp= words, e.g. "yolo internet=firewalled packages=readonly
+#              seccomp=builtin". Anything not verified reads as custom.
 #
 # Called by _dc_resolve/bbox in devcontainer.zsh; not meant to be run by hand.
 
@@ -116,22 +114,21 @@ def up_container_id(src):
     raise SystemExit("devcontainer up did not return a containerId")
 
 
-def security_policy(src):
-    try:
-        options = json.loads(src)
-    except json.JSONDecodeError:
-        return "unverified (invalid Docker inspection output)"
+# The two presets bbox creates (--yolo, the default, and --normie).
+PRESETS = {
+    "yolo": ("firewalled", "readonly", "builtin"),
+    "normie": ("open", "writable", "unconfined"),
+}
+
+
+def security_policy(options):
     if not isinstance(options, list):
-        return "unverified (no explicit seccomp option)"
+        return "unverified"
     policies = [item[len("seccomp="):] for item in options
                 if isinstance(item, str) and item.startswith("seccomp=")]
-    if policies == ["builtin"]:
-        return "builtin"
-    if policies == ["unconfined"]:
-        return "unconfined"
-    if not policies:
-        return "unverified (no explicit seccomp option)"
-    return "unverified (seccomp=" + ", seccomp=".join(policies) + ")"
+    if policies in (["builtin"], ["unconfined"]):
+        return policies[0]
+    return "unverified"
 
 
 def package_stack(target):
@@ -144,26 +141,46 @@ def package_stack(target):
     return None
 
 
-def package_access(src):
-    try:
-        mounts = json.loads(src)
-    except json.JSONDecodeError:
-        return "unverified (invalid Docker inspection output)"
+def package_access(mounts):
     if not isinstance(mounts, list):
-        return "unverified (no mounts)"
+        return "unverified"
     access = {}
     for mount in mounts:
         if isinstance(mount, dict):
             stack = package_stack(mount.get("Destination", ""))
             if stack:
                 access[stack] = "writable" if mount.get("RW") else "readonly"
-    absent = [stack for stack in ("python", "r", "tex") if stack not in access]
-    if absent:
-        return "unverified (no " + ", ".join(absent) + " package mount)"
     modes = set(access.values())
-    if len(modes) == 1:
-        return modes.pop()
-    return "unverified (mixed: " + ", ".join(f"{s} {access[s]}" for s in ("python", "r", "tex")) + ")"
+    if sorted(access) != ["python", "r", "tex"] or len(modes) != 1:
+        return "unverified"
+    return modes.pop()
+
+
+def internet_mode(env):
+    """post-start.sh arms the firewall unless SANDBOX_INTERNET is "open"."""
+    if not isinstance(env, list):
+        return "unverified"
+    values = [item.split("=", 1)[1] for item in env
+              if isinstance(item, str) and item.startswith("SANDBOX_INTERNET=")]
+    return "open" if values == ["open"] else "firewalled"
+
+
+def posture(src):
+    try:
+        inspected = json.loads(src)
+    except json.JSONDecodeError:
+        inspected = None
+    if isinstance(inspected, list) and len(inspected) == 1:
+        inspected = inspected[0]
+    if not isinstance(inspected, dict):
+        return "custom internet=unverified packages=unverified seccomp=unverified"
+    settings = (
+        internet_mode((inspected.get("Config") or {}).get("Env")),
+        package_access(inspected.get("Mounts")),
+        security_policy((inspected.get("HostConfig") or {}).get("SecurityOpt")),
+    )
+    name = next((mode for mode, preset in PRESETS.items() if preset == settings), "custom")
+    return "{} internet={} packages={} seccomp={}".format(name, *settings)
 
 
 command = sys.argv[1]
@@ -173,9 +190,7 @@ elif command == "folder-uri":
     print(folder_uri(sys.argv[2], sys.argv[3], sys.argv[4]))
 elif command == "up-container-id":
     print(up_container_id(sys.stdin.read()))
-elif command == "security-policy":
-    print(security_policy(sys.argv[2]))
-elif command == "package-access":
-    print(package_access(sys.argv[2]))
+elif command == "posture":
+    print(posture(sys.stdin.read()))
 else:
     raise SystemExit(f"unknown command: {command}")

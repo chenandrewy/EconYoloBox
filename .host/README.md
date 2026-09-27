@@ -7,8 +7,9 @@ the container itself: its definition, its startup, and the tools baked into
 it.
 
 The functions run on your **Mac**, before Docker creates the container. `bbox`
-reads and validates this repo's `SANDBOX.toml`, passes the selected seccomp
-policy to the Dev Containers CLI, and then optionally opens a shell or editor.
+picks the security posture (YOLO mode by default, normie mode with
+`--normie`), passes it to the Dev Containers CLI, verifies the resulting
+container, and then optionally opens a shell or editor.
 Launching and managing Claude Code sessions remains a separate personal concern.
 
 ## Setup
@@ -49,36 +50,62 @@ its own path, so another checkout cannot redirect its helpers.
 
 | Command | What it does |
 |---|---|
-| `bbox [dir]` | Bring up the enclosing sandbox. |
+| `bbox [dir]` | Bring up the enclosing sandbox in YOLO mode. |
+| `bbox --normie [dir]` | Bring it up in normie mode. `--yolo` names the default explicitly. |
 | `bbox --shell [dir]` | Bring it up, verify it, and open a shell at that path. |
 | `bbox --code [dir]` | Bring it up, verify it, and open that path in VS Code. |
+| `bbox --status [dir]` | Report the container's mode; change nothing. |
 | `bbox --rebuild [dir]` | Recreate the container while retaining Docker's build cache. |
 | `bbox --rebuild-without-cache [dir]` | Recreate it with `--build-no-cache`. |
 
+`bbu`, `bbe`, and `bbcode` are short wrappers around `bbox`, `bbox --shell`,
+and `bbox --code`, and take the same flags: `bbcode --normie`, `bbe --yolo`.
+They contain no separate bring-up logic. The former `dcu`, `dce`, and
+`dccode` names are removed on load.
+
+The modes are two fixed presets, set when the container is created:
+
+| Mode | Internet | Package volumes | Seccomp |
+|---|---|---|---|
+| YOLO (default, `--yolo`) | firewalled | read-only | `builtin` |
+| normie (`--normie`) | open | writable | `unconfined` |
+
+`bbox` exports them to `devcontainer up` as `SANDBOX_INTERNET`,
+`SANDBOX_PKG_READONLY` and `SANDBOX_SECCOMP`, and reads a container's mode
+back from `docker inspect` (its environment, mounts and security options).
+`SANDBOX.toml` plays no part.
+
 All modes walk up from `dir` (default: the current directory), resolve the
-sandbox once, call `devcontainer up`, and inspect the exact returned container.
-Reusing an existing container warns if Docker's recorded seccomp policy
-differs from `SANDBOX.toml`; if `up` had to create the container, a mismatch
-is an error instead, exactly as after a rebuild.
-Before either rebuild mode, the launcher refuses if a VS Code window is
+sandbox once, and inspect any container already labeled for it. If that
+container is in another mode, `bbox` recreates it; the image and the named
+volumes survive, but everything running in the container ends. With no flag,
+that is a question, asked only on a terminal (elsewhere `bbox` refuses): the
+flagless default is YOLO mode, so `bbe` into a normie container asks before
+replacing it, and `bbe --normie` attaches to it as it is. An explicit flag is
+the answer, so `bbcode --yolo` switches without asking. Either way, a switch
+refuses while a VS Code window is connected to the container; close it first.
+
+Then `bbox` calls `devcontainer up` and inspects the exact returned container.
+If it is not in the requested mode, `bbox` stops before attachment. When it
+is, `bbox` prints the mode.
+
+Before a rebuild or a switch, the launcher refuses if a VS Code window is
 connected to any container for the folder (the Dev Containers extension would
-otherwise race `devcontainer up` and recreate an `unconfined` container), then
+otherwise race `devcontainer up` and recreate a YOLO container), then
 removes every container labeled for the folder so no duplicate survives. The
 check looks for a live connection to the in-container VS Code server, which
-itself lingers after the window closes. After a rebuild, a mismatch or failed
-inspection stops before attachment. `--shell` and `--code` are mutually
-exclusive, as are the rebuild flags; an action can be combined with either
-rebuild mode.
+itself lingers after the window closes. `--shell`, `--code` and `--status`
+are mutually exclusive, as are the rebuild flags and the mode flags;
+`--status` takes no other option.
 
-Changes to `seccomp` require `bbox --rebuild`; plain `bbox` may reuse a running
-container. Direct **Dev Containers: Rebuild Container** in VS Code does not
-inherit the launcher's environment and therefore uses the `builtin`
-default. This matches the checked-in YOLO posture. When
-`SANDBOX.toml` selects `unconfined`, use `bbox --rebuild` to apply it.
+Direct **Dev Containers: Rebuild Container** in VS Code does not inherit the
+launcher's environment and therefore always gives YOLO mode. Use
+`bbox --rebuild --normie --code` to rebuild in normie mode.
 
-`bbu`, `bbe`, and `bbcode` are short wrappers around `bbox`, `bbox --shell`,
-and `bbox --code`. They contain no separate bring-up logic. The former
-`dcu`, `dce`, and `dccode` names are removed on load.
+Inside the container, the mode stays visible outside YOLO mode: a red VS Code
+title and status bar with `NORMIE MODE` in the window title, a `normie` tag
+at the front of the zsh prompt and Claude's status line, and a banner in every
+new shell.
 
 `devcontainer.zsh` sources `_bbox`. Source it after your zsh completion setup;
 if `compdef` was unavailable at that point, source `.host/_bbox` again after
@@ -89,7 +116,7 @@ if `compdef` was unavailable at that point, source `.host/_bbox` again after
 To start Claude on a project folder in this repo:
 
 ```zsh
-bbox --shell My-Project    # shell in the container, in that folder
+bbe My-Project             # shell in the container, in that folder
 cchat-yolo                 # Claude, remote-controlled, named for the folder
 ```
 

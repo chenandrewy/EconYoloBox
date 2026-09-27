@@ -5,32 +5,34 @@ economics research, and the daily workflow around all of it is short.
 
 ## 1. Safe YOLO agents
 
-The container provides the outer execution boundary. The checked-in default
-is the YOLO posture: `internet = "firewalled"` raises the deny-by-default egress
-firewall, and `seccomp = "builtin"` keeps Docker's outer syscall filter.
+The container provides the outer execution boundary. The default is the YOLO
+posture: the deny-by-default egress firewall is up, the package volumes are
+read-only, and Docker's outer syscall filter (`builtin` seccomp) is on. The host
+launcher picks the posture when it creates the container (`bbcode`, or
+`bbcode --normie`), and it is fixed from then on.
 Explicit YOLO launchers skip permissions and refuse to start unless the
 firewall is enabled and PID 1 has filtered seccomp. Egress blocking is a hard
 boundary; an LLM reviewer is a soft one.
 
-For internet access, switch to normie mode (`internet = "open"`, with
-`packages = "writable"` and `seccomp = "unconfined"`) and use Claude's
+For internet access, switch to normie mode (`bbcode --normie`: open internet,
+writable package volumes, `unconfined` seccomp) and use Claude's
 `claude --permission-mode auto`. Its two-stage classifier skips in-project
 edits and is cheap per call. Codex's automatic review is a full model call per
 escalation, and with the firewall down every network action escalates, so it
 degrades noticeably; see
 [docs/journal/0919b](journal/0919b,claude-vs-codex-reviewer-speed.md). The
-internet setting does not configure either agent's approval mode.
+mode does not configure either agent's approval mode.
 
 Codex's sandboxed modes (the `/etc/codex` defaults request workspace-write
 sandboxing and on-request approval; we recommend
 `approvals_reviewer = "auto_review"` in your user config for "Approve for me")
-need `seccomp = "unconfined"`, which normie mode sets, applied with
-`bbox --rebuild`. Builtin seccomp
+need `unconfined` seccomp, which normie mode sets. Builtin seccomp
 blocks Bubblewrap setup, and automatic review could not reliably recover
 native editing tools. Unconfined removes Docker's outer syscall filter for
 every process, including Claude and unsandboxed commands, and requires
 validation of ordinary execution, native editing, and sandbox restrictions
-after recreation. The seccomp toggle stays while that mode is under test.
+after recreation. Normie mode is the only way to get it; an open-firewall,
+builtin-seccomp combination is no longer offered (docs/journal/0923b kept one).
 See [sandbox modes and launchers](../.devcontainer/README.md#codex-sandbox-modes-and-launchers)
 for configuration and the distinction between sandbox networking and the firewall.
 
@@ -81,13 +83,17 @@ tooling those changes exist to support is described in
 
 - **Startup scripts.** `postStartCommand` (`post-start.sh`) configures the firewall,
   seeds canonical agent guidance and shared skills, and checks the enforced
-  agent policy. Setting `internet = "open"` in `SANDBOX.toml` switches the
-  firewall off at the next container start (stop + reopen, or Rebuild
-  Container); every shell warns while it is off, and anything other than
-  `"open"` arms. The switch is in the tracked, writable workspace - like the
-  startup scripts themselves - so it is a convenience, not a security boundary
-  against an agent that edits the repo; `git diff` before restarting is the
-  review step. A
+  agent policy. The firewall stays off only in a container `bbox --normie`
+  created: the choice is in the container's environment, set at creation, and
+  anything other than `open` arms. Every shell says so while it is off. That
+  takes the switch out of the workspace, so an agent can no longer open the
+  firewall by editing a settings file. The startup scripts themselves still
+  are in the tracked, writable workspace, and so is the host launcher,
+  `.host/devcontainer.zsh`, which the host's `~/.zshrc` sources straight from
+  the checkout: an agent that edits either changes what the next start, or
+  the next host shell, runs. They are not a security boundary against an
+  agent that edits the repo; `git diff` before restarting or opening a new
+  host terminal is the review step. A
   fresh container has the system toolchain immediately. The R, Python and TeX
   stacks come from shared volumes that Docker seeds from the image on the
   first build, and the AI CLIs install at first start into a per-container
@@ -148,15 +154,17 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   read-only by default. Agents run the stacks but cannot
   change them. Packages change only in normie mode, from inside.
 
-- **Two working modes.** A second switch, `packages = "readonly" |
-  "writable"`, sits beside `internet` and `seccomp` in `SANDBOX.toml`. YOLO
-  mode, the default, is firewalled, read-only and builtin: agents run
-  unsupervised. Normie mode is open, writable and unconfined: supervised work
-  that feels like the Mac, with agents in approval modes. There the user
-  installs with the ordinary `install.packages()`, `pip install` and `tlmgr
-  install`, then switches back. `bbox --rebuild` applies the switches and
-  checks the resulting mounts; startup prints the mode, and shells warn while
-  the volumes are writable. The rest of what we use beyond the base is an
+- **Two working modes, one flag.** YOLO mode, the default (`bbcode`, `bbe`),
+  is firewalled, read-only and builtin: agents run unsupervised. Normie mode
+  (`bbcode --normie`, `bbe --normie`) is open, writable and unconfined:
+  supervised work that feels like the Mac, with agents in approval modes.
+  There the user installs with the ordinary `install.packages()`, `pip
+  install` and `tlmgr install`, then switches back. `bbox` recreates the
+  container when the mode changes and checks the result; with no flag it
+  means YOLO mode, so normie mode never outlasts the command that asked for
+  it. The mode stays in view: a red VS Code window, a `normie` tag in the
+  prompt and Claude's status line, and a banner in every shell. The rest of
+  what we use beyond the base is an
   optional set that `install-optional.sh` installs in normie mode.
 
 - **Pinned R package state.** R resolves against a dated P3M snapshot rather
@@ -216,12 +224,11 @@ commands.
 ### Containers, sessions, and agents
 
 - **One-command project opening (`.host/`).** Source `devcontainer.zsh` in your
-  `~/.zshrc` and use `bbox --code [dir]` to validate `SANDBOX.toml`, bring up
-  the enclosing devcontainer, verify the live seccomp policy, and open that
-  exact subfolder in VS Code. `bbox --shell [dir]` follows the same bring-up
-  path and enters zsh. `bbox --rebuild` applies changed creation-time settings.
-  Direct VS Code creation remains the minimal everyday path and defaults to
-  `builtin`, the YOLO posture.
+  `~/.zshrc` and use `bbcode [dir]` to bring up the enclosing devcontainer in
+  YOLO mode (or `bbcode --normie [dir]`), verify its posture, and open that
+  exact subfolder in VS Code. `bbe [dir]` follows the same bring-up path and
+  enters zsh; `bbox --status` reports the mode. Direct VS Code creation
+  remains the minimal everyday path and always gives YOLO mode.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered

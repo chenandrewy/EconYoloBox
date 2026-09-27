@@ -98,9 +98,10 @@ this helper. See the host setup README for installation and failure handling.
 - `check-yolo-boundaries.sh` — refuses supplied YOLO launchers unless the
   firewall is enabled and PID 1 has filtered seccomp.
 - `init-firewall.sh` — network firewall rules applied by `post-start.sh` when enabled.
-- `strict-setting.sh`, with its wrappers `seccomp-setting.sh` and
-  `packages-setting.sh` — strict readers for SANDBOX.toml's enumerated
-  switches; `package-mode.sh` reports how the package volumes are mounted.
+- `posture.sh` — reports the container's posture (`yolo`, `normie` or
+  `custom`) from the container itself; `package-mode.sh` reports how the
+  package volumes are mounted. `vscode-posture.sh` (`postAttachCommand`)
+  colors the VS Code window outside YOLO mode.
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
 - `agents/` — canonical agent guidance and settings, applied to the container's user-level config on every start (see "Agent Config" below).
 - `home/` — user-level dotfiles that must survive a rebuild. The container's
@@ -125,41 +126,30 @@ Because the name appears in every session, a short one is worth setting.
 
 ### Codex sandbox modes and launchers
 
-Docker's outer seccomp policy is selected in root-level `SANDBOX.toml`:
-
-```toml
-seccomp = "unconfined" # or "builtin"
-```
-
-`unconfined` is the chosen configuration
+Docker's outer seccomp policy is part of the posture the host launcher picks
+at creation: `builtin` in YOLO mode (the default), `unconfined` in normie mode
+(`bbcode --normie`). Codex's sandboxed modes need `unconfined`,
 because builtin seccomp blocks Bubblewrap setup here and
 automatic review did not provide reliable recovery for all native tools.
-Validation after container recreation is still required; this setting alone is
+Validation after container recreation is still required; the mode alone is
 not evidence that the inner sandbox works.
 
 `unconfined` removes Docker's outer syscall filter for every container process,
 including Claude, YOLO sessions, and commands approved to run outside Codex's
 sandbox. A working Codex sandbox does not restore that outer protection for
-other processes. Every interactive shell rereads the setting and compares it
-with container PID 1's live `/proc` mode. It always displays **Warning: Seccomp
-Unconfined** when PID 1 is unfiltered, even when that matches the setting.
-It also warns on a mismatch, invalid
-configuration, or an unverifiable mode. Filtered mode is only a runtime mode
-check, not proof of Docker's exact builtin profile.
+other processes. `posture.sh` reads container PID 1's live `/proc` mode, and
+every interactive shell outside YOLO mode says so. Filtered mode is only a
+runtime mode check, not proof of Docker's exact builtin profile.
 See [Docker's seccomp documentation](https://docs.docker.com/engine/security/seccomp/).
 
-Changing this setting requires **container recreation** with `bbox --rebuild`
-on the host, not an image change. A plain restart or plain `bbox` does not apply
-it. Direct VS Code creation uses `builtin`, matching the checked-in YOLO
-posture, but does not read this setting. Reuse the existing image when
-recreating; named volumes and the bind-mounted workspace persist, but files
-only in the old container's writable layer do not.
-
-`bbox` inspects the exact container returned by `devcontainer up`. Reuse warns
-about a mismatch and continues; explicit recreation stops before attachment if
-the policy cannot be verified. VS Code's direct **Rebuild Container** path does
-not inherit the launcher's validated environment and defaults to `builtin`.
-Use `bbox --rebuild --code` when applying `seccomp = "unconfined"`.
+Changing mode requires **container recreation**, not an image change; `bbox`
+does it when the requested mode differs from the container's. Named volumes
+and the bind-mounted workspace persist, but files only in the old container's
+writable layer do not. `bbox` inspects the exact container returned by
+`devcontainer up` and stops before attachment if its posture is not the one
+requested. VS Code's direct **Rebuild Container** path does not see the
+launcher's flags and recreates in YOLO mode; use `bbox --rebuild --normie
+--code` to rebuild in normie mode.
 
 Codex separates the sandbox (filesystem and network limits), approval policy
 (when approval is requested), and reviewer (a person or automatic review).
@@ -310,52 +300,48 @@ The seed script handles guidance and settings differently:
   mixes model choices, project trust, and other runtime state. Stable defaults
   belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
 
-User-specific settings live in the root-level `SANDBOX.toml`: `seccomp`
-(`"builtin"` or `"unconfined"`), `internet` (`"firewalled"` or `"open"`), `packages`
-(`"readonly"` or `"writable"`), `timezone`
+User-specific settings live in the root-level `SANDBOX.toml`: `timezone`
 (IANA zone; comment out to use the detected host zone), `cellar` (the research
 library), `done` (finished and retired projects), and `screenshot_directory`. Paths are container paths. Agents read path settings
 directly, so path edits take effect immediately.
-`internet` is read by `post-start.sh` at every container start (stop + reopen
-or Rebuild Container); `timezone` becomes `TZ` at create time, so it needs a
-rebuild. General settings use `sandbox-setting.sh`, a `sed` over flat `key = "value"`
-/ `key = true|false` lines rather than a TOML parser. Internet, seccomp, and
-packages use the stricter shared `strict-setting.sh` through their respective
-setting scripts. It rejects tables, duplicate keys, malformed lines, and
-unsupported TOML; an invalid internet value selects `"firewalled"`.
-Seccomp and packages fall back to `builtin` and `readonly`. They are fixed at
-container creation, so they take `bbox --rebuild`.
-
-The checked-in default is `internet = "firewalled"`: the YOLO posture, with the
-allowlist active and the YOLO wrappers permitted. Set `internet = "open"` for
-internet access and use Claude's auto mode; the internet switch does not
-configure either agent's approval mode. Apply changes through Dev Containers:
-editing the file does not change live rules, and a bare `docker restart` skips
-the startup hook. The seccomp choice is independent of either firewall mode;
-enabling the firewall does not restore syscall filtering.
+`timezone` becomes `TZ` at create time, so it needs a
+rebuild. Settings are read with `sandbox-setting.sh`, a `sed` over flat `key = "value"`
+/ `key = true|false` lines rather than a TOML parser.
 
 ### Working modes
 
-Three independent switches in `SANDBOX.toml`, `internet`, `packages` and
-`seccomp`, combine into two named modes (docs/journal/0926b):
+The security posture is not in `SANDBOX.toml`. The host launcher picks it when
+it creates the container, and the container is the record of it:
 
-| Mode | `internet` | `packages` | `seccomp` | Use |
-|---|---|---|---|---|
-| YOLO mode (default) | `"firewalled"` | `"readonly"` | `"builtin"` | everyday work; YOLO launchers allowed; agents ask when a package is missing |
-| Normie mode | `"open"` | `"writable"` | `"unconfined"` | supervised work, like the Mac: open web, package installs, agents in approval modes |
+| Mode | Launch | Internet | Package volumes | Seccomp | Use |
+|---|---|---|---|---|---|
+| YOLO mode (default) | `bbcode`, `bbe` | firewalled | read-only | `builtin` | everyday work; YOLO launchers allowed; agents ask when a package is missing |
+| Normie mode | `bbcode --normie`, `bbe --normie` | open | writable | `unconfined` | supervised work, like the Mac: open web, package installs, agents in approval modes |
 
 Normie mode needs `unconfined` because Codex's approval modes run commands in
 Bubblewrap, which builtin seccomp blocks (see
-[Codex sandbox modes](#codex-sandbox-modes-and-launchers)). Other combinations
-still work; `post-start.sh` reports them as a custom posture.
+[Codex sandbox modes](#codex-sandbox-modes-and-launchers)). There are only the
+two presets; `post-start.sh` reports any other combination (a container made
+before the flags, say) as a custom posture, and `bbox` recreates it on request.
 
-Changing `internet` takes a container restart; changing `packages` or `seccomp`
-takes `bbox --rebuild`, because both are fixed at container creation (a rebuild
-from the cached image is quick). `bbox` exports `SANDBOX_PKG_READONLY` for the
-three package mounts in `devcontainer.json` and checks the created container's
-mounts, as it does for seccomp. A container created without `bbox`, for example
-by VS Code directly, mounts them read-only. `post-start.sh` prints the current
-mode, and interactive shells warn while the volumes are writable.
+`bbox` sets three variables for `devcontainer up`: `SANDBOX_SECCOMP` (runArgs),
+`SANDBOX_PKG_READONLY` (the three package mounts) and `SANDBOX_INTERNET`
+(containerEnv, read by `post-start.sh` at every start; anything but `open`
+arms the firewall). All three are fixed at creation, so a container in
+another mode is recreated (a rebuild from the cached image is quick), and
+editing a file in the workspace cannot switch it. A container created without
+`bbox`, for example by VS Code directly, gets none of them and is in YOLO mode.
+Without a flag, `bbox` means YOLO mode and asks before replacing a container in
+another mode, since that ends everything running in it; `--normie` attaches to
+a normie container as it is, and `bbox --status` reports the mode without
+changing anything.
+
+The mode stays visible: `post-start.sh` prints it at every start; outside YOLO
+mode every interactive shell prints a banner, the zsh prompt and Claude's
+status line lead with a `normie` (or `custom`) tag, and `vscode-posture.sh`
+turns the VS Code title and status bars red (amber for custom) and puts
+`NORMIE MODE` at the front of the window title, in the container's own VS Code
+machine settings.
 
 In normie mode, install as `node` with the ordinary commands:
 `install.packages()` writes to the shared site library, `pip install` to
@@ -377,7 +363,7 @@ each volume the first time an empty one is mounted (docs/journal/0926f). After
 that the human changes the base in normie mode with
 `bash .setup/install-base.sh` (see the [setup README](../.setup/README.md)),
 and optionally adds the rest with `.setup/install-optional.sh`.
-`devcontainer.json` mounts them read-only unless `packages = "writable"`:
+`devcontainer.json` mounts them read-only unless `bbox --normie` created the container:
 
 | Volume | Mount |
 |---|---|

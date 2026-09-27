@@ -33,8 +33,16 @@ if [ -d "${cwd}/.git" ] || git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; t
   branch=$(git -C "$cwd" --no-optional-locks symbolic-ref --short HEAD 2>/dev/null)
 fi
 
-parts=""
-parts=$(printf "\033[36m%s\033[0m" "$dir")
+# Outside YOLO mode, lead with the posture (bbox --normie, or custom), so an
+# agent session shows it the way the shell prompt does.
+posture=$(bash /sandbox/.devcontainer/posture.sh 2>/dev/null)
+case "${posture%% *}" in
+  normie) mode=$(printf "\033[1;97;41m normie \033[0m ") ;;
+  yolo | "") mode="" ;;
+  *) mode=$(printf "\033[1;30;43m custom \033[0m ") ;;
+esac
+
+parts=$(printf "%s\033[36m%s\033[0m" "$mode" "$dir")
 
 if [ -n "$branch" ]; then
   parts=$(printf "%s \033[33m(%s)\033[0m" "$parts" "$branch")

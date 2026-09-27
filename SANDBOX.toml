@@ -1,18 +1,11 @@
 # Big Sandbox settings
-# Use `bbox --rebuild` after editing.
-
-## Security Posture
-# `internet` access; `packages` access; `seccomp` system call filter
 #
-# For YOLO mode: use "firewalled", "readonly", "builtin"
-# For normie mode: use "open", "writable", "unconfined"
+# The security posture is not set here. It is chosen on the host when bbox
+# creates the container: bbcode or bbe for YOLO mode (the default), bbcode
+# --normie or bbe --normie for normie mode. See README.md.
 
-internet = "firewalled"
-packages = "readonly"
-seccomp = "builtin"
-
-## Container paths. 
-# The SANDBOX-AGENTS.md 
+## Container paths.
+# The SANDBOX-AGENTS.md
 cellar = "/sandbox/cellar/" # research library
 done = "/sandbox/done/" # completed projects
 screenshot_directory = "/sandbox/workspace/dev/screenshots/"

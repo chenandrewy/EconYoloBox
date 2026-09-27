@@ -8,30 +8,37 @@ root=${0:A:h:h:h}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 log=$tmp/calls
-# The real SANDBOX.toml's policy, so the suite passes whichever value the
-# user has chosen; the mock container reports the same policy by default.
-typeset -g root_policy
-root_policy=$(bash "$root/.devcontainer/seccomp-setting.sh" "$root/SANDBOX.toml")
-[[ "$root_policy" == builtin || "$root_policy" == unconfined ]] || { print -r -- "not ok - cannot read SANDBOX.toml seccomp"; exit 1; }
-if [[ "$root_policy" == builtin ]]; then other_policy=unconfined; else other_policy=builtin; fi
-typeset -g MOCK_POLICY=$root_policy
-# Likewise for `packages`: the mock mounts match the real setting by default.
-typeset -g root_packages
-root_packages=$(bash "$root/.devcontainer/packages-setting.sh" "$root/SANDBOX.toml")
-[[ "$root_packages" == readonly || "$root_packages" == writable ]] || { print -r -- "not ok - cannot read SANDBOX.toml packages"; exit 1; }
-if [[ "$root_packages" == readonly ]]; then other_packages=writable; else other_packages=readonly; fi
-typeset -g MOCK_PACKAGES=$root_packages
+# The mocked container's posture lives in a file, not a variable: bbox calls
+# docker and devcontainer inside command substitutions, so only a file lets
+# the mocked `up` "create" a container that later inspections see.
+state=$tmp/posture
 # Containers already labeled for the folder; container-123 is what the mocked
 # `up` returns, so listing it makes bbox treat the container as reused.
-typeset -g MOCK_CONTAINERS='container-123' MOCK_VSCODE=0 MOCK_WORKDIR=/sandbox
+typeset -g MOCK_CONTAINERS='container-123' MOCK_VSCODE=0 MOCK_WORKDIR=/sandbox MOCK_UP_BROKEN=0
+
+# set_posture <yolo|normie|custom|inspect-fail|garbage>
+set_posture() {
+  case "$1" in
+    yolo) print -r -- 'firewalled false builtin' ;;
+    normie) print -r -- 'open true unconfined' ;;
+    custom) print -r -- 'open false builtin' ;;
+    *) print -r -- "$1" ;;
+  esac >$state
+}
 
 alias dcu='devcontainer up --workspace-folder .'
 dccode() { :; }
 source "$root/.host/devcontainer.zsh"
 
 devcontainer() {
-  print -r -- "seccomp=${SANDBOX_SECCOMP:-} pkg_readonly=${SANDBOX_PKG_READONLY:-}|$*" >>$log
+  print -r -- "internet=${SANDBOX_INTERNET:-} seccomp=${SANDBOX_SECCOMP:-} pkg_readonly=${SANDBOX_PKG_READONLY:-}|$*" >>$log
   if [[ "$1" == up ]]; then
+    # Docker applies the posture only when it creates a container.
+    if (( ! MOCK_UP_BROKEN )) && [[ -z "$MOCK_CONTAINERS" || "$*" == *--remove-existing-container* ]]; then
+      local rw=true
+      [[ "$SANDBOX_PKG_READONLY" == true ]] && rw=false
+      print -r -- "$SANDBOX_INTERNET $rw $SANDBOX_SECCOMP" >$state
+    fi
     print -r -- '{"outcome":"success","containerId":"container-123"}'
   fi
 }
@@ -39,21 +46,16 @@ docker() {
   print -r -- "docker|$*" >>$log
   if [[ "$1" == inspect && "$*" == *WorkingDir* ]]; then
     print -r -- "$MOCK_WORKDIR"
-  elif [[ "$1" == inspect && "$*" == *Mounts* ]]; then
-    local rw
-    case "$MOCK_PACKAGES" in
-      inspect-fail) return 1 ;;
-      mixed) print -r -- '[{"Destination":"/opt/venv","RW":true},{"Destination":"/opt/R/4.5.3/lib/R/site-library","RW":false},{"Destination":"/usr/local/texlive","RW":false}]'; return 0 ;;
-      writable) rw=true ;;
-      *) rw=false ;;
-    esac
-    print -r -- "[{\"Destination\":\"/opt/venv\",\"RW\":$rw},{\"Destination\":\"/opt/R/4.5.3/lib/R/site-library\",\"RW\":$rw},{\"Destination\":\"/usr/local/texlive\",\"RW\":$rw},{\"Destination\":\"/sandbox\",\"RW\":true}]"
+  elif [[ "$1" == inspect && "$*" == *State.Status* ]]; then
+    print -r -- running
   elif [[ "$1" == inspect ]]; then
-    case "$MOCK_POLICY" in
+    local internet rw seccomp
+    read -r internet rw seccomp <$state
+    case "$internet" in
       inspect-fail) return 1 ;;
-      custom) print -r -- '["seccomp=/tmp/custom.json"]' ;;
-      *) print -r -- "[\"seccomp=$MOCK_POLICY\"]" ;;
+      garbage) print -r -- 'not json'; return 0 ;;
     esac
+    print -r -- "[{\"Config\":{\"Env\":[\"PATH=/usr/bin\",\"SANDBOX_INTERNET=$internet\"]},\"HostConfig\":{\"SecurityOpt\":[\"seccomp=$seccomp\"]},\"Mounts\":[{\"Destination\":\"/opt/venv\",\"RW\":$rw},{\"Destination\":\"/opt/R/4.5.3/lib/R/site-library\",\"RW\":$rw},{\"Destination\":\"/usr/local/texlive\",\"RW\":$rw},{\"Destination\":\"/sandbox\",\"RW\":true}]}]"
   elif [[ "$1 $2" == 'context show' ]]; then
     print -r -- desktop-linux
   elif [[ "$1" == ps ]]; then
@@ -68,139 +70,160 @@ code() { print -r -- "code|$*" >>$log; }
 fail() { print -r -- "not ok - $1"; exit 1; }
 typeset -gi tests=0
 pass() { (( ++tests )); print -r -- "ok $tests - $1"; }
+# Every bbox call reads stdin from /dev/null: bbox asks only on a terminal.
+run() { : >$log; bbox "$@" </dev/null; }
+
+yolo_up="internet=firewalled seccomp=builtin pkg_readonly=true|up --workspace-folder $root"
+normie_up="internet=open seccomp=unconfined pkg_readonly=false|up --workspace-folder $root"
 
 (( ! $+aliases[dcu] )) || fail 'legacy dcu alias survived reload'
 (( ! $+functions[dccode] )) || fail 'legacy dccode function survived reload'
 (( $+functions[bbu] && $+functions[bbe] && $+functions[bbcode] )) || fail 'short wrappers missing after reload'
 pass 'reload removes legacy dcu/dce/dccode names and defines bbu/bbe/bbcode'
 
-: >$log
-bbox "$root"
-if [[ "$root_packages" == readonly ]]; then root_pkg_readonly=true; else root_pkg_readonly=false; fi
-grep -q "seccomp=$root_policy pkg_readonly=$root_pkg_readonly|up --workspace-folder $root" $log || fail 'ordinary up construction'
-grep -q 'docker|inspect --format .* container-123' $log || fail 'exact returned container inspection'
-grep -q 'docker|inspect --format {{json .Mounts}} container-123' $log || fail 'package mount inspection'
-pass 'ordinary up exports policy and package mode and inspects returned container'
+# Creation.
+MOCK_CONTAINERS=''
+set_posture yolo
+out=$(run "$root") || fail 'creation without a flag'
+grep -qF "$yolo_up" $log || fail 'no flag must create in YOLO mode'
+grep -q 'docker|inspect container-123' $log || fail 'exact returned container inspection'
+[[ "$out" == *'is in YOLO mode (internet=firewalled packages=readonly seccomp=builtin)'* ]] || fail 'mode report after creation'
+pass 'no flag creates a YOLO container and reports the mode'
+out=$(run --normie "$root") || fail 'creation with --normie'
+grep -qF "$normie_up" $log || fail '--normie must export the normie posture'
+[[ "$out" == *'is in normie mode'* ]] || fail 'normie report after creation'
+pass '--normie creates a normie container'
+MOCK_CONTAINERS='container-123'
 
-original_resolve=$functions[_dc_resolve]
-mkdir -p "$tmp/builtin-root/.devcontainer"
-cp "$root/.devcontainer/"{strict,seccomp,packages}-setting.sh "$tmp/builtin-root/.devcontainer/"
-printf '%s\n' 'seccomp = "builtin"' "packages = \"$root_packages\"" >"$tmp/builtin-root/SANDBOX.toml"
-printf '%s\n' '{"workspaceFolder":"/sandbox"}' >"$tmp/builtin-root/.devcontainer/devcontainer.json"
-_dc_resolve() { print -r -- "$tmp/builtin-root"; print -r -- /sandbox; }
-MOCK_POLICY=builtin
-: >$log
-bbox "$tmp/builtin-root"
-grep -q 'seccomp=builtin pkg_readonly=[a-z]*|up --workspace-folder' $log || fail 'builtin propagation'
-pass 'builtin policy reaches the same host bring-up path'
-MOCK_POLICY=$root_policy
-printf '%s\n' "seccomp = \"$root_policy\"" 'packages = "writable"' >"$tmp/builtin-root/SANDBOX.toml"
-MOCK_PACKAGES=writable
-: >$log
-bbox "$tmp/builtin-root" || fail 'writable packages bring-up'
-grep -q 'pkg_readonly=false|up --workspace-folder' $log || fail 'writable propagation'
-pass 'packages = "writable" exports SANDBOX_PKG_READONLY=false'
-printf '%s\n' "seccomp = \"$root_policy\"" 'packages = "yes"' >"$tmp/builtin-root/SANDBOX.toml"
-MOCK_PACKAGES=readonly
-: >$log
-bbox "$tmp/builtin-root" 2>/dev/null || fail 'invalid packages bring-up'
-grep -q 'pkg_readonly=true|up --workspace-folder' $log || fail 'invalid packages value must fall back to read-only'
-pass 'an invalid packages value falls back to read-only'
-functions[_dc_resolve]=$original_resolve
-MOCK_PACKAGES=$root_packages
+# Reuse in the same posture.
+set_posture yolo
+run "$root" >/dev/null || fail 'yolo reuse'
+grep -qF "$yolo_up" $log || fail 'yolo reuse up'
+grep -q -- '--remove-existing-container' $log && fail 'reuse must not recreate'
+grep -q 'docker|rm' $log && fail 'reuse must not remove'
+pass 'a YOLO container is reused without a flag'
+set_posture normie
+run --normie "$root" >/dev/null || fail 'normie reuse'
+grep -q -- '--remove-existing-container' $log && fail 'normie reuse must not recreate'
+pass 'a normie container is reused with --normie'
 
-: >$log
-bbox --rebuild "$root" >/dev/null
-grep -q -- '--remove-existing-container' $log || fail 'rebuild flag'
-pass '--rebuild removes and recreates with cache'
+# Switching.
+set_posture normie
+if err=$(run "$root" 2>&1); then fail 'no flag must not silently replace a normie container'; fi
+[[ "$err" == *'is in normie mode'* && "$err" == *'add --normie'* && "$err" == *'add --yolo'* ]] || fail 'normie refusal message'
+grep -q 'docker|rm' $log && fail 'refusal must not remove the container'
+grep -q '|up ' $log && fail 'refusal must not run devcontainer up'
+pass 'without a flag or a terminal, a normie container is left alone'
+set_posture custom
+if err=$(run "$root" 2>&1); then fail 'no flag must not silently replace a custom container'; fi
+[[ "$err" == *'a custom posture'* ]] || fail 'custom refusal message'
+[[ "$err" == *'add --normie'* ]] && fail 'a custom container cannot be attached with --normie'
+pass 'a custom container (made before the flags) is left alone too'
+set_posture normie
+out=$(run --yolo "$root") || fail '--yolo switch'
+grep -q 'docker|rm -f container-123' $log || fail '--yolo switch must clear the old container'
+grep -qF "$yolo_up --remove-existing-container" $log || fail '--yolo switch must recreate in YOLO mode'
+[[ "$out" == *'switching'*'from normie mode to YOLO mode'* ]] || fail 'switch message'
+pass '--yolo recreates a normie container without asking'
+set_posture yolo
+run --normie "$root" >/dev/null || fail '--normie switch'
+grep -qF "$normie_up --remove-existing-container" $log || fail '--normie switch must recreate in normie mode'
+pass '--normie recreates a YOLO container'
+set_posture inspect-fail
+run --yolo "$root" >/dev/null 2>&1 || true
+grep -q -- '--remove-existing-container' $log || fail 'an uninspectable container counts as another posture'
+pass 'an uninspectable container is recreated on request'
+set_posture normie
+MOCK_VSCODE=1
+if err=$(run --yolo "$root" 2>&1); then fail 'switch with VS Code attached should fail'; fi
+[[ "$err" == *'VS Code is attached'* && "$err" == *'add --normie'* ]] || fail 'attached switch message'
+grep -q 'docker|rm' $log && fail 'must not remove a container VS Code is attached to'
+grep -q '|up ' $log && fail 'must not run up while VS Code is attached'
+pass 'a switch refuses while VS Code is attached'
+MOCK_VSCODE=0
 
-: >$log
-bbox --rebuild-without-cache "$root" >/dev/null
+# Verification after up.
+set_posture normie
+MOCK_UP_BROKEN=1
+if err=$(run --yolo "$root" 2>&1); then fail 'a wrong posture after up should fail'; fi
+[[ "$err" == *'ERROR: requested YOLO mode'* && "$err" == *'refusing attachment'* ]] || fail 'post-up mismatch message'
+set_posture garbage
+if run --rebuild "$root" >/dev/null 2>&1; then fail 'unparseable inspection after up should fail'; fi
+pass 'a container not in the requested posture after up is refused'
+MOCK_UP_BROKEN=0
+
+# Rebuild.
+set_posture yolo
+run --rebuild "$root" >/dev/null
+grep -qF "$yolo_up --remove-existing-container" $log || fail 'rebuild flag'
+pass '--rebuild recreates in YOLO mode with cache'
+run --rebuild --normie "$root" >/dev/null
+grep -qF "$normie_up --remove-existing-container" $log || fail 'rebuild in normie mode'
+pass '--rebuild --normie recreates in normie mode'
+run --rebuild-without-cache "$root" >/dev/null
 grep -q -- '--remove-existing-container --build-no-cache' $log || fail 'no-cache flags'
 pass '--rebuild-without-cache adds both CLI flags'
-
-if bbox --rebuild --rebuild-without-cache "$root" >/dev/null 2>&1; then fail 'rebuild conflict'; fi
-pass 'rebuild flags conflict'
-if bbox --shell --code "$root" >/dev/null 2>&1; then fail 'action conflict'; fi
-pass 'shell and code conflict'
-if bbox . "$root" >/dev/null 2>&1; then fail 'extra directory'; fi
-pass 'more than one directory is rejected'
-
-MOCK_POLICY=$other_policy
-warning=$(bbox "$root" 2>&1) || fail 'reuse mismatch should continue'
-[[ "$warning" == *"requested seccomp=$root_policy"* && "$warning" == *'bbox --rebuild'* ]] || fail 'reuse mismatch message'
-pass 'reuse mismatch warns and continues'
-
-MOCK_POLICY=$root_policy
-MOCK_WORKDIR=/workspace
-: >$log
-if err=$(bbox "$root" 2>&1); then fail 'stale mount target should fail'; fi
-[[ "$err" == *'mounts the sandbox at /workspace'* && "$err" == *'expects /sandbox'* && "$err" == *'bbox --rebuild'* ]] || fail 'stale mount message'
-grep -q '|up ' $log && fail 'stale mount target must be caught before devcontainer up'
-pass 'reused container with a stale mount target fails before up'
-: >$log
-bbox --rebuild "$root" >/dev/null || fail 'rebuild should bypass the layout check'
-pass 'rebuild skips the layout check'
-MOCK_WORKDIR=/sandbox
-MOCK_POLICY=$other_policy
-
-MOCK_CONTAINERS=''
-if err=$(bbox "$root" 2>&1); then fail 'mismatch on a newly created container should fail'; fi
-[[ "$err" == *'created container'* ]] || fail 'created mismatch message'
-pass 'mismatch on a container created without --rebuild fails validation'
-MOCK_CONTAINERS='container-123'
-
-if bbox --rebuild "$root" >/dev/null 2>&1; then fail 'recreation mismatch should fail'; fi
-pass 'recreation mismatch fails validation'
-MOCK_POLICY=inspect-fail
-if bbox --rebuild "$root" >/dev/null 2>&1; then fail 'recreation inspection failure should fail'; fi
-pass 'recreation inspection failure fails validation'
-MOCK_POLICY=custom
-warning=$(bbox "$root" 2>&1) || fail 'custom reuse should continue'
-[[ "$warning" == *'unverified (seccomp=/tmp/custom.json)'* ]] || fail 'custom policy warning'
-pass 'custom policy is unverified'
-
-MOCK_POLICY=$root_policy
-MOCK_PACKAGES=$other_packages
-warning=$(bbox "$root" 2>&1) || fail 'package reuse mismatch should continue'
-[[ "$warning" == *"requested packages=$root_packages"* && "$warning" == *'bbox --rebuild'* ]] || fail 'package reuse mismatch message'
-pass 'package mount mismatch on reuse warns and continues'
-MOCK_CONTAINERS=''
-if err=$(bbox "$root" 2>&1); then fail 'package mismatch on a newly created container should fail'; fi
-[[ "$err" == *"created container requested packages=$root_packages"* ]] || fail 'created package mismatch message'
-pass 'package mount mismatch on a created container fails validation'
-MOCK_CONTAINERS='container-123'
-MOCK_PACKAGES=mixed
-if bbox --rebuild "$root" >/dev/null 2>&1; then fail 'mixed package mounts should fail'; fi
-MOCK_PACKAGES=inspect-fail
-if bbox --rebuild "$root" >/dev/null 2>&1; then fail 'package inspection failure should fail'; fi
-pass 'mixed or uninspectable package mounts fail recreation'
-MOCK_PACKAGES=$root_packages
-
-: >$log
-bbox --shell "$root" >/dev/null
-grep -q "|exec --workspace-folder $root" $log || fail 'shell attachment'
-pass 'shell attachment follows the shared bring-up'
-: >$log
-bbox --code "$root" >/dev/null
-grep -q '^code|--new-window --folder-uri ' $log || fail 'code attachment'
-pass 'editor attachment follows the shared bring-up'
-
 MOCK_CONTAINERS='old-1 old-2'
-: >$log
-bbox --rebuild "$root" >/dev/null
+run --rebuild "$root" >/dev/null 2>&1
 grep -q 'docker|rm -f old-1' $log && grep -q 'docker|rm -f old-2' $log || fail 'rebuild removes every labeled container'
 pass 'rebuild removes every container labeled for the folder'
 MOCK_VSCODE=1
-: >$log
-if err=$(bbox --rebuild "$root" 2>&1); then fail 'rebuild with VS Code attached should fail'; fi
+if err=$(run --rebuild "$root" 2>&1); then fail 'rebuild with VS Code attached should fail'; fi
 [[ "$err" == *'VS Code is attached'* ]] || fail 'VS Code attached message'
 grep -q 'docker|rm -f' $log && fail 'must not remove containers while VS Code is attached'
 grep -q '|up --workspace-folder' $log && fail 'must not run devcontainer up while VS Code is attached'
 pass 'rebuild refuses while VS Code is attached'
 MOCK_VSCODE=0 MOCK_CONTAINERS='container-123'
 
-grep -q "'(\-\-rebuild-without-cache)--rebuild" "$root/.host/_bbox" || fail 'completion rebuild exclusion'
-grep -q "'(\-\-code)--shell" "$root/.host/_bbox" || fail 'completion action exclusion'
-pass 'completion encodes both mutual-exclusion pairs'
+# Option errors.
+for args in '--rebuild --rebuild-without-cache' '--shell --code' '--yolo --normie' '--status --shell' '--status --normie' '--status --rebuild' ". $root"; do
+  if run ${=args} "$root" >/dev/null 2>&1; then fail "conflict accepted: $args"; fi
+done
+pass 'conflicting options and a second directory are rejected'
+
+# Layout.
+set_posture yolo
+MOCK_WORKDIR=/workspace
+if err=$(run "$root" 2>&1); then fail 'stale mount target should fail'; fi
+[[ "$err" == *'mounts the sandbox at /workspace'* && "$err" == *'expects /sandbox'* && "$err" == *'bbox --rebuild'* ]] || fail 'stale mount message'
+grep -q '|up ' $log && fail 'stale mount target must be caught before devcontainer up'
+pass 'reused container with a stale mount target fails before up'
+run --rebuild "$root" >/dev/null || fail 'rebuild should bypass the layout check'
+pass 'rebuild skips the layout check'
+MOCK_WORKDIR=/sandbox
+
+# Status.
+set_posture normie
+out=$(run --status "$root") || fail 'status'
+[[ "$out" == *'container-12'*'(running) is in normie mode: internet=open packages=writable seccomp=unconfined'* ]] || fail 'status report'
+grep -q '|up ' $log && fail 'status must not run devcontainer up'
+grep -q 'docker|rm' $log && fail 'status must not remove anything'
+MOCK_CONTAINERS=''
+out=$(run --status "$root") || fail 'status without a container'
+[[ "$out" == *'has no container'* ]] || fail 'status without a container message'
+MOCK_CONTAINERS='container-123'
+pass '--status reports the posture and changes nothing'
+
+# Attachment and wrappers.
+set_posture yolo
+run --shell "$root" >/dev/null
+grep -q "|exec --workspace-folder $root" $log || fail 'shell attachment'
+pass 'shell attachment follows the shared bring-up'
+run --code "$root" >/dev/null
+grep -q '^code|--new-window --folder-uri ' $log || fail 'code attachment'
+pass 'editor attachment follows the shared bring-up'
+set_posture normie
+: >$log
+bbe --normie "$root" </dev/null >/dev/null || fail 'bbe --normie'
+grep -q "|exec --workspace-folder $root" $log || fail 'bbe --normie attachment'
+: >$log
+bbcode --normie "$root" </dev/null >/dev/null || fail 'bbcode --normie'
+grep -q '^code|--new-window' $log || fail 'bbcode --normie attachment'
+grep -q -- '--remove-existing-container' $log && fail 'wrappers must reuse a matching container'
+pass 'bbe and bbcode pass the mode flags through'
+
+grep -q "'(\-\-rebuild-without-cache --status)--rebuild" "$root/.host/_bbox" || fail 'completion rebuild exclusion'
+grep -q "'(\-\-code --status)--shell" "$root/.host/_bbox" || fail 'completion action exclusion'
+grep -q "'(\-\-normie --status)--yolo" "$root/.host/_bbox" || fail 'completion mode exclusion'
+pass 'completion encodes the mutual exclusions'
 print -r -- "1..$tests"

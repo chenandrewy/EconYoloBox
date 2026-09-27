@@ -3,9 +3,10 @@
 # Source from an interactive host zsh:
 #   source /path/to/EconYoloBox/.host/devcontainer.zsh
 #
-# Inputs:  SANDBOX.toml and an optional project directory.
-# Outputs: bbox plus the bbu/bbe/bbcode wrappers. Requires docker,
-#   devcontainer, python3, and (for --code) code.
+# Inputs:  --yolo (the default) or --normie, and an optional project directory.
+# Outputs: bbox plus the bbu/bbe/bbcode wrappers, which take the same flags
+#   (bbcode --normie, bbe --yolo). Requires docker, devcontainer, python3, and
+#   (for --code) code.
 
 # zsh sets $0 to the sourced file while evaluating it. Resolve siblings now so
 # another checkout sourced later cannot redirect this toolkit's helpers.
@@ -39,57 +40,27 @@ _dc_resolve() {
   print -r -- "$remote_path"
 }
 
-# _bbox_verify_policy <container> <requested> <created> <root>
-# A mismatch on a container this call created is an error: the policy was
-# meant to apply and did not. A mismatch on a reused container is a warning,
-# since only a rebuild can change it.
-_bbox_verify_policy() {
-  local container_id="$1" requested="$2" created="$3" root="$4"
-  local security_options actual
-
-  if ! security_options=$(docker inspect --format '{{json .HostConfig.SecurityOpt}}' "$container_id"); then
-    actual='unverified (docker inspect failed)'
-  else
-    actual=$(python3 "$_DC_RESOLVE_PY" security-policy "$security_options") || actual='unverified (inspection output could not be parsed)'
-  fi
-
-  if [[ "$actual" == "$requested" ]]; then
+# _bbox_posture <container>
+# Prints the container's posture as dc-resolve.py's posture command reports
+# it: yolo, normie or custom, then the three settings. All three are fixed
+# when the container is created, so the container, not a file, is the record.
+_bbox_posture() {
+  local inspected
+  if ! inspected=$(docker inspect "$1"); then
+    print -r -- 'custom internet=unverified packages=unverified seccomp=unverified (docker inspect failed)'
     return 0
   fi
-  if (( created )); then
-    print -u2 -- "bbox: ERROR: created container requested seccomp=$requested; actual policy is $actual."
-    print -u2 -- 'bbox: refusing attachment because creation could not be validated.'
-    return 1
-  fi
-  print -u2 -- "bbox: WARNING: requested seccomp=$requested; running container policy is $actual."
-  print -u2 -- "bbox: seccomp is fixed at creation; on the host run: bbox --rebuild ${(q)root}"
-  return 0
+  print -r -- "$inspected" | python3 "$_DC_RESOLVE_PY" posture ||
+    print -r -- 'custom internet=unverified packages=unverified seccomp=unverified (inspection output could not be parsed)'
 }
 
-# _bbox_verify_packages <container> <requested> <created> <root>
-# The same rule as _bbox_verify_policy, for SANDBOX.toml's `packages`: the
-# R, Python and TeX volumes are mounted readonly or writable at creation.
-_bbox_verify_packages() {
-  local container_id="$1" requested="$2" created="$3" root="$4"
-  local mounts actual
-
-  if ! mounts=$(docker inspect --format '{{json .Mounts}}' "$container_id"); then
-    actual='unverified (docker inspect failed)'
-  else
-    actual=$(python3 "$_DC_RESOLVE_PY" package-access "$mounts") || actual='unverified (inspection output could not be parsed)'
-  fi
-
-  if [[ "$actual" == "$requested" ]]; then
-    return 0
-  fi
-  if (( created )); then
-    print -u2 -- "bbox: ERROR: created container requested packages=$requested; actual package mounts are $actual."
-    print -u2 -- 'bbox: refusing attachment because creation could not be validated.'
-    return 1
-  fi
-  print -u2 -- "bbox: WARNING: requested packages=$requested; running container package mounts are $actual."
-  print -u2 -- "bbox: package mounts are fixed at creation; on the host run: bbox --rebuild ${(q)root}"
-  return 0
+# _bbox_mode_name <yolo|normie|custom>
+_bbox_mode_name() {
+  case "$1" in
+    yolo) print -r -- 'YOLO mode' ;;
+    normie) print -r -- 'normie mode' ;;
+    *) print -r -- 'a custom posture' ;;
+  esac
 }
 
 # _bbox_verify_layout <root> <expected-folder> <container>...
@@ -127,7 +98,7 @@ _bbox_vscode_attached() {
 }
 
 # _bbox_clear_containers <root>
-# On rebuild, refuse while VS Code is attached to any container for this
+# On rebuild or a posture switch, refuse while VS Code is attached to any container for this
 # folder (the Dev Containers extension would recreate one with default
 # runArgs, racing devcontainer up), then remove every labeled container so
 # no duplicate survives --remove-existing-container.
@@ -141,7 +112,7 @@ _bbox_clear_containers() {
     [[ -n "$container" ]] || continue
     if _bbox_vscode_attached "$container"; then
       print -u2 -- "bbox: ERROR: VS Code is attached to container $container for $root."
-      print -u2 -- 'bbox: close that VS Code window (or Dev Containers: Close Remote Connection), then rerun the rebuild.'
+      print -u2 -- 'bbox: close that VS Code window (or Dev Containers: Close Remote Connection), then rerun bbox.'
       return 1
     fi
   done
@@ -180,16 +151,29 @@ _bbox_check_duplicates() {
   return 1
 }
 
-# bbox [--rebuild|--rebuild-without-cache] [--shell|--code] [DIRECTORY]
+# bbox [--yolo|--normie] [--rebuild|--rebuild-without-cache] [--shell|--code] [DIRECTORY]
+# bbox --status [DIRECTORY]
+#
+# The security posture is chosen here, at creation, and nowhere else:
+#   --yolo (the default)  internet=firewalled packages=readonly seccomp=builtin
+#   --normie              internet=open packages=writable seccomp=unconfined
+# A running container in another posture is recreated, which is cheap: the
+# image and every named volume survive. Without a flag, bbox asks before
+# replacing a container in another posture, since that kills whatever runs in
+# it; an explicit flag is taken as the answer.
 bbox() {
-  local action='' project_dir='.' rebuild=0 positional_seen=0 arg resolved root remote_path
-  local seccomp packages pkg_readonly existing root_remote up_output container_id created docker_context folder_uri
+  local action='' mode='' project_dir='.' rebuild=0 recreate=0 positional_seen=0 arg resolved root remote_path
+  local explicit internet pkg_readonly seccomp existing container actual actual_mode root_remote up_output container_id docker_context folder_uri
   local -a up_args
 
   while (( $# )); do
     arg="$1"
     shift
     case "$arg" in
+      --yolo|--normie)
+        [[ -n "$mode" ]] && { print -u2 -- 'bbox: --yolo and --normie are mutually exclusive'; return 2; }
+        mode="${arg#--}"
+        ;;
       --rebuild)
         (( rebuild )) && { print -u2 -- 'bbox: rebuild flags are mutually exclusive'; return 2; }
         rebuild=1
@@ -200,8 +184,8 @@ bbox() {
         rebuild=1
         up_args+=(--remove-existing-container --build-no-cache)
         ;;
-      --shell|--code)
-        [[ -n "$action" ]] && { print -u2 -- 'bbox: --shell and --code are mutually exclusive'; return 2; }
+      --shell|--code|--status)
+        [[ -n "$action" ]] && { print -u2 -- 'bbox: --shell, --code and --status are mutually exclusive'; return 2; }
         action="${arg#--}"
         ;;
       --)
@@ -223,36 +207,88 @@ bbox() {
         ;;
     esac
   done
+  if [[ "$action" == status ]] && { (( rebuild )) || [[ -n "$mode" ]]; }; then
+    print -u2 -- 'bbox: --status only reports; it takes no other option'
+    return 2
+  fi
 
   resolved=$(_dc_resolve "$project_dir") || return 1
   root="${resolved%%$'\n'*}"
   remote_path="${resolved#*$'\n'}"
-  seccomp=$(bash "$root/.devcontainer/seccomp-setting.sh" "$root/SANDBOX.toml") || return 1
-  packages=$(bash "$root/.devcontainer/packages-setting.sh" "$root/SANDBOX.toml") || return 1
-  pkg_readonly=true
-  [[ "$packages" == writable ]] && pkg_readonly=false
-
-  if (( rebuild )); then
-    _bbox_clear_containers "$root" || return 1
-    print -- "bbox: recreating $root with seccomp=$seccomp packages=$packages"
-  fi
-  # Without --rebuild, up still creates a container when none exists, and a
-  # bad policy on that one must fail like a rebuild's would: the returned id
-  # is "created" unless it was already labeled for this folder beforehand.
   existing=$(docker ps -aq --no-trunc --filter "label=devcontainer.local_folder=$root") || return 1
+
+  if [[ "$action" == status ]]; then
+    if [[ -z "$existing" ]]; then
+      print -- "bbox: $root has no container; bbox would create one in YOLO mode"
+      return 0
+    fi
+    for container in ${(f)existing}; do
+      actual=$(_bbox_posture "$container")
+      print -- "bbox: $root: ${container:0:12} ($(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null || print unknown)) is in $(_bbox_mode_name "${actual%% *}"): ${actual#* }"
+    done
+    return 0
+  fi
+
+  explicit=$mode
+  [[ -n "$mode" ]] || mode=yolo
+  case "$mode" in
+    yolo) internet=firewalled pkg_readonly=true seccomp=builtin ;;
+    normie) internet=open pkg_readonly=false seccomp=unconfined ;;
+  esac
+
+  # A container in another posture is recreated. Checked before the layout,
+  # since recreation also cures a stale layout.
   if (( ! rebuild )) && [[ -n "$existing" ]]; then
+    for container in ${(f)existing}; do
+      actual=$(_bbox_posture "$container")
+      actual_mode="${actual%% *}"
+      [[ "$actual_mode" == "$mode" ]] && continue
+      if _bbox_vscode_attached "$container"; then
+        print -u2 -- "bbox: $root is in $(_bbox_mode_name "$actual_mode"), and VS Code is attached to it."
+        [[ "$actual_mode" == normie ]] && print -u2 -- 'bbox: to attach to it as it is, add --normie.'
+        print -u2 -- "bbox: to switch to $(_bbox_mode_name "$mode"), close that VS Code window first."
+        return 1
+      fi
+      if [[ -z "$explicit" ]]; then
+        print -u2 -- "bbox: $root is in $(_bbox_mode_name "$actual_mode"); without a flag, bbox brings it back to YOLO mode."
+        print -u2 -- 'bbox: that recreates the container and ends every shell and agent running in it.'
+        if [[ ! -t 0 ]] || ! read -q "?bbox: recreate it in YOLO mode now? [y/N] "; then
+          [[ -t 0 ]] && print
+          print -u2 -- 'bbox: left unchanged. To switch without this question, add --yolo.'
+          [[ "$actual_mode" == normie ]] && print -u2 -- 'bbox: to attach to it as it is, add --normie.'
+          return 1
+        fi
+        print
+      fi
+      recreate=1
+      break
+    done
+  fi
+  if (( recreate )); then
+    print -- "bbox: switching $root from $(_bbox_mode_name "$actual_mode") to $(_bbox_mode_name "$mode"): recreating the container"
+    up_args+=(--remove-existing-container)
+  elif (( rebuild )); then
+    print -- "bbox: recreating $root in $(_bbox_mode_name "$mode")"
+  fi
+  if (( rebuild || recreate )); then
+    _bbox_clear_containers "$root" || return 1
+  elif [[ -n "$existing" ]]; then
     root_remote=$(python3 "$_DC_RESOLVE_PY" remote-path "$root/.devcontainer/devcontainer.json" "") || return 1
     _bbox_verify_layout "$root" "$root_remote" ${(f)existing} || return 1
   fi
-  up_output=$(SANDBOX_SECCOMP="$seccomp" SANDBOX_PKG_READONLY="$pkg_readonly" devcontainer up --workspace-folder "$root" "${up_args[@]}") || return 1
+
+  up_output=$(SANDBOX_INTERNET="$internet" SANDBOX_SECCOMP="$seccomp" SANDBOX_PKG_READONLY="$pkg_readonly" devcontainer up --workspace-folder "$root" "${up_args[@]}") || return 1
   container_id=$(print -r -- "$up_output" | python3 "$_DC_RESOLVE_PY" up-container-id) || return 1
-  created=1
-  if (( ! rebuild )) && [[ -n "$container_id" && $'\n'"$existing"$'\n' == *$'\n'"$container_id"$'\n'* ]]; then
-    created=0
+  # Whether created or reused, the container must now be in the requested
+  # posture: a reused one in another posture was recreated above.
+  actual=$(_bbox_posture "$container_id")
+  if [[ "${actual%% *}" != "$mode" ]]; then
+    print -u2 -- "bbox: ERROR: requested $(_bbox_mode_name "$mode"), but container ${container_id:0:12} has ${actual#* }."
+    print -u2 -- "bbox: refusing attachment; on the host run: bbox --rebuild${explicit:+ --$explicit} ${(q)root}"
+    return 1
   fi
-  _bbox_verify_policy "$container_id" "$seccomp" "$created" "$root" || return 1
-  _bbox_verify_packages "$container_id" "$packages" "$created" "$root" || return 1
-  _bbox_check_duplicates "$root" "$container_id" "$rebuild" || return 1
+  _bbox_check_duplicates "$root" "$container_id" "$(( rebuild || recreate ))" || return 1
+  print -- "bbox: $root is in $(_bbox_mode_name "$mode") (${actual#* })"
 
   case "$action" in
     shell)

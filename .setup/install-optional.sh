@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Install the optional package set into the shared R, Python and TeX volumes.
 #
-# Run, inside the devcontainer as node, in normie mode
-# (internet = "open", packages = "writable", seccomp = "unconfined" in
-# SANDBOX.toml, then `bbox --rebuild`; only the first two are required):
+# Run, inside the devcontainer as node, in normie mode (on the host,
+# `bbcode --normie` or `bbe --normie`):
 #   bash .setup/install-optional.sh              # python r tex
 #   bash .setup/install-optional.sh r            # one stack
 #   bash .setup/install-optional.sh --verify     # check only; any mode
@@ -32,7 +31,7 @@ usage() {
 Usage: install-optional.sh [python] [r] [tex] [--verify]
 
 With no target, all three. --verify only checks, and works in any mode.
-Installing needs SANDBOX.toml packages = "writable" and internet = "open".
+Installing needs normie mode: on the host, bbcode --normie or bbe --normie.
 USAGE
 }
 
@@ -122,8 +121,7 @@ run() {
 }
 
 # Normie mode is the user's switch: the three mounts writable, which only
-# bbox --rebuild can arrange. Checked on the mounts, not on SANDBOX.toml, which
-# may have been edited since the container was created.
+# bbox --normie can arrange, at creation. Checked on the container itself.
 require_install_mode() {
     local mount problems=()
     [ "$(id -un)" = node ] || problems+=("run as node, not $(id -un)")
@@ -142,9 +140,8 @@ require_install_mode() {
     if [ ${#problems[@]} -gt 0 ]; then
         echo "install-optional.sh: not in normie mode:" >&2
         printf '  - %s\n' "${problems[@]}" >&2
-        echo 'Switch to normie mode: internet = "open", packages = "writable" and' >&2
-        echo 'seccomp = "unconfined" in SANDBOX.toml, run bbox --rebuild on the host,' >&2
-        echo 'and switch back to YOLO mode afterwards.' >&2
+        echo 'Switch to normie mode: on the host, bbcode --normie (or bbe --normie),' >&2
+        echo 'and back to YOLO mode afterwards: bbcode or bbe without --normie.' >&2
         exit 1
     fi
 }
@@ -285,8 +282,7 @@ if [ "$status" -ne 0 ]; then
     exit 1
 fi
 if [ "$VERIFY" -eq 0 ]; then
-    echo 'Done. Back to YOLO mode: internet = "firewalled", packages = "readonly",'
-    echo 'seccomp = "builtin" in SANDBOX.toml, then bbox --rebuild.'
+    echo 'Done. Back to YOLO mode: on the host, bbcode or bbe without --normie.'
 else
     echo "Done."
 fi

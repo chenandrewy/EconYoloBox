@@ -5,10 +5,13 @@
 
 _bbox() {
   _arguments -s \
-    '(--rebuild-without-cache)--rebuild[recreate the container using the Docker build cache]' \
-    '(--rebuild)--rebuild-without-cache[recreate the container without the Docker build cache]' \
-    '(--code)--shell[open a shell after bringing the container up]' \
-    '(--shell)--code[open VS Code after bringing the container up]' \
+    '(--normie --status)--yolo[firewalled, read-only packages, seccomp filter (the default)]' \
+    '(--yolo --status)--normie[open internet, writable packages, seccomp unconfined]' \
+    '(--rebuild-without-cache --status)--rebuild[recreate the container using the Docker build cache]' \
+    '(--rebuild --status)--rebuild-without-cache[recreate the container without the Docker build cache]' \
+    '(--code --status)--shell[open a shell after bringing the container up]' \
+    '(--shell --status)--code[open VS Code after bringing the container up]' \
+    '(--yolo --normie --rebuild --rebuild-without-cache --shell --code)--status[report the container'"'"'s posture without changing it]' \
     ':directory:_directories'
 }
 

@@ -50,13 +50,12 @@ is the retry.
 Installing the optional set, adding to the base in volumes that already exist,
 or repairing one, happens from inside, in normie mode:
 
-1. Switch to normie mode: `internet = "open"`, `packages = "writable"` and
-   `seccomp = "unconfined"` in `SANDBOX.toml`, then `bbox --rebuild`.
+1. Switch to normie mode: on the host, `bbcode --normie` (or `bbe --normie`).
 2. In the container: `bash .setup/install-base.sh` (for a base change or a
    repair; it skips what is present).
 3. Optionally, in the container: `bash .setup/install-optional.sh`.
-4. Switch back to YOLO mode: `internet = "firewalled"`, `packages =
-   "readonly"` and `seccomp = "builtin"`, then `bbox --rebuild`.
+4. Switch back to YOLO mode: close the window, then on the host `bbcode` (or
+   `bbe`) without `--normie`.
 5. In the container: `bash .devcontainer/tests/test-packages.sh`.
 
 Skipping step 3 is fine; the base passes its tests alone, and a project can
@@ -76,8 +75,7 @@ bash .setup/install-base.sh --verify   # check the base; writes nothing; any mod
 `python`, `r` and `tex` check for normie mode before installing anything, the
 same way `install-optional.sh` does: running as `node`, their mounts writable
 and `node`-owned, and the firewall open (`post-start.sh`'s marker). They check
-the mounts, not `SANDBOX.toml`, which may have been edited since the container
-was created. In YOLO mode they refuse and say how to switch.
+the container itself, not a file. In YOLO mode they refuse and say how to switch.
 
 The devcontainer's own image is the builder, which is the point: R packages
 link against the image's libraries and install from its pinned P3M snapshot.
