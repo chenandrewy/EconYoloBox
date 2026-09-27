@@ -198,12 +198,11 @@ your checkout root and run:
 
 ```bash
 python3 .credentials/setup.py
-python3 .devcontainer/inject-credentials.py
 ```
 
-Press Enter to skip any service you do not use. The final command refreshes the
-credential file mounted in an already-running container; skip it if you have
-not built the container yet.
+Press Enter to skip any service you do not use. The container receives the
+credentials as environment variables when it is created, so a container that
+already exists needs recreating to see new ones: `bbox --rebuild`.
 
 ### Update the AI CLIs
 

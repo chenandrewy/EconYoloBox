@@ -111,33 +111,27 @@ WRDS and LLM API keys have to reach a container that a YOLO agent is running
 inside. The design: secrets live in the **host** credential store (macOS
 Keychain / Windows Credential Manager), mapped by `credentials-map.json`.
 `inject-credentials.py` runs on the host before Docker starts, resolves them,
-and writes a mode-`600` file that is bind-mounted **read-only** at
-`/run/secrets/credentials.env`. Nothing is passed with `--env-file`. Scripts
-call `get-credentials.py`, which reads the file on demand and returns the one
-value asked for.
+and writes a mode-`600` env file that Docker passes with `--env-file` when it
+creates the container. Inside, they are ordinary environment variables, which
+is what the agents and most tools expect; `get-credentials.py` and `.R` read
+the environment first and fall back to the host store outside the container.
 
-- **Credentials are not injected into the ambient process environment.** They
-  are not in PID 1's `environ`, so they are not inherited by every shell, agent,
-  and subprocess in the container. An agent that dumps its own environment — or
-  a crash reporter, or a logging library that helpfully serializes `os.environ`
-  — gets nothing unless a caller explicitly supplied a per-command environment
-  override.
+This was a bind-mounted file read on demand until 0927a. The environment was
+chosen knowing what it costs:
 
-- **Credentials never enter Docker metadata.** `--env-file` values become
-  `Config.Env`: `docker inspect` prints them, and they persist in the daemon's
-  `config.v2.json` for the life of the container, surviving stop/start. That is
-  an at-rest copy outside the container, longer-lived than the file itself and
-  readable by anyone who can reach the Docker socket. The bind mount has no such
-  copy.
+- **Every process inherits them.** Every shell, agent and subprocess has them
+  in its environment, so an agent that dumps its environment, a crash
+  reporter, or a logging library that serializes `os.environ` can leak them.
+- **They are in Docker's metadata.** `--env-file` values become `Config.Env`:
+  `docker inspect` prints them, and they persist in the daemon's
+  `config.v2.json` for the life of the container, readable by anyone who can
+  reach the Docker socket.
+- **They are fixed at creation.** Rotating or revoking one means recreating
+  the container.
 
-**What this does not do.** It is not a boundary against the agent. Anything
-running as `node` can read `/run/secrets/credentials.env` — it must, or WRDS
-queries would not work. Nor does it stop the host user, who can always
-`docker exec -u root`. The claim is narrower and worth stating precisely: by
-default, the injected secret exists in one place inside the container, in one
-file, readable on demand — instead of being copied into every process
-environment and into Docker's own metadata, where it outlives the thing it was
-scoped to and spreads to places nobody thinks to check.
+Neither design was a boundary against the agent: anything running as `node`
+could read the old file too, as it had to for WRDS queries to work. Nor does
+either stop the host user, who can always `docker exec -u root`.
 
 ## 2. Economics research
 

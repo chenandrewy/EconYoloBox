@@ -32,7 +32,11 @@
     // Normie mode's unconfined seccomp also lets Codex's sandboxed modes use
     // Bubblewrap, at the cost of Docker's outer syscall filter for every process.
     "--security-opt=seccomp=${localEnv:SANDBOX_SECCOMP:builtin}",
-    "--env-file=/tmp/devcontainer-local.env"
+    "--env-file=/tmp/devcontainer-local.env",
+    // Credentials, as environment variables fixed at creation. Written on the
+    // host by inject-credentials.py (initializeCommand) just before Docker
+    // starts; changing them means recreating the container.
+    "--env-file=/tmp/devcontainer-credentials.env"
   ],
   "customizations": {
     "vscode": {
@@ -141,9 +145,6 @@
     // `docker volume ls -f dangling=true`.
     "source=${localWorkspaceFolderBasename}-claude-config-${devcontainerId},target=/home/node/.claude,type=volume",
     "source=${localWorkspaceFolderBasename}-codex-config-${devcontainerId},target=/home/node/.codex,type=volume",
-    // Credentials stay out of Docker's Config.Env and are read on demand.
-    // inject-credentials.py creates this host-side file before Docker starts.
-    "source=/tmp/devcontainer-credentials.env,target=/run/secrets/credentials.env,type=bind,readonly",
     // The AI CLIs live here rather than in an image layer, so that updating
     // Codex in a running container is not undone by the next rebuild (a baked
     // `@latest` layer freezes at first cache; see the Dockerfile note). Codex

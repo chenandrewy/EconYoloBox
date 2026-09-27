@@ -6,15 +6,19 @@ This file documents how the pieces work.
 
 ## Credentials (`.credentials/`)
 
-Credentials are resolved in three ways, in order:
+Credentials are resolved in two ways, in order:
 
-1. **Environment variable** (an explicit per-command override)
-2. **Mounted secret file** (`/run/secrets/credentials.env` inside the container)
-3. **Host credential store** (macOS Keychain or Windows Credential Manager)
+1. **Environment variable.** In the container, Docker sets every credential in
+   the environment at creation (`--env-file`, below); a variable set for one
+   command still overrides it.
+2. **Host credential store** (macOS Keychain or Windows Credential Manager),
+   which is how scripts on the host find them.
 
 This means scripts work both inside and outside the container without changes.
-Credentials are not placed in the container-wide environment: that would expose
-them through Docker metadata and ambiently inherit them into every subprocess.
+The costs of the environment are accepted (docs/journal/0927a): the values
+appear in `docker inspect` on the host and persist in Docker's container
+metadata, every process in the container inherits them, and they are fixed at
+creation.
 
 ### Files
 
@@ -37,24 +41,10 @@ Edit `credentials-map.json`:
 
 Keys are credential store entry names; values are the env var names scripts will use. `setup.py` automatically groups prompts by the first segment of the key (e.g. `wrds-username` and `wrds-password` are grouped under "WRDS").
 
-To update the mounted file after changing credentials, run this command **on the
-host**, from the repository root:
-
-```bash
-source .devcontainer/find-python.sh
-$PYTHON .devcontainer/inject-credentials.py
-```
-
-The resolver re-reads the mounted file on every lookup, so updates take effect
-immediately, and truncating the file on the host
-(`: > /tmp/devcontainer-credentials.env`) immediately revokes the container's
-access.
-
-If the host reboots (clearing `/tmp`) and the container is then started without
-VS Code (plain `docker start`), Docker recreates the missing mount source as an
-empty directory and the container may fail to start. Rerunning the command
-above — or just reopening in VS Code, which runs it automatically — repairs
-this.
+After changing credentials on the host, recreate the container
+(`bbox --rebuild`): `initializeCommand` rewrites the env file from the host
+store, and Docker reads it only when it creates a container. Revoking access
+likewise means recreating the container; emptying the file no longer does it.
 
 ## Dev Container (`.devcontainer/`)
 
@@ -88,11 +78,10 @@ this helper. See the host setup README for installation and failure handling.
 
 - `inject-credentials.py` — runs on the host before the container starts
   (`initializeCommand`). It writes a `0600` file at
-  `/tmp/devcontainer-credentials.env`, bind-mounted read-only at
-  `/run/secrets/credentials.env`. The file is not timed: it remains available
-  for the container session and is overwritten on the next initialization.
-  Because it is host-side, it may remain after the container stops until it is
-  overwritten, manually removed, or cleaned up by the host OS.
+  `/tmp/devcontainer-credentials.env`, which `runArgs` passes as `--env-file`,
+  so a new container gets the credentials as environment variables. It is
+  overwritten on the next initialization, and may remain on the host until
+  then or until the host OS cleans `/tmp`.
 - `devcontainer.json` — container configuration.
 - `Dockerfile` — container image definition.
 - `check-yolo-boundaries.sh` — refuses supplied YOLO launchers unless the

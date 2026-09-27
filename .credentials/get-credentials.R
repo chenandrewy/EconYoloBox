@@ -1,9 +1,9 @@
 # ABOUTME: Shared credential retrieval module for R.
-# ABOUTME: Resolves credentials from env, a mounted secret file, or the host store.
+# ABOUTME: Resolves credentials from the environment or the host store.
 #
 # Run:     source(".credentials/get-credentials.R")
-# Inputs:  Environment variables, /run/secrets/credentials.env, host credential
-#          store, and credentials-map.json
+# Inputs:  Environment variables (in the container, set at creation from the
+#          host's --env-file), the host credential store, and credentials-map.json
 # Outputs: Credential values returned by get_credential() or get_all_credentials()
 
 .credentials_source_file <- tryCatch(
@@ -12,10 +12,6 @@
 )
 .credentials_dir <- dirname(.credentials_source_file)
 .credentials_json <- file.path(.credentials_dir, "credentials-map.json")
-.mounted_credentials_file <- Sys.getenv(
-  "DEVCONTAINER_CREDENTIALS_FILE",
-  unset = "/run/secrets/credentials.env"
-)
 
 .load_credential_map <- function() {
   jsonlite::fromJSON(.credentials_json, simplifyVector = TRUE)
@@ -67,33 +63,10 @@
   ""
 }
 
-.read_mounted_credentials <- function() {
-  lines <- tryCatch(
-    readLines(.mounted_credentials_file, warn = FALSE, encoding = "UTF-8"),
-    error = function(e) character()
-  )
-  credentials <- character()
-  for (line in lines) {
-    stripped <- trimws(line)
-    if (!nzchar(stripped) || startsWith(stripped, "#") || !grepl("=", line, fixed = TRUE)) {
-      next
-    }
-    separator <- regexpr("=", line, fixed = TRUE)[1]
-    name <- trimws(substr(line, 1L, separator - 1L))
-    if (nzchar(name)) {
-      credentials[[name]] <- substr(line, separator + 1L, nchar(line))
-    }
-  }
-  credentials
-}
-
+# The environment first (in the container Docker sets every credential there
+# at creation), then the host credential store.
 get_credential <- function(env_var, keychain_target) {
   value <- Sys.getenv(env_var, unset = "")
-  if (nzchar(value)) {
-    return(value)
-  }
-  mounted <- .read_mounted_credentials()
-  value <- if (env_var %in% names(mounted)) mounted[[env_var]] else ""
   if (nzchar(value)) {
     return(value)
   }
