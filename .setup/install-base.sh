@@ -11,6 +11,8 @@
 #   In any mode:
 #     bash .setup/install-base.sh cli            # AI CLIs, always @latest
 #     bash .setup/install-base.sh --verify       # check only; writes nothing
+#   In the Dockerfile only (RUN as node, BuildKit bind-mounting this file):
+#     bash install-base.sh --image-build         # python r tex into the image
 #
 # Inputs:  the package lists below; the dated P3M snapshot pinned in the image's
 #          Rprofile.site (Dockerfile ARG CRAN_SNAPSHOT); PyPI; the rolling
@@ -33,6 +35,15 @@
 # only its own mount, the per-checkout npm-global volume, which is writable in
 # every mode. --verify only checks (imports, library loads, the TeX marker, npm
 # ls) and works in any mode. Outside a container everything refuses.
+#
+# --image-build is the Dockerfile's first-setup path (docs/journal/0926f). It
+# installs python, r and tex into the image's own directories, and Docker seeds
+# each empty volume from them the first time it is mounted, so a new checkout
+# gets the base without a normie round trip. It requires the opposite of normie
+# mode: the targets must NOT be mounts, which is true only during a build, so
+# it refuses in any running container. Seeding happens once; a volume that
+# holds anything is never touched again, and base changes still go through
+# normie mode.
 #
 # Adding a package means editing a list here and re-running: python and r are
 # idempotent (present packages are skipped unless --force), and tex adds
@@ -60,6 +71,9 @@ Usage: install-base.sh [python] [r] [tex] [cli] [all] [--force] [--verify]
   --force   reinstall present python/r packages (not accepted with tex;
             with no target, python r cli)
   --verify  check the named targets without installing anything
+  --image-build
+            the Dockerfile's path: python r tex into the image, whose
+            directories seed fresh volumes; refuses in a running container
 
 Several targets may be given. Runs only inside the devcontainer, as node.
 python, r and tex install only in normie mode; cli and --verify work in any
@@ -73,6 +87,7 @@ DO_TEX=0
 DO_CLI=0
 FORCE=0
 VERIFY=0
+IMAGE_BUILD=0
 for arg in "$@"; do
     case "$arg" in
     python | py) DO_PYTHON=1 ;;
@@ -87,6 +102,7 @@ for arg in "$@"; do
         ;;
     --force | -f) FORCE=1 ;;
     --verify) VERIFY=1 ;;
+    --image-build) IMAGE_BUILD=1 ;;
     -h | --help)
         usage
         exit 0
@@ -98,6 +114,19 @@ for arg in "$@"; do
         ;;
     esac
 done
+if [ "$IMAGE_BUILD" -eq 1 ]; then
+    # The CLIs stay out of the image (a baked @latest layer freezes; see the
+    # Dockerfile), and a build has nothing to verify against.
+    if [ "$DO_CLI" -eq 1 ] || [ "$VERIFY" -eq 1 ] || [ "$FORCE" -eq 1 ]; then
+        echo "install-base.sh: --image-build takes only python, r and tex." >&2
+        exit 2
+    fi
+    if [ $((DO_PYTHON + DO_R + DO_TEX)) -eq 0 ]; then
+        DO_PYTHON=1
+        DO_R=1
+        DO_TEX=1
+    fi
+fi
 # --force does not apply to TeX, so a bare --force leaves it out.
 if [ $((DO_PYTHON + DO_R + DO_TEX + DO_CLI)) -eq 0 ]; then
     DO_PYTHON=1
@@ -116,8 +145,9 @@ if [ "$FORCE" -eq 1 ] && [ "$DO_TEX" -eq 1 ]; then
 fi
 
 # Everything above is plain enough for macOS bash 3.2, so that on the host this
-# refusal is what runs.
-if [ ! -f /.dockerenv ] && [ ! -f /run/.containerenv ]; then
+# refusal is what runs. A BuildKit RUN has neither marker; --image-build makes
+# its own check below.
+if [ "$IMAGE_BUILD" -eq 0 ] && [ ! -f /.dockerenv ] && [ ! -f /run/.containerenv ]; then
     echo "install-base.sh: runs only inside the devcontainer; nothing was installed." >&2
     echo "Switch to normie mode (see .setup/README.md), then in the container run:" >&2
     echo "  bash .setup/install-base.sh $*" >&2
@@ -180,11 +210,48 @@ require_cli_mount() {
     fi
 }
 
+# The inverse of require_install_mode: during an image build nothing is
+# mounted, and in a running container every target is, so "no target is a
+# mount" is what tells the two apart. The image's directories are node-owned
+# (the Dockerfile makes them so), which is how the seeded volumes end up
+# node-owned too.
+require_image_build() {
+    local dir problems=()
+    for dir in "$@"; do
+        if [ ! -d "$dir" ]; then
+            problems+=("$dir does not exist; the Dockerfile creates it")
+        elif mountpoint -q "$dir"; then
+            problems+=("$dir is a mounted volume, so this is a running container, not an image build")
+        elif [ ! -w "$dir" ]; then
+            problems+=("$dir is not writable by node")
+        fi
+    done
+    if [ ${#problems[@]} -gt 0 ]; then
+        echo "install-base.sh: --image-build is for the Dockerfile only:" >&2
+        printf '  - %s\n' "${problems[@]}" >&2
+        echo "In a container, install in normie mode: bash .setup/install-base.sh" >&2
+        exit 1
+    fi
+}
+
+# Before anything else runs, so a host or a root build step gets a plain
+# refusal rather than a missing-command error.
+if [ "$IMAGE_BUILD" -eq 1 ] && [ "$(id -un)" != node ]; then
+    echo "install-base.sh: --image-build runs as node in the Dockerfile only; nothing was installed." >&2
+    exit 1
+fi
+
 R_LIB=""
 if [ "$DO_R" -eq 1 ]; then R_LIB=$(Rscript -e 'cat(.libPaths()[1])'); fi
 
 STACK_TARGETS=""
-if [ "$VERIFY" -eq 0 ]; then
+if [ "$IMAGE_BUILD" -eq 1 ]; then
+    build_dirs=()
+    if [ "$DO_PYTHON" -eq 1 ]; then build_dirs+=(/opt/venv); fi
+    if [ "$DO_R" -eq 1 ]; then build_dirs+=("$R_LIB"); fi
+    if [ "$DO_TEX" -eq 1 ]; then build_dirs+=("$TEX_PREFIX"); fi
+    require_image_build "${build_dirs[@]}"
+elif [ "$VERIFY" -eq 0 ]; then
     stack_mounts=()
     if [ "$DO_PYTHON" -eq 1 ]; then stack_mounts+=(/opt/venv) && STACK_TARGETS+=" python"; fi
     if [ "$DO_R" -eq 1 ]; then stack_mounts+=("$R_LIB") && STACK_TARGETS+=" r"; fi
@@ -659,7 +726,11 @@ if [ "$DO_R" -eq 1 ]; then install_r; fi
 if [ "$DO_TEX" -eq 1 ]; then install_tex; fi
 if [ "$DO_CLI" -eq 1 ]; then install_cli; fi
 
-if [ "$VERIFY" -eq 0 ] && [ -n "$STACK_TARGETS" ]; then
+if [ "$IMAGE_BUILD" -eq 1 ]; then
+    # No tex-refresh: it configures node's LyX userdir, which is a runtime
+    # concern; post-start.sh runs it at every start.
+    echo "Done. The image now carries the base; Docker seeds each empty volume from it."
+elif [ "$VERIFY" -eq 0 ] && [ -n "$STACK_TARGETS" ]; then
     if [ "$DO_TEX" -eq 1 ]; then
         echo "+ tex-refresh"
         tex-refresh

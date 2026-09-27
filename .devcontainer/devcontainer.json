@@ -2,6 +2,11 @@
   "name": "${localWorkspaceFolderBasename}",
   "build": {
     "dockerfile": "Dockerfile",
+    // The repository root, so the image can install the base with
+    // .setup/install-base.sh (docs/journal/0926f). Dockerfile.dockerignore
+    // passes only .devcontainer/ and that script, so workspace/, cellar/ and
+    // done/ never reach the daemon.
+    "context": "..",
     "args": {
       "TZ": "${localEnv:TZ:America/New_York}",
       "GIT_VERSION": "2.49.0",
@@ -89,9 +94,11 @@
   },
   "remoteUser": "node",
   "mounts": [
-    // Shared package volumes: R, Python and TeX, filled in normie mode by
-    // `bash .setup/install-base.sh` in the container (docs/journal/0921a,
-    // 0925b, 0926a, 0926e) and otherwise mounted read-only, so agents in here
+    // Shared package volumes: R, Python and TeX. Docker seeds each empty one
+    // from the image, which carries the base (docs/journal/0926f); after that
+    // they change in normie mode, by `bash .setup/install-base.sh` in the
+    // container (docs/journal/0921a, 0925b, 0926a, 0926e), and are otherwise
+    // mounted read-only, so agents in here
     // can run the stacks but never change them. They are shared across
     // projects on this Docker daemon; only per-project writable state needs
     // the ${devcontainerId} key used further down. Adding a package does not
@@ -106,9 +113,9 @@
     // load-bearing: packages compiled against one distro's libraries must never
     // be mounted into another.
     //
-    // A new volume is tried by renaming it here and running bbox --rebuild in
-    // normie mode: Docker seeds it, node-owned, from the image's empty
-    // directory, and install-base.sh fills it. Rename back to abandon it.
+    // A new volume is tried by renaming it here and running bbox --rebuild:
+    // Docker seeds it, node-owned, from the image's directory, which already
+    // holds the base. Rename back to abandon it.
     //
     // Read-only unless SANDBOX.toml says packages = "writable": bbox exports
     // SANDBOX_PKG_READONLY and checks the created mounts, and direct VS Code
@@ -128,7 +135,7 @@
     // ls` stays scannable; the id is what makes the name unique.
     //
     // Cost of the id: it is derived from the host path, so moving or renaming
-    // the project folder orphans these volumes (re-login + install-base.sh cli).
+    // the project folder orphans these volumes (re-login; startup reinstalls the CLIs).
     // Orphans are then unidentifiable by name; find them with
     // `docker volume ls -f dangling=true`.
     "source=${localWorkspaceFolderBasename}-claude-config-${devcontainerId},target=/home/node/.claude,type=volume",

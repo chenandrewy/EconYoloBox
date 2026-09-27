@@ -65,8 +65,11 @@ on 2026-09-26.
 
 **Package volumes** account for about **1.5GB** of the one-checkout total
 with the lean base, or about **4.7GB** with the optional set.
-There is one set on the Docker daemon. They are filled in normie mode by
-`.setup/install-base.sh` and mounted read-only in YOLO mode:
+There is one set on the Docker daemon. Docker seeds them from the image on
+the first build (so the image carries another copy of the lean base, about
+1.5GB, not yet measured in the image figures above; docs/journal/0926f), the
+optional set is added in normie mode by `.setup/install-optional.sh`, and they
+are mounted read-only in YOLO mode:
 
 | Volume | Mount | Lean base | With optional set |
 |---|---|---|---|

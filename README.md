@@ -81,8 +81,10 @@ Windows and Linux support is partially wired but has not been tested.
    open the Command Palette and select **Dev Containers: Reopen in Container**.
    Direct VS Code creation uses the default `builtin` seccomp filter.
 
-   Wait for the first build to finish. VS Code reloads with `Dev Container`
-   shown in the lower-left corner when it is ready.
+   Wait for the first build to finish. It also installs the base R, Python
+   and TeX Live stacks and, at first start, the Claude Code and Codex CLIs, so
+   expect it to take a while longer than later rebuilds. VS Code reloads with
+   `Dev Container` shown in the lower-left corner when it is ready.
 
    The container starts in YOLO mode: firewall on, allowing only the network
    allowlist, with read-only package volumes and builtin seccomp. For open
@@ -115,23 +117,7 @@ Windows and Linux support is partially wired but has not been tested.
    git clone https://github.com/your-name/your-project.git My-Project
    ```
 
-6. **Install the AI CLIs.** They are not baked into the image — they live in a
-   persistent volume so that updating them is not undone by the next rebuild.
-   `bash .setup/install-base.sh` in normie mode (below) installs them with
-   the rest of the base; to install or update just the CLIs, in any mode:
-
-   ```bash
-   bash /sandbox/.setup/install-base.sh cli
-   ```
-
-   This takes a few seconds and installs the current Claude Code and Codex
-   releases. It is needed once when the volume is first created, not per session
-   or ordinary container rebuild; an interactive shell prints a reminder while
-   either CLI is missing. Re-run the same command to update either npm-managed
-   CLI. A new volume is created only when the old one is removed or its
-   distro/Node version token changes in `devcontainer.json`.
-
-7. **Start an AI agent from the project directory.** The first launch may ask
+6. **Start an AI agent from the project directory.** The first launch may ask
    you to authenticate. Start Claude with auto mode selected:
 
    ```bash
@@ -202,24 +188,33 @@ Press Enter to skip any service you do not use. The final command refreshes the
 credential file mounted in an already-running container; skip it if you have
 not built the container yet.
 
-### Build the package stacks
+### Update the AI CLIs
 
-R, Python and TeX Live are not in the image. They live in shared volumes that
-every project mounts, read-only by default. You install them from inside the
-container, in normie mode: set `internet = "open"`, `packages = "writable"`
-and `seccomp = "unconfined"` in `SANDBOX.toml` and run `bbox --rebuild`. Then,
-in the container:
+The first start installs the Claude Code and Codex CLIs into a persistent
+volume, so a rebuild does not undo an update. They do not update themselves;
+to update both, in any mode:
 
 ```bash
-bash .setup/install-base.sh          # Python, R, minimal pdfLaTeX TeX Live, AI CLIs
-bash .setup/install-optional.sh      # optional: the rest of the usual stack
+bash /sandbox/.setup/install-base.sh cli
 ```
 
-Switch back to YOLO mode (`"firewalled"`, `"readonly"`, `"builtin"`, then
-`bbox --rebuild`) and run `bash .devcontainer/tests/test-packages.sh`. The same
-normie mode is how you add a package later, with `install.packages()`,
-`pip install` or `tlmgr install`. See [setup](.setup/README.md) and the [devcontainer
-README](.devcontainer/README.md#working-modes) for the details.
+### Add to the package stacks
+
+R, Python and TeX Live live in shared volumes that every project mounts,
+read-only by default. The first build fills them with a lean base. For the rest
+of the usual stack, or any other package, switch to normie mode: set
+`internet = "open"`, `packages = "writable"` and `seccomp = "unconfined"` in
+`SANDBOX.toml` and run `bbox --rebuild`. Then, in the container:
+
+```bash
+bash .setup/install-optional.sh      # the rest of the usual stack
+```
+
+or `install.packages()`, `pip install` or `tlmgr install`. Switch back to YOLO
+mode (`"firewalled"`, `"readonly"`, `"builtin"`, then `bbox --rebuild`) and run
+`bash .devcontainer/tests/test-packages.sh`. See [setup](.setup/README.md) and
+the [devcontainer README](.devcontainer/README.md#working-modes) for the
+details.
 
 ## Optional host command workflow
 
@@ -256,7 +251,8 @@ export TZ=America/Chicago
 
 ## Devcontainer storage
 
-Budget the container image plus about **5.7GB of volumes** for the first
+Budget the container image (which carries a copy of the base stacks, about
+1.5GB, to seed the volumes) plus about **5.7GB of volumes** for the first
 sandbox checkout: 4.7GB of shared R, Python and TeX volumes, and 1GB of
 per-checkout volumes (AI CLIs and their config). Each additional checkout adds
 about 1GB, since the image and the package volumes are shared.
@@ -268,10 +264,9 @@ to confirm that eviction is the actual problem.
 
 ## TeX Live setup
 
-The devcontainer uses a shared, pdfLaTeX-only TeX Live volume, read-only by default.
-Before TeX/LyX work, run `bash .setup/install-base.sh tex` in the container in
-normie mode; see [setup](.setup/README.md) for installation and validation
-instructions.
+The devcontainer uses a shared, pdfLaTeX-only TeX Live volume, read-only by
+default, which the first build fills. See [setup](.setup/README.md) for adding
+packages and for validation.
 
 ## License
 

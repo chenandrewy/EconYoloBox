@@ -370,8 +370,11 @@ mode.
 
 ### Package stacks and AI CLIs (`.setup/install-base.sh`)
 
-The R, Python and TeX stacks are **not** in the image. They live in three
-shared Docker volumes. The human installs a lean base in normie mode with
+The R, Python and TeX stacks live in three shared Docker volumes. The image
+carries a copy of the lean base only to seed them: its build runs
+`install-base.sh --image-build`, and Docker copies the image's directory into
+each volume the first time an empty one is mounted (docs/journal/0926f). After
+that the human changes the base in normie mode with
 `bash .setup/install-base.sh` (see the [setup README](../.setup/README.md)),
 and optionally adds the rest with `.setup/install-optional.sh`.
 `devcontainer.json` mounts them read-only unless `packages = "writable"`:
@@ -390,8 +393,8 @@ switch, and
 `pip install` and `install.packages()` into the stacks fail with a read-only or
 not-writable error. At startup, `post-start.sh` warns if a volume is not built.
 It tests a sentinel package (`pyfixest`, `fixest`, the TeX marker), because
-Docker seeds even a fresh read-only volume from the image, so an unbuilt venv
-still shows its skeleton. Interactive shells print a one-line note as well.
+a volume created by an older image holds only the skeleton it was seeded
+with. Interactive shells print a one-line note as well.
 
 The volumes are shared by every project on the Docker daemon, and they are
 built in this workspace's own devcontainer. R packages link against the
@@ -403,13 +406,14 @@ the volume a new name, rebuild the container in normie mode, then fill it.
 
 The Claude Code and Codex CLIs are part of the base, installed into a writable
 per-container volume by the same script, `bash .setup/install-base.sh cli`,
-which works in any mode. They were a Dockerfile layer pinned to
+which works in any mode. `post-start.sh` runs it at startup while either CLI
+is missing, so a fresh volume fills itself. They were a Dockerfile layer pinned to
 `@latest`, which turned out to mean "whatever was current the day the layer
 was first cached": rebuilds kept restoring a months-old Codex. They now install
 into `/usr/local/share/npm-global`, which is a **volume**, so updating Codex in
 a running container is no longer reverted by the next rebuild.
 
-Because the volume can start empty, `test-agent-policy.sh` reports `SKIP`
+Because the install at startup can fail, `test-agent-policy.sh` reports `SKIP`
 (not `PASS`) for a CLI that is not installed, and interactive shells nudge
 while either CLI is missing. The npm-managed CLIs should not be assumed to
 self-update; re-run `install-base.sh cli` to update both to their current

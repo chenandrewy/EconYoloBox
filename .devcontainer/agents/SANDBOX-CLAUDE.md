@@ -91,10 +91,10 @@ Other combinations work and are reported as a custom posture.
   `pcaMethods` from Bioconductor); `install-optional.sh --verify` says whether
   it is present.
 - **The R, Python and TeX stacks live in shared volumes**, mounted read-only
-  unless the user chose normie mode. The user installs both in normie mode,
-  from inside the container: the base with `bash .setup/install-base.sh`,
-  which holds the base lists, and the optional set with
-  `.setup/install-optional.sh`.
+  unless the user chose normie mode. The first build seeds the base from the
+  image. The user changes the stacks in normie mode, from inside the
+  container: the base with `bash .setup/install-base.sh`, which holds the base
+  lists, and the optional set with `.setup/install-optional.sh`.
   `install-base.sh --verify python r tex` checks the base without changing
   it. If an import fails, or startup warns that a package volume is not built,
   notify the user.
@@ -102,7 +102,8 @@ Other combinations work and are reported as a custom posture.
   script (`bash .setup/install-base.sh cli` inside the container, any
   mode), into a writable npm-global
   *volume* — so an update survives rebuilds rather than being reverted by
-  them. The npm-managed CLIs should not be assumed to self-update; re-run the
+  them. Startup installs them when either is missing. The npm-managed CLIs
+  should not be assumed to self-update; re-run the
   script's `cli` target to update both. A rebuild is unnecessary.
 - TeX Live 2026 is **minimal and pdfLaTeX-only**. Base: scheme-small plus
   bibtexextra (biblatex, biber), latexindent, latexmk and cm-super. The

@@ -65,16 +65,17 @@ tooling those changes exist to support is described in
   the stack that matters here is R, Python, TeX Live, and LyX. Image-level tools
   such as Git, Node, delta, R, Pandoc, and LyX are pinned, and layers are
   cache-conscious. The Claude Code and Codex CLIs deliberately live outside the
-  image in a named npm volume: `install-base.sh cli` installs or updates both
-  to their current releases without a rebuild undoing the update. The image
+  image in a named npm volume: the first start installs them, and
+  `install-base.sh cli` updates both to their current releases without a
+  rebuild undoing the update. The image
   stays disposable, with everything worth keeping in named volumes or on the
   host.
 
 - **Firewall.** Upstream's allowlist covers what a software engineer needs.
   This one runs its own dnsmasq for domain-based allowlisting and adds the
   sources econ research runs on — data providers and paper repositories. R and
-  Python package registries are left out, since packages are installed on the
-  host or with the firewall off. It is also **fail-closed**: any setup failure drops
+  Python package registries are left out, since packages are installed during
+  the image build or with the firewall off. It is also **fail-closed**: any setup failure drops
   all traffic rather than leaving the container open, and blocked hosts are
   REJECTed so they fail fast instead of hanging.
 
@@ -88,8 +89,9 @@ tooling those changes exist to support is described in
   against an agent that edits the repo; `git diff` before restarting is the
   review step. A
   fresh container has the system toolchain immediately. The R, Python and TeX
-  stacks come from shared volumes filled in normie mode, and the AI CLIs
-  install once into a per-container volume with `install-base.sh cli`.
+  stacks come from shared volumes that Docker seeds from the image on the
+  first build, and the AI CLIs install at first start into a per-container
+  volume.
 
 - **Enforced agent policy.** Root-owned configuration disables Claude's online
   connectors and Codex Apps, Plugins, and remote plugin catalogs. A startup
@@ -138,10 +140,12 @@ network allowlist that lets research data through. The
 commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
 - **Read-only package stacks.** The Python venv, the R site-library and a
-  minimal pdfLaTeX TeX Live live in shared Docker volumes. The human installs
-  a lean base with `bash .setup/install-base.sh` from inside the container in
-  normie mode, with the firewall off and the volumes writable, and every
-  project mounts them read-only by default. Agents run the stacks but cannot
+  minimal pdfLaTeX TeX Live live in shared Docker volumes. The first build
+  fills them with a lean base: the image carries a copy, and Docker seeds each
+  empty volume from it. After that the human changes them with
+  `bash .setup/install-base.sh` from inside the container in normie mode, with
+  the firewall off and the volumes writable, and every project mounts them
+  read-only by default. Agents run the stacks but cannot
   change them. Packages change only in normie mode, from inside.
 
 - **Two working modes.** A second switch, `packages = "readonly" |

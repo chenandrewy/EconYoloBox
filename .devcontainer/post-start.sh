@@ -1,13 +1,15 @@
 #!/bin/bash
 # ABOUTME: The container's postStartCommand. Arms the firewall unless
-# ABOUTME: SANDBOX.toml opts out, then seeds agent guidance, checks policy and
-# ABOUTME: the package volumes, prints the posture (YOLO or normie), refreshes TeX.
+# ABOUTME: SANDBOX.toml opts out, then seeds agent guidance, installs missing AI
+# ABOUTME: CLIs, checks policy and the package volumes, prints the posture (YOLO
+# ABOUTME: or normie), refreshes TeX.
 #
 # Run by devcontainer.json on every container start (not on a bare
 # `docker restart`, which skips postStartCommand entirely).
 # Inputs:  SANDBOX.toml `internet` and `packages`; the package mounts; PID 1's
 #          seccomp mode; the workspace setup scripts.
-# Outputs: firewall state, the shell-warning marker, agent setup, a warning for
+# Outputs: firewall state, the shell-warning marker, agent setup, the AI CLIs
+#          in npm-global when either is missing, a warning for
 #          each unbuilt package volume, the posture line (YOLO mode, normie
 #          mode, or custom; see SANDBOX.toml), TeX refresh.
 #
@@ -49,15 +51,26 @@ esac
 
 bash .devcontainer/agents/seed-agent-guidelines.sh
 
+# The AI CLIs live in the per-checkout npm-global volume, which starts empty
+# and is writable in every mode; npm is on the firewall allowlist. So a first
+# start installs them here rather than asking the user (docs/journal/0926f).
+# Only when one is missing: updates stay a deliberate `install-base.sh cli`.
+# A failure warns and moves on; shellrc.sh keeps reminding.
+if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; then
+    echo "post-start.sh: installing the AI CLIs (first start of this checkout's npm-global volume)" >&2
+    bash .setup/install-base.sh cli ||
+        echo "post-start.sh: AI CLI install failed; in the container: bash .setup/install-base.sh cli" >&2
+fi
+
 if command -v test-agent-policy.sh >/dev/null; then
     test-agent-policy.sh --warn-only || true
 fi
 
-# The R, Python and TeX base is installed in normie mode, from inside, into
-# volumes mounted read-only unless packages = "writable". Test a sentinel, not emptiness:
-# Docker seeds even a fresh read-only volume from the image, so an unbuilt
-# venv still holds the bare skeleton. Importing (not just
-# finding) the sentinels also catches a volume built for another image.
+# Docker seeds each fresh R, Python and TeX volume from the image, which
+# carries the base (docs/journal/0926f), so a new volume starts built. A volume
+# created before that holds only a skeleton and is never reseeded. Test a
+# sentinel, not emptiness. Importing (not just finding) the sentinels also
+# catches a volume built for another image.
 missing=()
 python3 -c 'import pyfixest' >/dev/null 2>&1 || missing+=(python)
 Rscript -e 'quit(status = !requireNamespace("fixest", quietly = TRUE))' >/dev/null 2>&1 || missing+=(r)
@@ -65,6 +78,7 @@ Rscript -e 'quit(status = !requireNamespace("fixest", quietly = TRUE))' >/dev/nu
 if [ ${#missing[@]} -gt 0 ]; then
     echo "post-start.sh: package volume not built or not loadable: ${missing[*]}" >&2
     echo "  in normie mode, in the container: bash .setup/install-base.sh ${missing[*]}" >&2
+    echo "  or remove the volume on the host and bbox --rebuild to seed it (.setup/README.md)" >&2
 fi
 
 # The posture. internet is as armed above. packages and seccomp are fixed at

@@ -251,19 +251,19 @@ ENV DEVCONTAINER=true
 
 WORKDIR /sandbox
 
-# The Python, R and TeX stacks are NOT baked into the image. They live in
-# shared volumes that the human fills from inside this container, in normie
-# mode, with .setup/install-base.sh; devcontainer.json mounts them read-only
-# otherwise. Agents in the container run the stacks; they do not change them
-# (docs/journal/0921a, 0925b, 0926e).
+# The Python, R and TeX stacks live in shared volumes, which devcontainer.json
+# mounts over /opt/venv, the R site library and /usr/local/texlive, read-only
+# outside normie mode. Agents in the container run the stacks; they do not
+# change them (docs/journal/0921a, 0925b, 0926e).
 #
-# What stays here is what needs root or the build's open network: the system
-# -dev libraries above, R itself, and the empty venv, site-library and TeX
-# mount point below.
+# The image also carries the base in those same directories (the
+# install-base.sh layer further down), only so that Docker seeds each volume
+# from it the first time an empty one is mounted: a new checkout gets the base
+# on its first build, in YOLO mode (docs/journal/0926f). Once seeded, the
+# volume hides the image's copy, and base changes go through normie mode.
 
-# Empty venv. Docker seeds a fresh volume from this directory, so it is also
-# the skeleton an unbuilt venv volume shows. noble's python3 is 3.12, so the
-# venv volume name in devcontainer.json carries py3.12.
+# The venv. Docker seeds a fresh volume from this directory. noble's python3
+# is 3.12, so the venv volume name in devcontainer.json carries py3.12.
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
@@ -272,8 +272,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 # too, or Docker would make it root-owned.
 #
 # All three go to node: Docker seeds a fresh volume from the image directory,
-# ownership included, so a new volume starts node-owned and install-base.sh
-# fills it as node in normie mode. The read-only mount, not the owner, is what
+# ownership included, so a new volume starts node-owned, and install-base.sh
+# fills these directories as node below. The read-only mount, not the owner, is what
 # protects them in YOLO mode (docs/journal/0926e).
 RUN mkdir -p /opt/R/${R_VERSION}/lib/R/site-library /usr/local/texlive && \
   chown -R node:node /opt/venv /opt/R/${R_VERSION}/lib/R/site-library /usr/local/texlive
@@ -325,8 +325,9 @@ RUN sed -i "s/^export LANG=.*/export LANG='C.UTF-8'/" /home/node/.zshrc && \
 # installed at runtime by `.setup/install-base.sh` into NPM_CONFIG_PREFIX,
 # which is a writable per-container volume - so an update made in a running
 # container survives rebuilds instead of being reverted by them. A fresh volume
-# starts empty; shellrc.sh says so, and test-agent-policy.sh skips rather than
-# fails when a CLI is absent.
+# starts empty, and post-start.sh installs them; if that fails, shellrc.sh
+# says so, and test-agent-policy.sh skips rather than fails when a CLI is
+# absent.
 
 USER root
 
@@ -345,10 +346,10 @@ RUN ARCH=$(dpkg --print-architecture) && \
   install -m 0755 /tmp/pandoc-crossref /usr/local/bin/pandoc-crossref && \
   rm -rf /tmp/pandoc.tar.gz /tmp/pandoc-crossref.tar.xz /tmp/pandoc-${PANDOC_VERSION} /tmp/pandoc-crossref
 
-# TeX is installed in normie mode (.setup/install-base.sh tex) into a shared
-# volume, mounted read-only otherwise. The symlink intentionally dangles during image build; the
-# installer reads the year and platform from it. Keep the year in step with
-# the TeX volume name in devcontainer.json.
+# TeX lives in a shared volume, seeded from the install-base.sh layer below.
+# The symlink dangles until that layer runs; the installer reads the year and
+# platform from it. Keep the year in step with the TeX volume name in
+# devcontainer.json.
 RUN ARCH=$(dpkg --print-architecture) && \
   case "$ARCH" in \
     amd64) TEXLIVE_PLATFORM=x86_64-linux ;; \
@@ -359,11 +360,24 @@ RUN ARCH=$(dpkg --print-architecture) && \
 ENV PATH="/usr/local/texlive-bin:$PATH"
 
 # Converter detection needs the runtime TeX mount and a writable user directory.
-COPY tex-refresh.sh /usr/local/bin/tex-refresh
+COPY .devcontainer/tex-refresh.sh /usr/local/bin/tex-refresh
 RUN chmod 0755 /usr/local/bin/tex-refresh
 
+# The base, installed into the image's own /opt/venv, R site library and
+# /usr/local/texlive so Docker can seed empty volumes from them (see the note
+# above the venv). Here, after everything the installer and its smoke tests
+# use (R, LyX, poppler-utils, the TeX symlink), and before the frequently
+# edited policy files, so editing those does not rerun it. The script is
+# bind-mounted, not copied, so no copy of it lands in the image; the layer
+# still reruns whenever the script changes. A CTAN or PyPI failure fails the
+# build; rebuilding is the retry.
+USER node
+RUN --mount=type=bind,source=.setup/install-base.sh,target=/tmp/install-base.sh \
+  bash /tmp/install-base.sh --image-build
+USER root
+
 # Copy and set up firewall script
-COPY init-firewall.sh /usr/local/bin/
+COPY .devcontainer/init-firewall.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/init-firewall.sh && \
   echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
   chmod 0440 /etc/sudoers.d/node-firewall
@@ -374,15 +388,15 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
 # Claude Code policy. `disableClaudeAiConnectors` has any-source-true semantics,
 # so user- and project-level settings cannot override this file. The companion
 # denylist covers the gap it leaves: connectors passed via `--mcp-config`.
-COPY agents/SANDBOX-claude-managed-settings.json /etc/claude-code/managed-settings.json
+COPY .devcontainer/agents/SANDBOX-claude-managed-settings.json /etc/claude-code/managed-settings.json
 
 # Codex system config supplies stable defaults without touching the volatile,
 # node-owned ~/.codex/config.toml where Codex persists user preferences.
-COPY agents/SANDBOX-codex-config.toml /etc/codex/config.toml
+COPY .devcontainer/agents/SANDBOX-codex-config.toml /etc/codex/config.toml
 
 # Codex requirements are admin-enforced and outrank user config, profiles, and
 # CLI --config / --enable overrides.
-COPY agents/SANDBOX-codex-requirements.toml /etc/codex/requirements.toml
+COPY .devcontainer/agents/SANDBOX-codex-requirements.toml /etc/codex/requirements.toml
 
 # COPY already lands these root-owned, since this stage runs as root; the chmod
 # is what makes them read-only to `node`.
@@ -392,7 +406,7 @@ RUN chmod 0444 /etc/claude-code/managed-settings.json \
 
 # Policy verification, run manually or from postStartCommand. Copied rather than
 # invoked from /sandbox so a check of the policy is not itself node-writable.
-COPY test-agent-policy.sh /usr/local/bin/
+COPY .devcontainer/test-agent-policy.sh /usr/local/bin/
 RUN chmod 0755 /usr/local/bin/test-agent-policy.sh
 
 # Debian installs fd as fdfind to avoid a package-name collision. Provide the
