@@ -1,32 +1,44 @@
 #!/usr/bin/env bash
-# Install the lean base Python, R and TeX stacks, and the AI CLIs.
+# Install the lean base: the Python, R and TeX stacks and the AI CLIs.
 #
 # Run:
-#   On the host, via the builder (python, r, tex):
-#     bash .setup/packages.sh [python] [r] [tex] [all] [--force]
-#   which runs this script as root in this workspace's own devcontainer image,
-#   with the shared package volumes mounted read-write.
-#   Inside the devcontainer, as node:
-#     .devcontainer/install-packages.sh            # AI CLIs (same as `cli`)
-#     .devcontainer/install-packages.sh cli        # AI CLIs, always @latest
-#     .devcontainer/install-packages.sh --verify all cli   # check only
+#   On the host, with Docker running, from anywhere in this checkout (bash 3.2+):
+#     bash .setup/install-base.sh                # python r tex cli (all)
+#     bash .setup/install-base.sh tex            # TeX Live only
+#     bash .setup/install-base.sh r --force      # reinstall present R packages
+#     bash .setup/install-base.sh --verify       # check only; writes nothing
+#   Inside the devcontainer, as node (the CLI volume is always writable):
+#     bash .setup/install-base.sh cli            # AI CLIs, always @latest
 #
 # Inputs:  the package lists below; the dated P3M snapshot pinned in the image's
 #          Rprofile.site (Dockerfile ARG CRAN_SNAPSHOT); PyPI; the rolling
-#          TeX Live tlnet repository; npm.
+#          TeX Live tlnet repository; npm. On the host also: this checkout's
+#          devcontainer (created by bbox, running or stopped), whose exact
+#          image is the builder and whose npm-global mount names the CLI
+#          volume; the shared volume names in .devcontainer/devcontainer.json.
 # Outputs: python -> /opt/venv; r -> the R site library; tex -> TeX Live in
 #          /usr/local/texlive (with install.log and the .sandbox-installed
 #          marker there); cli -> NPM_CONFIG_PREFIX. Each target ends with an
-#          "... OK" line or exits nonzero.
+#          "... OK" line or exits nonzero. From the host the volumes are then
+#          owned by node, so normie mode can install into them without sudo.
 #
-# python, r and tex fill shared volumes that the devcontainer mounts read-only.
-# Each refuses unless its install directory is a writable mount: an unmounted
-# directory would install into a disposable image layer, and a read-only one
-# means this is a consumer, where the answer is the host builder. --verify
-# only checks (imports, library loads, the TeX marker) and works anywhere. Adding a package means editing a list
-# here and re-running the builder: python and r are idempotent (present packages
-# are skipped unless --force), and tex adds whatever TEX_COLLECTIONS/TEX_PKGS
-# name that the marked tree lacks. See docs/journal/0921a and 0925b.
+# Two contexts, one file. On the host (no /.dockerenv) this script runs itself
+# as root in a throwaway container of the devcontainer's own image, with the
+# named volumes mounted and this folder at /setup, then chowns the volumes. It
+# never installs anything on the host. Why that image: R packages link against
+# its shared libraries and use its Rprofile.site snapshot, so the volume must be
+# built by the image that will consume it. There is no fallback to another
+# image. The builder uses Docker's default network, so the devcontainer
+# firewall does not apply.
+#
+# In a container, it installs. Each target refuses unless its install directory
+# is a writable mount: an unmounted directory would install into a disposable
+# image layer, and a read-only one means a YOLO-mode consumer, where the answer
+# is the host. --verify only checks (imports, library loads, the TeX marker,
+# npm ls) and works anywhere. Adding a package means editing a list here and
+# re-running: python and r are idempotent (present packages are skipped unless
+# --force), and tex adds whatever TEX_COLLECTIONS/TEX_PKGS name that the marked
+# tree lacks. See docs/journal/0921a, 0925b and 0926d.
 #
 # The lists are a lean base: what the sandbox's own tools and tests need, plus a
 # small core. Everything else we use is the optional set, installed by the user
@@ -40,18 +52,20 @@ set -euo pipefail
 
 usage() {
     cat <<'USAGE'
-Usage: install-packages.sh [python] [r] [tex] [cli] [all] [--force]
+Usage: install-base.sh [python] [r] [tex] [cli] [all] [--force] [--verify]
 
   python    install the Python stack into /opt/venv
   r         install the R stack into the site library
   tex       install minimal TeX Live, or add missing TEX_PKGS to it
-  cli       install/update the Claude Code and Codex CLIs (the default)
-  all       python r tex (the host builder's stacks; not cli)
-  --force   reinstall present python/r packages (not accepted with tex)
+  cli       install/update the Claude Code and Codex CLIs
+  all       python r tex cli (the default)
+  --force   reinstall present python/r packages (not accepted with tex;
+            with no target, python r cli)
   --verify  check the named targets without installing anything
 
-Several targets may be given. python, r and tex are built on the host with
-bash .setup/packages.sh. Re-runs skip what is already installed.
+Several targets may be given. Run on the host, it builds in a throwaway
+container of this checkout's devcontainer image. Inside the devcontainer,
+only cli is writable outside normie mode. Re-runs skip what is installed.
 USAGE
 }
 
@@ -71,6 +85,7 @@ for arg in "$@"; do
         DO_PYTHON=1
         DO_R=1
         DO_TEX=1
+        DO_CLI=1
         ;;
     --force | -f) FORCE=1 ;;
     --verify) VERIFY=1 ;;
@@ -79,24 +94,127 @@ for arg in "$@"; do
         exit 0
         ;;
     *)
-        echo "install-packages.sh: unknown argument '$arg'" >&2
+        echo "install-base.sh: unknown argument '$arg'" >&2
         usage >&2
         exit 2
         ;;
     esac
 done
+# --force does not apply to TeX, so a bare --force leaves it out.
 if [ $((DO_PYTHON + DO_R + DO_TEX + DO_CLI)) -eq 0 ]; then
+    DO_PYTHON=1
+    DO_R=1
     DO_CLI=1
+    if [ "$FORCE" -eq 0 ]; then DO_TEX=1; fi
 fi
 if [ "$FORCE" -eq 1 ] && [ "$VERIFY" -eq 1 ]; then
-    echo "install-packages.sh: --force and --verify are mutually exclusive." >&2
+    echo "install-base.sh: --force and --verify are mutually exclusive." >&2
     exit 2
 fi
 if [ "$FORCE" -eq 1 ] && [ "$DO_TEX" -eq 1 ]; then
-    echo "install-packages.sh: --force does not apply to tex; rebuilding TeX means a new volume." >&2
+    echo "install-base.sh: --force does not apply to tex; rebuilding TeX means a new volume." >&2
     echo "Run tex without --force, and python/r --force separately." >&2
     exit 2
 fi
+
+# ---- On the host: build in a throwaway container ---------------------------
+# Must stay bash 3.2 (macOS /bin/bash); everything past this block runs only
+# in a container, where bash is current.
+
+in_container() {
+    [ -f /.dockerenv ] || [ -f /run/.containerenv ]
+}
+
+CLI_TARGET=/usr/local/share/npm-global
+
+build_from_host() {
+    local root logical_root json volumes containers count image line volume path target npm_volume
+    root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)
+    logical_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -L)
+    json="$root/.devcontainer/devcontainer.json"
+
+    # shellcheck source=SCRIPTDIR/../.devcontainer/find-python.sh
+    source "$root/.devcontainer/find-python.sh"
+    volumes=$("$PYTHON" "$root/.host/dc-resolve.py" package-volumes "$json")
+
+    # The devcontainer CLI labels the container with the host folder it was
+    # opened from. bbox resolves symlinks; another opener may not.
+    containers=$(docker ps -aq --no-trunc --filter "label=devcontainer.local_folder=$root")
+    if [ -z "$containers" ] && [ "$logical_root" != "$root" ]; then
+        containers=$(docker ps -aq --no-trunc --filter "label=devcontainer.local_folder=$logical_root")
+    fi
+    count=$(printf '%s' "$containers" | grep -c . || true)
+    if [ "$count" -ne 1 ]; then
+        echo "install-base.sh: found $count devcontainers for $root; need exactly one to take its image from." >&2
+        echo "Run bbox --rebuild first." >&2
+        exit 1
+    fi
+    image=$(docker inspect -f '{{.Image}}' "$containers")
+    echo "Builder image: $image (from container ${containers:0:12})"
+
+    # --verify mounts read-only, so a check can never write.
+    local ro="" mounts=() paths=()
+    if [ "$VERIFY" -eq 1 ]; then ro=",readonly"; fi
+    for target in python r tex; do
+        case "$target" in
+        python) [ "$DO_PYTHON" -eq 1 ] || continue ;;
+        r) [ "$DO_R" -eq 1 ] || continue ;;
+        tex) [ "$DO_TEX" -eq 1 ] || continue ;;
+        esac
+        line=$(awk -v s="$target" '$1 == s' <<<"$volumes")
+        read -r _ volume path <<<"$line"
+        echo "  $target -> $volume ($path)"
+        mounts+=(--mount "type=volume,source=$volume,target=$path$ro")
+        paths+=("$path")
+    done
+    # The CLI volume is per-checkout (keyed by devcontainerId), so its name
+    # comes from the container's own mount, not from devcontainer.json.
+    if [ "$DO_CLI" -eq 1 ]; then
+        npm_volume=$(docker inspect -f "{{range .Mounts}}{{if eq .Destination \"$CLI_TARGET\"}}{{.Name}}{{end}}{{end}}" "$containers")
+        if [ -z "$npm_volume" ]; then
+            echo "install-base.sh: the devcontainer has no volume at $CLI_TARGET; run bbox --rebuild first." >&2
+            exit 1
+        fi
+        echo "  cli -> $npm_volume ($CLI_TARGET)"
+        mounts+=(--mount "type=volume,source=$npm_volume,target=$CLI_TARGET$ro")
+        paths+=("$CLI_TARGET")
+    fi
+
+    local chown_paths=""
+    if [ "$VERIFY" -eq 0 ]; then
+        chown_paths="${paths[*]}"
+        echo "Stop R, Python, TeX and AI CLI work in every container that mounts these volumes first."
+    fi
+    # The chown runs even after a failed install, so a half-built volume can
+    # still be finished by hand in normie mode; the install's status is what
+    # returns. The paths are fixed mount targets with no spaces.
+    # shellcheck disable=SC2016 # expanded by the builder's bash
+    docker run --rm --user root \
+        -e PIP_ROOT_USER_ACTION=ignore \
+        -e CHOWN_PATHS="$chown_paths" \
+        "${mounts[@]}" \
+        --mount "type=bind,source=$root/.setup,target=/setup,readonly" \
+        "$image" bash -c '
+            status=0
+            bash /setup/install-base.sh "$@" || status=$?
+            if [ -n "$CHOWN_PATHS" ]; then
+                echo "==> chown -R node:node $CHOWN_PATHS"
+                chown -R node:node $CHOWN_PATHS
+            fi
+            exit "$status"
+        ' _ "$@"
+
+    if [ "$VERIFY" -eq 0 ]; then
+        echo "Consumers: restart R/Python sessions and AI CLIs; after a TeX change run tex-refresh and reopen LyX."
+    fi
+}
+
+if ! in_container; then
+    build_from_host "$@"
+    exit 0
+fi
+
+# ---- In a container: install -----------------------------------------------
 
 WORK_DIR=""
 cleanup() {
@@ -107,17 +225,18 @@ WORK_DIR=$(mktemp -d)
 
 # An unmounted target would install into this container's writable layer and
 # vanish with it, while the volume the devcontainer mounts stays unchanged. A
-# read-only one is a consumer's view of a volume only the host builder writes.
+# read-only one is a YOLO-mode consumer's view of a volume the host builds.
 require_writable_mount() {
     if ! mountpoint -q "$1"; then
-        echo "install-packages.sh: $1 is not a mounted volume; refusing to install into the image layer." >&2
-        echo "On the host run: bash .setup/packages.sh $2" >&2
+        echo "install-base.sh: $1 is not a mounted volume; refusing to install into the image layer." >&2
+        echo "On the host run: bash .setup/install-base.sh $2" >&2
         exit 1
     fi
     if findmnt -n -o OPTIONS -T "$1" | tr ',' '\n' | grep -qx ro; then
-        echo "install-packages.sh: $1 is mounted read-only; packages are managed from the host." >&2
-        echo "Add the package to the list in .devcontainer/install-packages.sh, then on the host run:" >&2
-        echo "  bash .setup/packages.sh $2" >&2
+        echo "install-base.sh: $1 is mounted read-only; packages are managed from the host." >&2
+        echo "Add the package to the list in .setup/install-base.sh, then on the host run:" >&2
+        echo "  bash .setup/install-base.sh $2" >&2
+        echo "To update the AI CLIs from here: bash .setup/install-base.sh cli" >&2
         exit 1
     fi
 }
@@ -300,7 +419,7 @@ TEX_COLLECTIONS=(
 )
 TEX_EXCLUDED=(collection-xetex)
 # Single packages on top of the collections. Adding a name here and re-running
-# `packages.sh tex` installs it with tlmgr. latexindent's Perl dependencies are
+# `install-base.sh tex` installs it with tlmgr. latexindent's Perl dependencies are
 # in the Dockerfile; latexmk is LaTeX Workshop's default recipe. cm-super is
 # the one package a default LyX export needs beyond the collections: LyX writes
 # \usepackage[T1]{fontenc}, and without cm-super pdflatex falls back to
@@ -506,13 +625,13 @@ install_tex() {
 
     if [ "$VERIFY" -eq 1 ]; then
         if [ ! -f "$TEX_MARKER" ]; then
-            echo "MISSING (tex): no $TEX_MARKER; on the host run: bash .setup/packages.sh tex" >&2
+            echo "MISSING (tex): no $TEX_MARKER; on the host run: bash .setup/install-base.sh tex" >&2
             return 1
         fi
         local absent=()
         mapfile -t absent < <(tex_missing "$year")
         if [ ${#absent[@]} -gt 0 ]; then
-            echo "MISSING (tex): ${absent[*]}; on the host run: bash .setup/packages.sh tex" >&2
+            echo "MISSING (tex): ${absent[*]}; on the host run: bash .setup/install-base.sh tex" >&2
             return 1
         fi
         echo "TeX stack OK (marked; ${#TEX_COLLECTIONS[@]} collections, ${#TEX_PKGS[@]} extra packages present)"
@@ -565,6 +684,7 @@ install_cli() {
     echo "==> AI CLIs (${NPM_CONFIG_PREFIX:-npm global}), ${#CLI_PKGS[@]} packages"
     local pkg
     if [ "$VERIFY" -eq 0 ]; then
+        require_writable_mount "$CLI_TARGET" cli
         local pinned=()
         for pkg in "${CLI_PKGS[@]}"; do
             pinned+=("${pkg}@latest")

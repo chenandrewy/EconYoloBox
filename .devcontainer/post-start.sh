@@ -64,7 +64,7 @@ Rscript -e 'quit(status = !requireNamespace("fixest", quietly = TRUE))' >/dev/nu
 [ -f /usr/local/texlive/.sandbox-installed ] || missing+=(tex)
 if [ ${#missing[@]} -gt 0 ]; then
     echo "post-start.sh: package volume not built or not loadable: ${missing[*]}" >&2
-    echo "  on the host run: bash .setup/packages.sh ${missing[*]}" >&2
+    echo "  on the host run: bash .setup/install-base.sh ${missing[*]}" >&2
 fi
 
 # The posture. internet is as armed above. packages and seccomp are fixed at
@@ -85,7 +85,7 @@ case "$posture" in
     "internet=open packages=writable seccomp=unconfined")
         echo "Normie mode: $posture"
         echo "  supervised: install with install.packages(), pip install or tlmgr install,"
-        echo "  or bash .devcontainer/install-optional.sh. Back to YOLO mode: the preset"
+        echo "  or bash .setup/install-optional.sh. Back to YOLO mode: the preset"
         echo "  in SANDBOX.toml, then bbox --rebuild on the host."
         ;;
     *)

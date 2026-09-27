@@ -65,9 +65,8 @@ Other combinations work and are reported as a custom posture.
 - **Package installs depend on `packages`.** When `"readonly"` (YOLO mode), the
   R, Python and TeX stacks are **read-only**. If a package is missing, **ASK THE
   USER TO ADD IT** (name the package) rather than installing it some other way.
-  They add it in normie mode, or to a list in
-  `.devcontainer/install-packages.sh` (base) or
-  `.devcontainer/install-optional.sh` (optional set). In normie mode the volumes
+  They add it in normie mode, or to a list in `.setup/install-base.sh`
+  (base) or `.setup/install-optional.sh` (optional set). In normie mode the volumes
   are writable, but install **only what the user asks for**, with the ordinary
   commands (`install.packages()`, `pip install`, `tlmgr install`), and say when
   pip replaced a dependency. New **system** libraries (`apt-get`, `-dev`
@@ -93,14 +92,14 @@ Other combinations work and are reported as a custom posture.
   it is present.
 - **The R, Python and TeX stacks live in shared volumes**, mounted read-only
   unless the user chose normie mode. The base is built on the host by
-  `bash .setup/packages.sh` from the lists in
-  `.devcontainer/install-packages.sh`; the optional set is installed by the
-  user in normie mode with `.devcontainer/install-optional.sh`.
-  `install-packages.sh --verify python r tex` checks the base without changing
+  `bash .setup/install-base.sh`, which holds the base lists; the optional set
+  is installed by the user in normie mode with `.setup/install-optional.sh`.
+  `install-base.sh --verify python r tex` checks the base without changing
   it. If an import fails, or startup warns that a package volume is not built,
   notify the user.
-- **The Claude Code and Codex CLIs come from the same script**
-  (`install-packages.sh cli`, its default), into a writable npm-global
+- **The Claude Code and Codex CLIs are part of the base**, from the same
+  script (`bash .setup/install-base.sh cli` inside the container, any
+  mode), into a writable npm-global
   *volume* — so an update survives rebuilds rather than being reverted by
   them. The npm-managed CLIs should not be assumed to self-update; re-run the
   script's `cli` target to update both. A rebuild is unnecessary.

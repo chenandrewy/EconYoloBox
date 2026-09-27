@@ -58,12 +58,14 @@ this.
 
 ## Dev Container (`.devcontainer/`)
 
-`.devcontainer/` defines the container, `.host/` is session navigation, and
-[`.setup/`](../.setup/README.md) is host machine setup and maintenance.
+`.devcontainer/` is the container itself: its definition, its startup, and the
+tools baked into it. `.host/` is the launcher (`bbox`), and
+[`.setup/`](../.setup/README.md) is provisioning you run by hand, on the host
+or in the container: the package volumes and the AI CLIs.
 
 ### TeX Live and LyX
 
-TeX Live 2026 is installed with `bash .setup/packages.sh tex` **on the host**,
+TeX Live 2026 is installed with `bash .setup/install-base.sh tex` **on the host**,
 using upstream `install-tl`. It is minimal and pdfLaTeX-only. The base is
 `scheme-small` without XeTeX, plus bibtexextra (biblatex, biber), latexindent,
 latexmk and cm-super; `install-optional.sh` adds latexextra, fontsrecommended,
@@ -96,12 +98,6 @@ this helper. See the host setup README for installation and failure handling.
 - `check-yolo-boundaries.sh` — refuses supplied YOLO launchers unless the
   firewall is enabled and PID 1 has filtered seccomp.
 - `init-firewall.sh` — network firewall rules applied by `post-start.sh` when enabled.
-- `install-packages.sh` — the base package lists and installer for the R,
-  Python and TeX volumes (run on the host through `.setup/packages.sh`), and
-  the AI CLI installer inside the container (see "Package stacks and AI CLIs"
-  below).
-- `install-optional.sh` — the optional package set, installed by the user in
-  normie mode (see "Working modes" below).
 - `strict-setting.sh`, with its wrappers `seccomp-setting.sh` and
   `packages-setting.sh` — strict readers for SANDBOX.toml's enumerated
   switches; `package-mode.sh` reports how the package volumes are mounted.
@@ -364,19 +360,19 @@ mode, and interactive shells warn while the volumes are writable.
 In normie mode, install as `node` with the ordinary commands:
 `install.packages()` writes to the shared site library, `pip install` to
 `/opt/venv`, and `tlmgr install` to the TeX tree (then run `tex-refresh`).
-`.setup/packages.sh` chowns the volumes to `node` so no sudo is needed. pip
+`.setup/install-base.sh` chowns the volumes to `node` so no sudo is needed. pip
 resolves against current PyPI and can replace dependencies, one reason the mode
 is supervised. Agents install in normie mode only when the user asks.
-`install-optional.sh` installs the optional set this way;
+`.setup/install-optional.sh` installs the optional set this way;
 `install-optional.sh --verify` and `tests/test-optional.sh` check it in any
 mode.
 
-### Package stacks and AI CLIs (`install-packages.sh`)
+### Package stacks and AI CLIs (`.setup/install-base.sh`)
 
 The R, Python and TeX stacks are **not** in the image. They live in three
 shared Docker volumes. The human builds a lean base on the host with
-`bash .setup/packages.sh` (see the [host setup README](../.setup/README.md)),
-and optionally adds the rest in normie mode with `install-optional.sh`.
+`bash .setup/install-base.sh` (see the [setup README](../.setup/README.md)),
+and optionally adds the rest in normie mode with `.setup/install-optional.sh`.
 `devcontainer.json` mounts them read-only unless `packages = "writable"`:
 
 | Volume | Mount |
@@ -387,8 +383,8 @@ and optionally adds the rest in normie mode with `install-optional.sh`.
 
 The principle is that agents in the container only execute; the human maintains
 the environment (docs/journal/0921a). In the default read-only mode,
-`install-packages.sh python|r|tex` refuses with the host command, and
-`install-packages.sh --verify python r tex` checks the base without writing.
+`install-base.sh python|r|tex` refuses with the host command, and
+`install-base.sh --verify python r tex` checks the base without writing.
 `pip install` and `install.packages()` into the stacks fail with a read-only or
 not-writable error. At startup, `post-start.sh` warns if a volume is not built.
 It tests a sentinel package (`pyfixest`, `fixest`, the TeX marker), because
@@ -403,9 +399,10 @@ System dependencies that need root (`gfortran`, `libcurl4-openssl-dev`,
 `cmake`) stay in the Dockerfile. After a snapshot or interpreter bump, rebuild
 the container first, then build a new volume under a new name.
 
-The Claude Code and Codex CLIs are runtime-installed into a writable
-per-container volume with `install-packages.sh cli`, which is also what the
-script does with no arguments. They were a Dockerfile layer pinned to
+The Claude Code and Codex CLIs are part of the base, installed into a writable
+per-container volume by the same script: from the host with the rest of the
+base, or from inside the container with `bash .setup/install-base.sh cli`,
+which works in any mode. They were a Dockerfile layer pinned to
 `@latest`, which turned out to mean "whatever was current the day the layer
 was first cached": rebuilds kept restoring a months-old Codex. They now install
 into `/usr/local/share/npm-global`, which is a **volume**, so updating Codex in
@@ -414,7 +411,7 @@ a running container is no longer reverted by the next rebuild.
 Because the volume can start empty, `test-agent-policy.sh` reports `SKIP`
 (not `PASS`) for a CLI that is not installed, and interactive shells nudge
 while either CLI is missing. The npm-managed CLIs should not be assumed to
-self-update; re-run `install-packages.sh cli` to update both to their current
+self-update; re-run `install-base.sh cli` to update both to their current
 releases.
 
 `tests/test-packages.sh`, run as `node` in a rebuilt container, is the

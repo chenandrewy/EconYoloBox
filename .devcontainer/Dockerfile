@@ -252,8 +252,8 @@ ENV DEVCONTAINER=true
 WORKDIR /sandbox
 
 # The Python, R and TeX stacks are NOT baked into the image. They live in
-# shared volumes that the human builds on the host with .setup/packages.sh
-# (running .devcontainer/install-packages.sh in this image), and devcontainer.json
+# shared volumes that the human builds on the host with .setup/install-base.sh
+# (which runs itself in this image), and devcontainer.json
 # mounts them read-only. Agents in the container run the stacks; they do not
 # change them (docs/journal/0921a, 0925b).
 #
@@ -315,7 +315,7 @@ RUN sed -i "s/^export LANG=.*/export LANG='C.UTF-8'/" /home/node/.zshrc && \
 # The Claude Code and Codex CLIs are NOT baked into the image either: a baked
 # `npm install -g ...@latest` layer pins itself to whenever it was first
 # cached, so rebuilds kept serving whatever was current on that day. They are
-# installed at runtime by `install-packages.sh cli` into NPM_CONFIG_PREFIX,
+# installed at runtime by `.setup/install-base.sh` into NPM_CONFIG_PREFIX,
 # which is a writable per-container volume - so an update made in a running
 # container survives rebuilds instead of being reverted by them. A fresh volume
 # starts empty; shellrc.sh says so, and test-agent-policy.sh skips rather than
@@ -338,7 +338,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
   install -m 0755 /tmp/pandoc-crossref /usr/local/bin/pandoc-crossref && \
   rm -rf /tmp/pandoc.tar.gz /tmp/pandoc-crossref.tar.xz /tmp/pandoc-${PANDOC_VERSION} /tmp/pandoc-crossref
 
-# TeX is installed on the host (.setup/packages.sh tex) into a shared volume
+# TeX is installed on the host (.setup/install-base.sh tex) into a shared volume
 # mounted read-only. The symlink intentionally dangles during image build; the
 # installer reads the year and platform from it. Keep the year in step with
 # the TeX volume name in devcontainer.json.

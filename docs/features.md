@@ -65,7 +65,7 @@ tooling those changes exist to support is described in
   the stack that matters here is R, Python, TeX Live, and LyX. Image-level tools
   such as Git, Node, delta, R, Pandoc, and LyX are pinned, and layers are
   cache-conscious. The Claude Code and Codex CLIs deliberately live outside the
-  image in a named npm volume: `install-packages.sh cli` installs or updates both
+  image in a named npm volume: `install-base.sh cli` installs or updates both
   to their current releases without a rebuild undoing the update. The image
   stays disposable, with everything worth keeping in named volumes or on the
   host.
@@ -89,7 +89,7 @@ tooling those changes exist to support is described in
   review step. A
   fresh container has the system toolchain immediately. The R, Python and TeX
   stacks come from shared volumes built on the host, and the AI CLIs
-  install once into a per-container volume with `install-packages.sh cli`.
+  install once into a per-container volume with `install-base.sh cli`.
 
 - **Enforced agent policy.** Root-owned configuration disables Claude's online
   connectors and Codex Apps, Plugins, and remote plugin catalogs. A startup
@@ -139,8 +139,8 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
 - **Host-built, read-only package stacks.** The Python venv, the R
   site-library and a minimal pdfLaTeX TeX Live live in shared Docker volumes.
-  The human builds a lean base on the host with `bash .setup/packages.sh`,
-  which runs `install-packages.sh` in the devcontainer's own image, and every
+  The human builds a lean base on the host with `bash .setup/install-base.sh`,
+  which runs itself in the devcontainer's own image, and every
   project mounts them read-only by default. Agents run the stacks but cannot
   change them. The builder uses Docker's default network, so the container
   firewall never blocks a stack build; it still governs anything fetched from
@@ -194,8 +194,8 @@ workable should each be one step.
 | `.tools/latex/` | `sync-lyx.sh` |
 | `.tools/lit/` | `cited_by.py` |
 | `.devcontainer/agents/` | `seed-agent-guidelines.sh` (runs at container start) |
-| `.devcontainer/` | `install-packages.sh` (`cli`, `--verify`), `test-firewall.sh`, `test-agent-policy.sh` |
-| `.setup/` (host shell) | `packages.sh` |
+| `.devcontainer/` | `test-firewall.sh`, `test-agent-policy.sh` |
+| `.setup/` (host, or container for `cli`) | `install-base.sh` (`cli`, `--verify`), `install-optional.sh` (normie mode) |
 
 Everything in `.tools/` is on `PATH` via `shellrc.sh`, so the filenames are the
 commands.

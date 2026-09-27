@@ -117,10 +117,11 @@ Windows and Linux support is partially wired but has not been tested.
 
 6. **Install the AI CLIs.** They are not baked into the image — they live in a
    persistent volume so that updating them is not undone by the next rebuild.
-   A newly created npm-global volume therefore starts without them:
+   `bash .setup/install-base.sh` on the host (below) installs them with the
+   rest of the base; to install or update just the CLIs from inside:
 
    ```bash
-   /sandbox/.devcontainer/install-packages.sh cli
+   bash /sandbox/.setup/install-base.sh cli
    ```
 
    This takes a few seconds and installs the current Claude Code and Codex
@@ -209,17 +210,16 @@ host. After the container exists (it supplies the builder image), run from the
 checkout root on the host:
 
 ```bash
-bash .setup/packages.sh          # Python, R and minimal pdfLaTeX TeX Live
-bash .setup/packages.sh tex      # TeX only
+bash .setup/install-base.sh          # Python, R, minimal pdfLaTeX TeX Live, AI CLIs
+bash .setup/install-base.sh tex      # TeX only
 ```
 
 The rest of the usual stack is an optional set. To install it, switch to
 normie mode: set `internet = "open"`, `packages = "writable"` and
 `seccomp = "unconfined"` in `SANDBOX.toml` and run `bbox --rebuild`. Then run
-`bash .devcontainer/install-optional.sh` in the container, and switch back to
+`bash .setup/install-optional.sh` in the container, and switch back to
 YOLO mode. The same mode is how you add a package later, with
-`install.packages()`, `pip install` or `tlmgr install`. See [host
-setup](.setup/README.md) and the [devcontainer
+`install.packages()`, `pip install` or `tlmgr install`. See [setup](.setup/README.md) and the [devcontainer
 README](.devcontainer/README.md#working-modes) for the details.
 
 ## Optional host command workflow
@@ -270,8 +270,8 @@ to confirm that eviction is the actual problem.
 ## TeX Live host setup
 
 The devcontainer uses a shared, pdfLaTeX-only TeX Live volume, read-only by default.
-Before TeX/LyX work, run `bash .setup/packages.sh tex` on the Docker host; see
-[host setup](.setup/README.md) for installation and validation instructions.
+Before TeX/LyX work, run `bash .setup/install-base.sh tex` on the Docker host; see
+[setup](.setup/README.md) for installation and validation instructions.
 
 ## License
 

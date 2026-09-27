@@ -29,11 +29,11 @@
 #   python3 dc-resolve.py package-volumes <devcontainer.json>
 #     Input:   path to a devcontainer.json (JSONC allowed).
 #     Output:  one "<stack> <volume> <target>" line each for python, r and tex:
-#              the shared package volumes .setup/packages.sh builds. A
-#              `// packages.sh: <mount>` comment line stages a volume and
+#              the shared package volumes .setup/install-base.sh builds.
+#              A `// install-base.sh: <mount>` comment line stages a volume and
 #              overrides the live mount with the same target.
 #
-# Called by _dc_resolve/bbox in devcontainer.zsh and by .setup/packages.sh;
+# Called by _dc_resolve/bbox in devcontainer.zsh and by .setup/install-base.sh;
 # not meant to be run by hand.
 
 import json
@@ -182,7 +182,7 @@ def package_volumes(devcontainer_json):
     with open(devcontainer_json, encoding="utf-8") as fh:
         src = fh.read()
     live = [m for m in json.loads(strip_jsonc(src)).get("mounts", []) if isinstance(m, str)]
-    staged = re.findall(r"^\s*//\s*packages\.sh:\s*(\S+)\s*$", src, re.MULTILINE)
+    staged = re.findall(r"^\s*//\s*install-base\.sh:\s*(\S+)\s*$", src, re.MULTILINE)
     volumes = {}
     for spec in live + staged:  # staged last, so it wins
         mount = parse_mount(spec)

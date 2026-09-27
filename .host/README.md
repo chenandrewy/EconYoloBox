@@ -1,8 +1,10 @@
 # Host-side toolkit
 
 `.host/` is the supported host launcher for this sandbox,
-[`.setup/`](../.setup/README.md) is host machine setup and maintenance, and
-`.devcontainer/` defines the container.
+[`.setup/`](../.setup/README.md) is provisioning you run by hand (package
+volumes and AI CLIs, on the host or in the container), and `.devcontainer/` is
+the container itself: its definition, its startup, and the tools baked into
+it.
 
 The functions run on your **Mac**, before Docker creates the container. `bbox`
 reads and validates this repo's `SANDBOX.toml`, passes the selected seccomp

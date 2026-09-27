@@ -4,9 +4,9 @@
 # Run, inside the devcontainer as node, in normie mode
 # (internet = "open", packages = "writable", seccomp = "unconfined" in
 # SANDBOX.toml, then `bbox --rebuild`; only the first two are required):
-#   bash .devcontainer/install-optional.sh              # python r tex
-#   bash .devcontainer/install-optional.sh r            # one stack
-#   bash .devcontainer/install-optional.sh --verify     # check only; any mode
+#   bash .setup/install-optional.sh              # python r tex
+#   bash .setup/install-optional.sh r            # one stack
+#   bash .setup/install-optional.sh --verify     # check only; any mode
 #
 # Inputs:  the lists below; PyPI; the dated P3M snapshot pinned in the image's
 #          Rprofile.site; the CRAN archive (pryr); Bioconductor; the TeX Live
@@ -15,7 +15,7 @@
 #          /usr/local/texlive; an "... OK" line per stack, or MISSING lines and
 #          a nonzero exit.
 #
-# The base stacks come from the host builder (.setup/packages.sh); this is the
+# The base stacks come from the host builder (.setup/install-base.sh); this is the
 # rest of what we use, installed by the user while watching (docs/journal/0926a).
 # The sandbox's own tools and tests never depend on it. Each step is the
 # ordinary command - pip install, install.packages(), BiocManager::install(),
@@ -132,7 +132,7 @@ require_install_mode() {
         elif findmnt -n -o OPTIONS -T "$mount" | tr ',' '\n' | grep -qx ro; then
             problems+=("$mount is mounted read-only")
         elif [ ! -w "$mount" ]; then
-            problems+=("$mount is not writable by $(id -un); rebuild it with .setup/packages.sh, which chowns it")
+            problems+=("$mount is not writable by $(id -un); rebuild it with .setup/install-base.sh from the host, which chowns it")
         fi
     done
     # post-start.sh leaves this marker when it skips the firewall. Armed, the

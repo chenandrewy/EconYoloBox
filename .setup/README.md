@@ -1,20 +1,28 @@
-# Host setup
+# Setup
 
-`.setup/` is host machine setup and maintenance, `.host/` is session navigation,
-and `.devcontainer/` defines the container.
+`.setup/` is provisioning you run by hand, on the host or in the container:
+the package volumes and the AI CLIs. Each script's header says where it runs.
+`.host/` is the launcher (`bbox`), and `.devcontainer/` is the container
+itself: its definition, its startup, and the tools baked into it
+(docs/journal/0926d).
+
+| Script | What it installs | Where it runs |
+|---|---|---|
+| `install-base.sh` | the base: Python, R, TeX Live and the AI CLIs | host (builds in a throwaway container); `cli` also inside the devcontainer |
+| `install-optional.sh` | the optional set | inside the devcontainer, normie mode |
 
 ## Package volumes: R, Python and TeX Live
 
 The volumes hold a lean **base**, built here on the host, and an **optional
 set**, which the user installs from inside the container in normie mode
 (docs/journal/0926a, 0926b). The base is what the sandbox's own tools and tests
-need plus a small core; the optional set is everything else we use. First setup,
-and again after a version bump:
+need plus a small core, and the AI CLIs; the optional set is everything else we
+use. First setup, and again after a version bump:
 
-1. On the host: `bash .setup/packages.sh`.
+1. On the host: `bash .setup/install-base.sh`.
 2. Switch to normie mode: `internet = "open"`, `packages = "writable"` and
    `seccomp = "unconfined"` in `SANDBOX.toml`, then `bbox --rebuild`.
-3. In the container: `bash .devcontainer/install-optional.sh`.
+3. In the container: `bash .setup/install-optional.sh`.
 4. Switch back to YOLO mode: `internet = "firewalled"`, `packages =
    "readonly"` and `seccomp = "builtin"`, then `bbox --rebuild`.
 
@@ -24,16 +32,18 @@ install just what it needs in normie mode instead.
 From anywhere in the repository, on the host with Docker running:
 
 ```sh
-bash .setup/packages.sh            # python r tex (the default)
-bash .setup/packages.sh tex        # minimal TeX Live only
-bash .setup/packages.sh r          # R only
-bash .setup/packages.sh r --force  # reinstall present R packages
+bash .setup/install-base.sh            # python r tex cli (the default)
+bash .setup/install-base.sh tex        # minimal TeX Live only
+bash .setup/install-base.sh r          # R only
+bash .setup/install-base.sh r --force  # reinstall present R packages
+bash .setup/install-base.sh --verify   # check the base; writes nothing
 ```
 
-The script runs `.devcontainer/install-packages.sh` as root in a throwaway
-container of **this workspace's devcontainer image**, with the shared volumes
-mounted read-write, then runs `chown -R node:node` over them so that normie mode
-works as `node` without sudo. It finds that image by looking up the container
+On the host, the script runs itself as root in a throwaway container of
+**this workspace's devcontainer image**, with the volumes mounted read-write
+(read-only for `--verify`) and `.setup/` at `/setup`, then runs
+`chown -R node:node` over them so that normie mode works as `node` without
+sudo. It never installs anything on the host itself. It finds that image by looking up the container
 labelled with this folder (`devcontainer.local_folder`). If there is no such
 container, or more than one, it refuses: run `bbox --rebuild` first. It never
 falls back to another image, because R packages link against the image's
@@ -42,19 +52,22 @@ libraries and install from its pinned P3M snapshot. After a `CRAN_SNAPSHOT`,
 `bbox --rebuild`, then build the volume.
 
 The builder uses Docker's default network, so the devcontainer firewall does
-not apply. P3M, PyPI, Bioconductor and CTAN are reached from here. The AI CLIs
-are not built here: they live in a per-container volume, and
-`.devcontainer/install-packages.sh cli` updates them from inside.
+not apply. P3M, PyPI, Bioconductor, CTAN and npm are reached from here.
+
+The AI CLIs live in the per-checkout npm-global volume, whose name the script
+reads from the devcontainer's own mount. That volume is always writable in the
+container, so `bash .setup/install-base.sh cli` also updates them from inside,
+in either mode.
 
 Volume names are written once, in `.devcontainer/devcontainer.json`, and read by
 `.host/dc-resolve.py package-volumes`. The python, r and tex mounts are found by
-their targets. A comment line of the form `// packages.sh: <mount>` stages a
+their targets. A comment line of the form `// install-base.sh: <mount>` stages a
 volume: it overrides the live mount with the same target, so a new volume can be
 built and checked before any container mounts it. The builder refuses
 per-devcontainer (`${devcontainerId}`) names.
 
 Inside the container these volumes are read-only by default:
-`install-packages.sh python|r|tex` refuses and points here, and `--verify`
+`install-base.sh python|r|tex` refuses and points here, and `--verify`
 checks without writing. In normie mode they are writable (see
 `.devcontainer/README.md`, "Working modes"). After a rebuild,
 `bash .devcontainer/tests/test-packages.sh` (as `node`, in the container) is
@@ -70,17 +83,17 @@ build finishes, restart R and Python sessions. After a TeX change, run
 
 Usually in normie mode: `install.packages("x")`, `pip install x` or
 `tlmgr install x` in the container, as `node`. If the package is generally
-useful, also add it to a list in `.devcontainer/install-optional.sh` so the
+useful, also add it to a list in `.setup/install-optional.sh` so the
 next rebuild of the volume brings it back; an ad hoc install that is not added
 is lost then. `install-optional.sh` prints each command it runs, so it doubles
 as the reference for pryr (CRAN archive) and Bioconductor installs.
 
 The base changes only when the sandbox itself needs something:
 
-1. Edit the list in `.devcontainer/install-packages.sh`: `PY_PKGS`,
+1. Edit the list in `.setup/install-base.sh`: `PY_PKGS`,
    `cran_pkgs`, or `TEX_PKGS` (TeX package or collection names). Commit it;
    the list is the environment's declaration.
-2. On the host: `bash .setup/packages.sh r` (or `python`, `tex`). It re-runs the
+2. On the host: `bash .setup/install-base.sh r` (or `python`, `tex`). It re-runs the
    idempotent installer into the existing volume, so only the new package
    downloads.
 3. Restart sessions in running containers; the mount sees the new files

@@ -6,7 +6,7 @@
 # Inputs:  /etc/claude-code/managed-settings.json, /etc/codex/config.toml,
 #          /etc/codex/requirements.toml (all baked by the Dockerfile), plus the
 #          `claude` and `codex` CLIs.
-#          The CLIs are installed at runtime (install-packages.sh cli), so
+#          The CLIs are installed at runtime (install-base.sh cli), so
 #          either may legitimately be absent; its checks SKIP rather than fail.
 # Output:  PASS/FAIL/SKIP per check on stdout; exit 1 if any check fails
 #          --warn-only prints a banner and exits 0, for postStartCommand
@@ -32,7 +32,7 @@ fail() {
 
 # A CLI that is not installed is not a policy failure: these policies are
 # enforced by the CLI reading them, so with no CLI there is nothing to assert.
-# The CLIs are installed at runtime (install-packages.sh cli), so a fresh
+# The CLIs are installed at runtime (install-base.sh cli), so a fresh
 # npm-global volume legitimately has none. Deliberately NOT a pass - a vacuous
 # pass would go green if a broken PATH or a failed install removed the CLI,
 # which is exactly the silent-policy-hole this script exists to catch.
@@ -87,7 +87,7 @@ if command -v claude >/dev/null; then
         fail "claude mcp list failed; connector state could not be verified: $claude_mcp_output"
     fi
 else
-    skip "claude CLI not installed; run install-packages.sh cli, then re-run this"
+    skip "claude CLI not installed; run install-base.sh cli, then re-run this"
 fi
 
 # --- Codex ------------------------------------------------------------------
@@ -180,7 +180,7 @@ if command -v codex >/dev/null; then
         fail "codex '-c features.plugins=true' produced '$override' - requirements NOT enforced"
     fi
 else
-    skip "codex CLI not installed; run install-packages.sh cli, then re-run this"
+    skip "codex CLI not installed; run install-base.sh cli, then re-run this"
 fi
 
 # --- Result -----------------------------------------------------------------
@@ -205,7 +205,7 @@ if ((skips > 0)); then
     # Not "verified for both": say what was actually checked, so an uninstalled
     # CLI cannot be mistaken for a clean bill of health.
     echo "Agent policy verified for the installed CLIs ($skips check(s) skipped)."
-    echo "Re-run after install-packages.sh cli to cover the rest."
+    echo "Re-run after install-base.sh cli to cover the rest."
     exit 0
 fi
 

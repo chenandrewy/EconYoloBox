@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run as node in a rebuilt devcontainer: bash .devcontainer/tests/test-packages.sh
 # Inputs: the shared R, Python and TeX volumes, mounted as SANDBOX.toml's
-#   `packages` asks (read-only by default); install-packages.sh (its --verify
+#   `packages` asks (read-only by default); .setup/install-base.sh (its --verify
 #   mode holds the declared base lists). In read-only mode pip reaches PyPI
 #   only to prove an install is refused. Passes on the base alone; the
 #   optional set has its own check, tests/test-optional.sh.
@@ -37,19 +37,19 @@ for mount in /opt/venv "$site_library" /usr/local/texlive; do
             fail "consumer can write to $mount"
         fi
     else
-        # packages.sh chowns the volumes, so node installs without sudo.
+        # install-base.sh chowns the volumes, so node installs without sudo.
         [ "$(stat -c %U "$mount")" = node ] || fail "$mount is owned by $(stat -c %U "$mount"), not node"
         touch "$mount/consumer-write-test" || fail "node cannot write to $mount"
         rm -f "$mount/consumer-write-test"
     fi
 done
 if [ "$mode" = readonly ]; then
-    bash "$here/../install-packages.sh" python >refuse-python.log 2>&1 && fail "install-packages.sh python ran in a consumer"
-    grep -q 'mounted read-only' refuse-python.log || fail "install-packages.sh python did not explain the refusal"
+    bash "$here/../../.setup/install-base.sh" python >refuse-python.log 2>&1 && fail "install-base.sh python ran in a consumer"
+    grep -q 'mounted read-only' refuse-python.log || fail "install-base.sh python did not explain the refusal"
 fi
 
-echo '--- declared stacks (install-packages.sh --verify)'
-bash "$here/../install-packages.sh" --verify python r tex >verify.log 2>&1 || {
+echo '--- declared stacks (install-base.sh --verify)'
+bash "$here/../../.setup/install-base.sh" --verify python r tex >verify.log 2>&1 || {
     cat verify.log >&2
     fail "declared stack verification"
 }

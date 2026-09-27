@@ -90,12 +90,12 @@
   "remoteUser": "node",
   "mounts": [
     // Shared package volumes: R, Python and TeX, built on the host by
-    // `bash .setup/packages.sh` (docs/journal/0921a, 0925b, 0926a) and mounted
+    // `bash .setup/install-base.sh` (docs/journal/0921a, 0925b, 0926a) and mounted
     // read-only, so agents in here can run the stacks but never change them.
     // They are shared across projects on this Docker daemon; only per-project
     // writable state needs the ${devcontainerId} key used further down.
-    // packages.sh reads these names from here. Adding a package does not
-    // change them: edit the list in install-packages.sh and rerun the builder.
+    // install-base.sh reads these names from here. Adding a package does not
+    // change them: edit the list in .setup/install-base.sh and rerun it.
     //
     // Names carry distro, interpreter version and (for R) the P3M snapshot
     // date, so a bump builds a fresh volume instead of serving stale binaries.
@@ -107,8 +107,8 @@
     // be mounted into another.
     //
     // To build a new volume before any container mounts it, stage it with a
-    // comment line of the form `// packages.sh: <mount string>`. It overrides
-    // the live mount with the same target for packages.sh only; move it here
+    // comment line of the form `// install-base.sh: <mount string>`. It overrides
+    // the live mount with the same target for install-base.sh only; move it here
     // once the volume passes its checks.
     //
     // Read-only unless SANDBOX.toml says packages = "writable": bbox exports
@@ -129,7 +129,7 @@
     // ls` stays scannable; the id is what makes the name unique.
     //
     // Cost of the id: it is derived from the host path, so moving or renaming
-    // the project folder orphans these volumes (re-login + install-packages.sh cli).
+    // the project folder orphans these volumes (re-login + install-base.sh cli).
     // Orphans are then unidentifiable by name; find them with
     // `docker volume ls -f dangling=true`.
     "source=${localWorkspaceFolderBasename}-claude-config-${devcontainerId},target=/home/node/.claude,type=volume",
