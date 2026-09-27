@@ -17,11 +17,12 @@ export PATH="/sandbox/.tools/pdf:/sandbox/.tools/latex:/sandbox/.tools/lit:/sand
 # tree (idempotent; silent once the links exist — see .tools/ai-sesh/README.md)
 sesh-init || true
 
-# The Python and R stacks live in shared volumes, read-only outside normie mode,
-# so an unbuilt volume means no stack. Say so once per shell instead of letting
-# the first import fail mysteriously. Test a sentinel package, not emptiness:
+# The Python, R and TeX stacks live in shared volumes, read-only outside normie
+# mode, so an unbuilt volume means no stack. Say so once per shell instead of
+# letting the first import fail mysteriously. Test a sentinel, not emptiness:
 # Docker seeds even a fresh read-only volume from the image, so an unbuilt venv
-# still holds the bare skeleton. post-start.sh does the slower import check.
+# still holds the bare skeleton. TeX's sentinel is the marker install-base.sh
+# writes when a TeX install finishes. post-start.sh does the slower import check.
 # (find, not a glob: an unmatched glob is a hard error under zsh's nomatch.)
 _stacks_missing=""
 if [ -z "$(find /opt/venv/lib -maxdepth 3 -type d -name pyfixest -print -quit 2>/dev/null)" ]; then
@@ -29,6 +30,9 @@ if [ -z "$(find /opt/venv/lib -maxdepth 3 -type d -name pyfixest -print -quit 2>
 fi
 if [ -z "$(find /opt/R -maxdepth 5 -type d -path '*/site-library/fixest' -print -quit 2>/dev/null)" ]; then
     _stacks_missing="${_stacks_missing:+$_stacks_missing }r"
+fi
+if [ ! -f /usr/local/texlive/.sandbox-installed ]; then
+    _stacks_missing="${_stacks_missing:+$_stacks_missing }tex"
 fi
 if [ -n "$_stacks_missing" ]; then
     echo "note: package volume not built ($_stacks_missing) - in normie mode, in the container: bash .setup/install-base.sh $_stacks_missing"
