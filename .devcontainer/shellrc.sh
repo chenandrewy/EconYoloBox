@@ -50,12 +50,13 @@ if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; th
     echo "note: AI CLIs not installed - run .setup/install-base.sh cli"
 fi
 
-# Posture banner and prompt tag. Each mode has its own container, built from
-# its own config file (bbcode or bbcode --normie on the host), so outside YOLO
-# mode every shell says so, and zsh's prompt carries a tag, so the mode stays
-# in view. posture.sh reads the container itself: the firewall-open marker
-# post-start.sh leaves, the package mounts, and PID 1's seccomp mode (PID 1,
-# since an inner agent sandbox may add a filter to the checking process).
+# Posture warning banner and prompt tag. Each mode has its own container,
+# built from its own config file (bbcode or bbcode --normie on the host), so
+# outside YOLO mode every shell warns what is loosened, and zsh's prompt
+# carries a tag, so the mode stays in view. posture.sh reads the container
+# itself: the firewall-open marker post-start.sh leaves, the package mounts,
+# and PID 1's seccomp mode (PID 1, since an inner agent sandbox may add a
+# filter to the checking process).
 _sbx_posture=$(bash /sandbox/.devcontainer/posture.sh)
 _sbx_mode=${_sbx_posture%% *}
 if [ "$_sbx_mode" != yolo ]; then
@@ -68,12 +69,12 @@ if [ "$_sbx_mode" != yolo ]; then
     fi
     if [ "$_sbx_mode" = normie ]; then
         printf '%s\n' \
-            "${_sbx_hi}Normie mode: firewall open, package volumes writable, seccomp unconfined${_sbx_off}" \
-            'Back to YOLO mode: on the host, bbcode or bbe (the YOLO container); bbox --stop --normie stops this one'
+            "${_sbx_hi}Warning: Normie Mode${_sbx_off}" \
+            'Firewall open, package volumes writable, seccomp unconfined'
     else
         printf '%s\n' \
-            "${_sbx_hi}Custom posture: ${_sbx_posture#* }${_sbx_off}" \
-            'Made before the per-mode configs; on the host: bbox --rebuild (YOLO) or bbox --rebuild --normie'
+            "${_sbx_hi}Warning: Custom Posture${_sbx_off}" \
+            "${_sbx_posture#* }; to fix, on the host: bbox --rebuild or bbox --rebuild --normie"
     fi
     unset _sbx_hi _sbx_off
 fi

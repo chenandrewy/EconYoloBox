@@ -101,9 +101,9 @@ in-container VS Code server, which itself lingers after the window closes.
 the rebuild flags and the mode flags; `--status` takes no other option, and
 `--stop` only a mode flag.
 
-In the normie container the mode stays visible: a red VS Code title and
-status bar with `NORMIE MODE` in the window title, a `normie` tag at the front
-of the zsh prompt and Claude's status line, and a banner in every new shell.
+In the normie container the mode stays visible: `NORMIE` at the front of the
+VS Code window title, a `normie` tag at the front of the zsh prompt and
+Claude's status line, and a warning banner in every new shell.
 
 `devcontainer.zsh` sources `_bbox`. Source it after your zsh completion setup;
 if `compdef` was unavailable at that point, source `.host/_bbox` again after
