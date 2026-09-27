@@ -1,16 +1,17 @@
 #!/bin/bash
 # Run:     bash .devcontainer/tests/test-posture.sh
-# Inputs:  posture.sh, check-yolo-boundaries.sh, vscode-posture.sh and
-#          devcontainer.json; creates temporary fixtures.
+# Inputs:  posture.sh, check-yolo-boundaries.sh, vscode-posture.sh,
+#          check-checkout.sh and post-start.sh; creates temporary fixtures.
+#          The two config files have their own test, test_config_twins.py.
 # Outputs: TAP-like pass/fail lines and a nonzero status on failure.
-# shellcheck disable=SC2016 # literal ${...} from devcontainer.json and VS Code titles
+# shellcheck disable=SC2016 # literal ${...} in VS Code titles
 set -u
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 posture="$root/.devcontainer/posture.sh"
 guard="$root/.devcontainer/check-yolo-boundaries.sh"
 colors="$root/.devcontainer/vscode-posture.sh"
-config="$root/.devcontainer/devcontainer.json"
+checkout="$root/.devcontainer/check-checkout.sh"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 tests=0
@@ -48,11 +49,11 @@ bash "$guard" test-yolo "$tmp/closed-marker" "$tmp/filtered.status" 2>"$tmp/guar
 pass 'yolo allows filtered seccomp with firewall armed'
 if bash "$guard" test-yolo "$tmp/open-marker" "$tmp/filtered.status" 2>"$tmp/guard.err"; then fail 'open firewall should refuse yolo'; fi
 grep -q 'firewall is open' "$tmp/guard.err" || fail 'open firewall refusal diagnostic'
-grep -q 'without --normie' "$tmp/guard.err" || fail 'open firewall recovery'
+grep -q 'not the YOLO container' "$tmp/guard.err" || fail 'open firewall recovery'
 pass 'yolo refuses an open firewall'
 if bash "$guard" test-yolo "$tmp/closed-marker" "$tmp/unfiltered.status" 2>"$tmp/guard.err"; then fail 'unconfined seccomp should refuse yolo'; fi
 grep -q 'seccomp is unconfined' "$tmp/guard.err" || fail 'unconfined refusal diagnostic'
-grep -q 'without --normie' "$tmp/guard.err" || fail 'unconfined recovery command'
+grep -q 'not the YOLO container' "$tmp/guard.err" || fail 'unconfined recovery command'
 pass 'yolo refuses unconfined seccomp'
 if bash "$guard" test-yolo "$tmp/closed-marker" "$tmp/unexpected.status" 2>"$tmp/guard.err"; then fail 'unverified seccomp should refuse yolo'; fi
 grep -q 'could not be verified' "$tmp/guard.err" || fail 'unverified refusal diagnostic'
@@ -61,12 +62,21 @@ guard_calls=$(grep -c 'check-yolo-boundaries.sh' "$root/.devcontainer/shellrc.sh
 [ "$guard_calls" -eq 3 ] || fail 'all three yolo launchers must call the boundary guard'
 pass 'all supplied yolo launchers use the boundary guard'
 
-# Creation that bypasses bbox sees no variables and must land in YOLO mode.
-grep -q 'seccomp=${localEnv:SANDBOX_SECCOMP:builtin}' "$config" || fail 'VS Code seccomp fallback'
-[ "$(grep -c 'readonly=${localEnv:SANDBOX_PKG_READONLY:true}' "$config")" -eq 3 ] ||
-    fail 'all three package mounts must follow SANDBOX_PKG_READONLY'
-grep -q '"SANDBOX_INTERNET": "${localEnv:SANDBOX_INTERNET:firewalled}"' "$config" || fail 'VS Code internet fallback'
-pass 'direct VS Code creation falls back to YOLO mode'
+# One checkout per basename: the first folder is recorded, a second refused.
+bash "$checkout" "$tmp/checkout" /Users/me/1-SANDBOX 2>"$tmp/checkout.err" || fail 'first checkout should be recorded'
+[ "$(cat "$tmp/checkout")" = /Users/me/1-SANDBOX ] || fail 'checkout marker content'
+bash "$checkout" "$tmp/checkout" /Users/me/1-SANDBOX 2>"$tmp/checkout.err" || fail 'same checkout should pass'
+[ ! -s "$tmp/checkout.err" ] || fail 'same checkout should be silent'
+pass 'the first checkout is recorded and then accepted'
+if bash "$checkout" "$tmp/checkout" /Users/me/test/1-SANDBOX 2>"$tmp/checkout.err"; then fail 'another checkout should be refused'; fi
+grep -q 'REFUSING' "$tmp/checkout.err" && grep -q "rm $tmp/checkout" "$tmp/checkout.err" || fail 'refusal message'
+[ "$(cat "$tmp/checkout")" = /Users/me/1-SANDBOX ] || fail 'refusal must not rewrite the marker'
+pass 'a same-basename checkout elsewhere is refused, with the way to accept a move'
+bash "$checkout" "$tmp/checkout" '' 2>"$tmp/checkout.err" || fail 'unknown folder should not refuse'
+grep -q 'not checked' "$tmp/checkout.err" || fail 'unknown folder warning'
+pass 'an unknown host folder warns and is not refused'
+grep -q '^bash .devcontainer/check-checkout.sh$' "$root/.devcontainer/post-start.sh" || fail 'post-start must run the checkout guard'
+pass 'post-start runs the checkout guard'
 
 printf '{"window.title": "<${rootName}>", "workbench.colorCustomizations": {"editor.background": "#000000"}}\n' >"$tmp/settings.json"
 cp "$tmp/settings.json" "$tmp/yolo.json"

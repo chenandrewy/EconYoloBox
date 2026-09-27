@@ -7,9 +7,9 @@ economics research, and the daily workflow around all of it is short.
 
 The container provides the outer execution boundary. The default is the YOLO
 posture: the deny-by-default egress firewall is up, the package volumes are
-read-only, and Docker's outer syscall filter (`builtin` seccomp) is on. The host
-launcher picks the posture when it creates the container (`bbcode`, or
-`bbcode --normie`), and it is fixed from then on.
+read-only, and Docker's outer syscall filter (`builtin` seccomp) is on. Each
+mode is its own container, whose config file fixes its posture at creation:
+`bbcode` opens the YOLO one, `bbcode --normie` the normie one.
 Explicit YOLO launchers skip permissions and refuse to start unless the
 firewall is enabled and PID 1 has filtered seccomp. Egress blocking is a hard
 boundary; an LLM reviewer is a soft one.
@@ -83,21 +83,20 @@ tooling those changes exist to support is described in
 
 - **Startup scripts.** `postStartCommand` (`post-start.sh`) configures the firewall,
   seeds canonical agent guidance and shared skills, and checks the enforced
-  agent policy. The firewall stays off only in a container `bbox --normie`
-  created: the choice is in the container's environment, set at creation, and
-  anything other than `open` arms. Every shell says so while it is off. That
-  takes the switch out of the workspace, so an agent can no longer open the
-  firewall by editing a settings file. The startup scripts themselves still
-  are in the tracked, writable workspace, and so is the host launcher,
-  `.host/devcontainer.zsh`, which the host's `~/.zshrc` sources straight from
-  the checkout: an agent that edits either changes what the next start, or
-  the next host shell, runs. They are not a security boundary against an
+  agent policy. The firewall stays off only in the normie container: its
+  config hard-codes `SANDBOX_INTERNET=open` in the container's environment,
+  fixed at creation, and anything other than `open` arms. Every shell says so
+  while it is off. The configs and the startup scripts are in the tracked,
+  writable workspace, and so is the host launcher, `.host/devcontainer.zsh`,
+  which the host's `~/.zshrc` sources straight from the checkout: an agent
+  that edits them changes what the next creation, start, or host shell
+  runs. They are not a security boundary against an
   agent that edits the repo; `git diff` before restarting or opening a new
   host terminal is the review step. A
   fresh container has the system toolchain immediately. The R, Python and TeX
   stacks come from shared volumes that Docker seeds from the image on the
-  first build, and the AI CLIs install at first start into a per-container
-  volume.
+  first build, and the AI CLIs install at first start into a per-checkout
+  volume that both modes share.
 
 - **Enforced agent policy.** Root-owned configuration disables Claude's online
   connectors and Codex Apps, Plugins, and remote plugin catalogs. A startup
@@ -148,16 +147,19 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   read-only by default. Agents run the stacks but cannot
   change them. Packages change only in normie mode, from inside.
 
-- **Two working modes, one flag.** YOLO mode, the default (`bbcode`, `bbe`),
-  is firewalled, read-only and builtin: agents run unsupervised. Normie mode
-  (`bbcode --normie`, `bbe --normie`) is open, writable and unconfined:
-  supervised work that feels like the Mac, with agents in approval modes.
-  There the user installs with the ordinary `install.packages()`, `pip
-  install` and `tlmgr install`, then switches back. `bbox` recreates the
-  container when the mode changes and checks the result; with no flag it
-  means YOLO mode, so normie mode never outlasts the command that asked for
-  it. The mode stays in view: a red VS Code window, a `normie` tag in the
-  prompt and Claude's status line, and a banner in every shell. The rest of
+- **Two working modes, two containers.** YOLO mode, the default (`bbcode`,
+  `bbe`), is firewalled, read-only and builtin: agents run unsupervised.
+  Normie mode (`bbcode --normie`, `bbe --normie`) is open, writable and
+  unconfined: supervised work that feels like the Mac, with agents in
+  approval modes. There the user installs with the ordinary
+  `install.packages()`, `pip install` and `tlmgr install`, then goes back to
+  the YOLO container. Each mode is its own container from its own config
+  file, so both can run, switching ends nothing, and a rebuild by `bbox` or
+  VS Code keeps the mode. They share logins, the AI CLIs and the package
+  volumes. A normie container runs until stopped (`bbox --stop --normie`),
+  and every YOLO bring-up mentions it. The mode stays in view: a red VS Code
+  window, a `normie` tag in the prompt and Claude's status line, and a
+  banner in every shell. The rest of
   what we use beyond the base is an
   optional set that `install-optional.sh` installs in normie mode.
 
@@ -218,11 +220,12 @@ commands.
 ### Containers, sessions, and agents
 
 - **One-command project opening (`.host/`).** Source `devcontainer.zsh` in your
-  `~/.zshrc` and use `bbcode [dir]` to bring up the enclosing devcontainer in
-  YOLO mode (or `bbcode --normie [dir]`), verify its posture, and open that
-  exact subfolder in VS Code. `bbe [dir]` follows the same bring-up path and
-  enters zsh; `bbox --status` reports the mode. Direct VS Code creation
-  remains the minimal everyday path and always gives YOLO mode.
+  `~/.zshrc` and use `bbcode [dir]` to bring up the enclosing YOLO container
+  (or `bbcode --normie [dir]` for the normie one), verify its posture, and
+  open that exact subfolder in VS Code. `bbe [dir]` follows the same bring-up
+  path and enters zsh; `bbox --status` reports both containers. VS Code's own
+  Reopen in Container remains the minimal everyday path; it offers both
+  configs.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered
@@ -263,5 +266,7 @@ commands.
   zone for human-facing timestamps.
 
 - **Persistent agent auth.** Named volumes keep Claude and Codex login state
-  across rebuilds; VS Code forwards host Git credentials so in-container work
+  across rebuilds, shared by both modes' containers, so one login serves
+  both. Their names are the checkout's folder name alone, so that name must
+  be unique on the Docker daemon, which startup enforces; VS Code forwards host Git credentials so in-container work
   can push branches and open PRs.

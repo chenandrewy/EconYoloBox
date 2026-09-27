@@ -7,11 +7,11 @@
 #     Output:  prints the corresponding path inside the container, derived from
 #              workspaceFolder (or workspaceMount's target= as fallback).
 #
-#   python3 dc-resolve.py folder-uri <devcontainer-dir> <remote-path> <docker-context>
-#     Inputs:  devcontainer root on the host, path inside the container, and
-#              the active docker context name.
+#   python3 dc-resolve.py folder-uri <devcontainer-dir> <config-file> <remote-path> <docker-context>
+#     Inputs:  devcontainer root on the host, the config file (one per mode),
+#              path inside the container, and the active docker context name.
 #     Output:  prints the vscode-remote://dev-container+... folder URI that
-#              opens <remote-path> in VS Code.
+#              opens <remote-path> in VS Code, in that config's container.
 #
 #   python3 dc-resolve.py up-container-id
 #     Input:   `devcontainer up` JSON on stdin.
@@ -83,8 +83,8 @@ def remote_path(devcontainer_json, relative_dir):
     return workspace_folder if not relative_dir else posixpath.join(workspace_folder, relative_dir)
 
 
-def folder_uri(devcontainer_dir, remote, docker_context):
-    config = str(pathlib.Path(devcontainer_dir, ".devcontainer/devcontainer.json"))
+def folder_uri(devcontainer_dir, config_file, remote, docker_context):
+    config = str(pathlib.Path(config_file))
     authority = {
         "hostPath": devcontainer_dir,
         "localDocker": False,
@@ -183,14 +183,15 @@ def posture(src):
     return "{} internet={} packages={} seccomp={}".format(name, *settings)
 
 
-command = sys.argv[1]
-if command == "remote-path":
-    print(remote_path(sys.argv[2], sys.argv[3]))
-elif command == "folder-uri":
-    print(folder_uri(sys.argv[2], sys.argv[3], sys.argv[4]))
-elif command == "up-container-id":
-    print(up_container_id(sys.stdin.read()))
-elif command == "posture":
-    print(posture(sys.stdin.read()))
-else:
-    raise SystemExit(f"unknown command: {command}")
+if __name__ == "__main__":
+    command = sys.argv[1]
+    if command == "remote-path":
+        print(remote_path(sys.argv[2], sys.argv[3]))
+    elif command == "folder-uri":
+        print(folder_uri(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]))
+    elif command == "up-container-id":
+        print(up_container_id(sys.stdin.read()))
+    elif command == "posture":
+        print(posture(sys.stdin.read()))
+    else:
+        raise SystemExit(f"unknown command: {command}")

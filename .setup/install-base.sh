@@ -191,7 +191,7 @@ require_install_mode() {
         printf '  - %s\n' "${problems[@]}" >&2
         echo 'Switch to normie mode: on the host, bbcode --normie (or bbe --normie),' >&2
         echo "then in the container: bash .setup/install-base.sh $STACK_TARGETS" >&2
-        echo 'Switch back to YOLO mode afterwards: bbcode or bbe without --normie.' >&2
+        echo 'Back to YOLO mode afterwards: bbcode or bbe; bbox --stop --normie.' >&2
         echo 'The AI CLIs update in any mode: bash .setup/install-base.sh cli' >&2
         exit 1
     fi
@@ -734,7 +734,7 @@ elif [ "$VERIFY" -eq 0 ] && [ -n "$STACK_TARGETS" ]; then
     fi
     echo "Restart R/Python sessions in every container that mounts these volumes;"
     echo "after a TeX change run tex-refresh there too and reopen LyX."
-    echo 'Done. Back to YOLO mode: on the host, bbcode or bbe without --normie.'
+    echo 'Done. Back to YOLO mode: on the host, bbcode or bbe; bbox --stop --normie.'
 else
     echo "Done."
 fi

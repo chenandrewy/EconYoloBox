@@ -17,9 +17,12 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
 macOS screenshots (`screenshot_directory`). Read it when you need a location;
 do not assume or hard-code these paths.
 
-The security posture is **not** in that file. The user picks it on the host
-when the container is created, and it is fixed for the container's life. It
-is one of two modes, and startup prints the current one:
+The security posture is **not** in that file. Each mode is its own container,
+built from its own config file (`.devcontainer/devcontainer.json` or
+`.devcontainer/normie/devcontainer.json`), and the posture is fixed for the
+container's life. Both containers may be running at once, sharing `/sandbox`,
+the package volumes and `~/.claude`/`~/.codex`. You are in one of them, and
+startup prints which:
 
 1. **YOLO mode** (`bbcode` or `bbe` on the host; the default): firewall on,
    R, Python and TeX volumes read-only, Docker's seccomp filter on. Everyday
@@ -32,8 +35,9 @@ is one of two modes, and startup prints the current one:
 Anything else is reported as a custom posture. To see the current mode, run
 `bash /sandbox/.devcontainer/posture.sh` (it prints `yolo`, `normie` or
 `custom`, then the three settings). Switching modes is the user's decision
-(see `USER PERMISSION REQUIRED`), made on the host; nothing in the container
-can switch it.
+(see `USER PERMISSION REQUIRED`), made on the host by opening the other
+container; nothing in this container can switch it. Do not edit either
+config file's posture settings.
 
 ### Guidance that depends on the mode
 

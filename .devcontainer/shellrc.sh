@@ -50,8 +50,8 @@ if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; th
     echo "note: AI CLIs not installed - run .setup/install-base.sh cli"
 fi
 
-# Posture banner and prompt tag. bbox on the host fixes the posture when it
-# creates the container (--yolo, the default, or --normie), so outside YOLO
+# Posture banner and prompt tag. Each mode has its own container, built from
+# its own config file (bbcode or bbcode --normie on the host), so outside YOLO
 # mode every shell says so, and zsh's prompt carries a tag, so the mode stays
 # in view. posture.sh reads the container itself: the firewall-open marker
 # post-start.sh leaves, the package mounts, and PID 1's seccomp mode (PID 1,
@@ -69,11 +69,11 @@ if [ "$_sbx_mode" != yolo ]; then
     if [ "$_sbx_mode" = normie ]; then
         printf '%s\n' \
             "${_sbx_hi}Normie mode: firewall open, package volumes writable, seccomp unconfined${_sbx_off}" \
-            'Back to YOLO mode: on the host, bbcode or bbe without --normie'
+            'Back to YOLO mode: on the host, bbcode or bbe (the YOLO container); bbox --stop --normie stops this one'
     else
         printf '%s\n' \
             "${_sbx_hi}Custom posture: ${_sbx_posture#* }${_sbx_off}" \
-            'On the host, recreate it: bbox --rebuild (YOLO) or bbox --rebuild --normie'
+            'Made before the per-mode configs; on the host: bbox --rebuild (YOLO) or bbox --rebuild --normie'
     fi
     unset _sbx_hi _sbx_off
 fi

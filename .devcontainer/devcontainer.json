@@ -1,3 +1,8 @@
+// YOLO mode. Its twin, normie/devcontainer.json, is the same file with the
+// posture flipped (seccomp, the three package mounts' readonly, and
+// SANDBOX_INTERNET) and " (normie)" on the name; tests/test_config_twins.py
+// fails on any other difference, so edit both. Each mode is its own container,
+// keyed by its config file, so neither replaces the other (docs/journal/0927a).
 {
   "name": "${localWorkspaceFolderBasename}",
   "build": {
@@ -24,14 +29,10 @@
   "runArgs": [
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
-    // The posture is chosen by bbox on the host when it creates the container
-    // (--yolo, the default, or --normie), through three variables:
-    // SANDBOX_SECCOMP here, SANDBOX_PKG_READONLY on the package mounts and
-    // SANDBOX_INTERNET in containerEnv. Creation that bypasses bbox (VS Code's
-    // own Rebuild Container) sees none of them and falls back to YOLO mode.
-    // Normie mode's unconfined seccomp also lets Codex's sandboxed modes use
-    // Bubblewrap, at the cost of Docker's outer syscall filter for every process.
-    "--security-opt=seccomp=${localEnv:SANDBOX_SECCOMP:builtin}",
+    // Posture: Docker's outer syscall filter. YOLO keeps it (builtin); normie
+    // drops it (unconfined), which lets Codex's sandboxed modes use
+    // Bubblewrap, at the cost of the filter for every process.
+    "--security-opt=seccomp=builtin",
     "--env-file=/tmp/devcontainer-local.env",
     // Credentials, as environment variables fixed at creation. Written on the
     // host by inject-credentials.py (initializeCommand) just before Docker
@@ -105,8 +106,8 @@
     // container (docs/journal/0921a, 0925b, 0926a, 0926e), and are otherwise
     // mounted read-only, so agents in here
     // can run the stacks but never change them. They are shared across
-    // projects on this Docker daemon; only per-project writable state needs
-    // the ${devcontainerId} key used further down. Adding a package does not
+    // projects on this Docker daemon; only per-project writable state is
+    // named for the checkout, further down. Adding a package does not
     // change these names: edit the list in .setup/install-base.sh and rerun it.
     //
     // Names carry distro, interpreter version and (for R) the P3M snapshot
@@ -122,36 +123,37 @@
     // Docker seeds it, node-owned, from the image's directory, which already
     // holds the base. Rename back to abandon it.
     //
-    // Read-only unless bbox --normie created the container: bbox exports
-    // SANDBOX_PKG_READONLY and checks the created mounts, and direct VS Code
-    // creation falls back to read-only. Writable mode is for the user
-    // installing packages (docs/journal/0926a).
-    "source=r-site-library-noble-4.5.3-2026-07-15-base,target=/opt/R/4.5.3/lib/R/site-library,type=volume,readonly=${localEnv:SANDBOX_PKG_READONLY:true}",
-    "source=venv-noble-py3.12-base,target=/opt/venv,type=volume,readonly=${localEnv:SANDBOX_PKG_READONLY:true}",
+    // Posture: read-only in YOLO mode, writable in normie mode, where the user
+    // installs packages (docs/journal/0926a). Both containers mount the same
+    // volumes, so a running YOLO container sees what normie installs.
+    "source=r-site-library-noble-4.5.3-2026-07-15-base,target=/opt/R/4.5.3/lib/R/site-library,type=volume,readonly=true",
+    "source=venv-noble-py3.12-base,target=/opt/venv,type=volume,readonly=true",
     // Minimal pdfLaTeX-only TeX Live; the year must match TEXLIVE_YEAR.
-    "source=texlive-2026-base-noble,target=/usr/local/texlive,type=volume,readonly=${localEnv:SANDBOX_PKG_READONLY:true}",
-    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
-    // Every project-owned volume below is keyed by ${devcontainerId}, not by folder name
-    // alone. anthropics/claude-code fixed this exact bug in July 2025 ("Fix
-    // devcontainer volume security vulnerability"): two workspaces that share
-    // a basename would otherwise mount the SAME volume, silently sharing the
-    // Claude/Codex auth tokens and - via npm-global - the very executables
-    // both containers run. The readable prefix is kept only so `docker volume
-    // ls` stays scannable; the id is what makes the name unique.
+    "source=texlive-2026-base-noble,target=/usr/local/texlive,type=volume,readonly=true",
+    // Per-checkout volumes, shared by the YOLO and normie containers, so one
+    // login and one CLI install serve both modes. They are named for the
+    // checkout's folder name alone, not ${devcontainerId}: that id depends on
+    // the config file, so it would give each mode its own set.
     //
-    // Cost of the id: it is derived from the host path, so moving or renaming
-    // the project folder orphans these volumes (re-login; startup reinstalls the CLIs).
-    // Orphans are then unidentifiable by name; find them with
+    // The price is the bug anthropics/claude-code fixed in July 2025 ("Fix
+    // devcontainer volume security vulnerability"): two checkouts that share
+    // a basename would mount the SAME volumes, silently sharing the
+    // Claude/Codex auth tokens and - via npm-global - the very executables
+    // both containers run. Rule: one checkout per basename per Docker daemon.
+    // post-start.sh enforces it: it records the host folder in ~/.claude on
+    // first start and refuses a different one. Renaming the folder orphans
+    // these volumes (re-login; startup reinstalls the CLIs); find orphans with
     // `docker volume ls -f dangling=true`.
-    "source=${localWorkspaceFolderBasename}-claude-config-${devcontainerId},target=/home/node/.claude,type=volume",
-    "source=${localWorkspaceFolderBasename}-codex-config-${devcontainerId},target=/home/node/.codex,type=volume",
+    "source=claude-code-bashhistory-${localWorkspaceFolderBasename},target=/commandhistory,type=volume",
+    "source=${localWorkspaceFolderBasename}-claude-config,target=/home/node/.claude,type=volume",
+    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/node/.codex,type=volume",
     // The AI CLIs live here rather than in an image layer, so that updating
     // Codex in a running container is not undone by the next rebuild (a baked
     // `@latest` layer freezes at first cache; see the Dockerfile note). Codex
     // ships native per-platform binaries, so the name carries the distro AND
     // the node major - bump the token with NODE_MAJOR to start a clean volume
     // rather than serving binaries built against the wrong runtime.
-    "source=${localWorkspaceFolderBasename}-npm-global-noble-node24-${devcontainerId},target=/usr/local/share/npm-global,type=volume"
+    "source=${localWorkspaceFolderBasename}-npm-global-noble-node24,target=/usr/local/share/npm-global,type=volume"
   ],
   "containerEnv": {
     // TZ is intentionally absent: write-local-env.sh writes SANDBOX.toml's
@@ -159,10 +161,9 @@
     // containerEnv becomes `docker run --env`, which
     // outranks --env-file, so setting it here would clobber the detected value.
     // Fallback if detection finds nothing: the Dockerfile's baked-in ARG TZ.
-    // Read by post-start.sh at every start; anything but "open" arms the
-    // firewall. Fixed at creation like the rest of the posture, so editing a
-    // file in the workspace cannot open it.
-    "SANDBOX_INTERNET": "${localEnv:SANDBOX_INTERNET:firewalled}",
+    // Posture: read by post-start.sh at every start; anything but "open" arms
+    // the firewall. Fixed at creation like the rest of the posture.
+    "SANDBOX_INTERNET": "firewalled",
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "CLAUDE_CONFIG_DIR": "/home/node/.claude",
     "AI_SESH_MACHINE": "${localEnv:AI_SESH_MACHINE}",
@@ -173,7 +174,7 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/sandbox,type=bind,consistency=delegated",
   "workspaceFolder": "/sandbox",
-  // Arms the firewall (unless bbox --normie created the container), seeds
+  // Arms the firewall (unless SANDBOX_INTERNET is "open"), seeds
   // agent guidelines, checks policy, refreshes TeX.
   "postStartCommand": "bash .devcontainer/post-start.sh",
   // Colors and titles the VS Code window outside YOLO mode. On attach, since

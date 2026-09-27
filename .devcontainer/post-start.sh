@@ -1,25 +1,26 @@
 #!/bin/bash
-# ABOUTME: The container's postStartCommand. Arms the firewall unless bbox
-# ABOUTME: --normie created the container, then seeds agent guidance, installs
-# ABOUTME: missing AI CLIs, checks policy and the package volumes, prints the
-# ABOUTME: posture (YOLO or normie), refreshes TeX.
+# ABOUTME: The container's postStartCommand. Arms the firewall unless this is
+# ABOUTME: the normie container, checks the checkout marker, seeds agent
+# ABOUTME: guidance, installs missing AI CLIs, checks policy and the package
+# ABOUTME: volumes, prints the posture (YOLO or normie), refreshes TeX.
 #
 # Run by devcontainer.json on every container start (not on a bare
 # `docker restart`, which skips postStartCommand entirely).
-# Inputs:  SANDBOX_INTERNET (set at creation by bbox); the package mounts;
-#          PID 1's seccomp mode; the workspace setup scripts.
-# Outputs: firewall state, the firewall-open marker, agent setup, the AI CLIs
-#          in npm-global when either is missing, a warning for
-#          each unbuilt package volume, the posture line (YOLO mode, normie
-#          mode, or custom), TeX refresh.
+# Inputs:  SANDBOX_INTERNET (from the config file, fixed at creation);
+#          LOCAL_CONTAINER_FOLDER (check-checkout.sh); the
+#          package mounts; PID 1's seccomp mode; the workspace setup scripts.
+# Outputs: firewall state, the firewall-open marker, the checkout marker (or a
+#          refusal), agent setup, the AI CLIs in npm-global when either is
+#          missing, a warning for each unbuilt package volume, the posture line
+#          (YOLO mode, normie mode, or custom), TeX refresh.
 #
-# The switch is SANDBOX_INTERNET in the container's environment, which bbox
-# sets when it creates the container: "open" for bbox --normie, "firewalled"
-# otherwise, and "firewalled" too when VS Code creates it directly. Anything
-# but "open" arms - the failure direction is closed. Like the package mounts
-# and seccomp, it is fixed at creation; switching means bbox recreating the
-# container. This script is still in the writable workspace, so an agent that
-# edits it can change what the next start does; see docs/features.md.
+# The switch is SANDBOX_INTERNET in the container's environment, which each
+# mode's config file hard-codes: "open" in normie/devcontainer.json,
+# "firewalled" in devcontainer.json. Anything but "open" arms - the failure
+# direction is closed. Like the package mounts and seccomp, it is fixed at
+# creation; the two modes are two containers. This script and the configs are
+# still in the writable workspace, so an agent that edits them can change what
+# the next start or creation does; see docs/features.md.
 set -euo pipefail
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -29,7 +30,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 case "${SANDBOX_INTERNET:-firewalled}" in
     open)
         touch /tmp/FIREWALL-WINDOW-OPEN
-        echo 'SANDBOX_INTERNET=open (bbox --normie) - skipping init-firewall.sh, no network restrictions' >&2
+        echo 'SANDBOX_INTERNET=open (the normie container) - skipping init-firewall.sh, no network restrictions' >&2
         ;;
     firewalled)
         rm -f /tmp/FIREWALL-WINDOW-OPEN
@@ -41,6 +42,11 @@ case "${SANDBOX_INTERNET:-firewalled}" in
         sudo /usr/local/bin/init-firewall.sh
         ;;
 esac
+
+# One checkout per basename per Docker daemon: the per-checkout volumes are
+# shared by both modes and named for the basename. Checked after the firewall
+# is armed and before anything is seeded or installed.
+bash .devcontainer/check-checkout.sh
 
 bash .devcontainer/agents/seed-agent-guidelines.sh
 
@@ -86,11 +92,11 @@ case "${posture%% *}" in
         echo "Normie mode: ${posture#* }"
         echo "  supervised: install with install.packages(), pip install or tlmgr install,"
         echo "  or bash .setup/install-optional.sh. Back to YOLO mode: on the host,"
-        echo "  bbcode or bbe without --normie."
+        echo "  bbcode or bbe; bbox --stop --normie stops this container."
         ;;
     *)
         echo "Custom posture, neither YOLO nor normie mode: ${posture#* }" >&2
-        echo "  on the host, recreate it: bbox --rebuild (YOLO) or bbox --rebuild --normie" >&2
+        echo "  made before the per-mode configs? on the host: bbox --rebuild (YOLO) or bbox --rebuild --normie" >&2
         ;;
 esac
 

@@ -41,10 +41,11 @@ Edit `credentials-map.json`:
 
 Keys are credential store entry names; values are the env var names scripts will use. `setup.py` automatically groups prompts by the first segment of the key (e.g. `wrds-username` and `wrds-password` are grouped under "WRDS").
 
-After changing credentials on the host, recreate the container
-(`bbox --rebuild`): `initializeCommand` rewrites the env file from the host
-store, and Docker reads it only when it creates a container. Revoking access
-likewise means recreating the container; emptying the file no longer does it.
+After changing credentials on the host, recreate the containers
+(`bbox --rebuild`, and `bbox --rebuild --normie` if you use normie mode):
+`initializeCommand` rewrites the env file from the host store, and Docker
+reads it only when it creates a container. Revoking access likewise means
+recreating them; emptying the file no longer does it.
 
 ## Dev Container (`.devcontainer/`)
 
@@ -82,7 +83,11 @@ this helper. See the host setup README for installation and failure handling.
   so a new container gets the credentials as environment variables. It is
   overwritten on the next initialization, and may remain on the host until
   then or until the host OS cleans `/tmp`.
-- `devcontainer.json` — container configuration.
+- `devcontainer.json` — container configuration, YOLO mode.
+  `normie/devcontainer.json` is its twin for normie mode; they differ only in
+  the posture and the name, which `tests/test_config_twins.py` enforces.
+- `check-checkout.sh` — refuses a second checkout with the same folder name,
+  whose containers would share this one's volumes (run by `post-start.sh`).
 - `Dockerfile` — container image definition.
 - `check-yolo-boundaries.sh` — refuses supplied YOLO launchers unless the
   firewall is enabled and PID 1 has filtered seccomp.
@@ -115,8 +120,8 @@ Because the name appears in every session, a short one is worth setting.
 
 ### Codex sandbox modes and launchers
 
-Docker's outer seccomp policy is part of the posture the host launcher picks
-at creation: `builtin` in YOLO mode (the default), `unconfined` in normie mode
+Docker's outer seccomp policy is part of each mode's config: `builtin` in the
+YOLO container (the default), `unconfined` in the normie container
 (`bbcode --normie`). Codex's sandboxed modes need `unconfined`,
 because builtin seccomp blocks Bubblewrap setup here and
 automatic review did not provide reliable recovery for all native tools.
@@ -131,14 +136,11 @@ every interactive shell outside YOLO mode says so. Filtered mode is only a
 runtime mode check, not proof of Docker's exact builtin profile.
 See [Docker's seccomp documentation](https://docs.docker.com/engine/security/seccomp/).
 
-Changing mode requires **container recreation**, not an image change; `bbox`
-does it when the requested mode differs from the container's. Named volumes
-and the bind-mounted workspace persist, but files only in the old container's
-writable layer do not. `bbox` inspects the exact container returned by
-`devcontainer up` and stops before attachment if its posture is not the one
-requested. VS Code's direct **Rebuild Container** path does not see the
-launcher's flags and recreates in YOLO mode; use `bbox --rebuild --normie
---code` to rebuild in normie mode.
+Changing mode means using the other container, not changing this one; each
+keeps its seccomp policy for life. `bbox` inspects the exact container
+returned by `devcontainer up` and stops before attachment if its posture is
+not its config's. VS Code's **Rebuild Container** rebuilds from the window's
+config, so it keeps the mode.
 
 Codex separates the sandbox (filesystem and network limits), approval policy
 (when approval is requested), and reviewer (a person or automatic review).
@@ -218,8 +220,8 @@ Then start a normal Codex workspace-write session and verify:
 
 Record the results before calling the compatibility fix validated. If a check
 fails, inspect that failure before adding capabilities or relaxing other
-controls. Re-enabling builtin requires another recreation and is expected to
-restore the observed namespace failure until compatibility is addressed.
+controls. The YOLO container, with builtin, is expected to show the observed
+namespace failure until compatibility is addressed.
 
 Commands executed outside the inner sandbox retain Docker's restrictions but
 have the container user's filesystem and network access. With the firewall
@@ -241,6 +243,7 @@ The template mounts persistent volumes for:
 - `/home/node/.codex` — Codex auth and config
 
 This keeps interactive login state across container rebuilds and restarts.
+Both modes' containers mount the same volumes, so one login serves both.
 
 GitHub auth is different: nothing is persisted in a volume, but VS Code's Dev
 Containers extension forwards the host's Git credentials on demand (its default,
@@ -299,34 +302,47 @@ rebuild. Settings are read with `sandbox-setting.sh`, a `sed` over flat `key = "
 
 ### Working modes
 
-The security posture is not in `SANDBOX.toml`. The host launcher picks it when
-it creates the container, and the container is the record of it:
+The security posture is not in `SANDBOX.toml`. Each mode is its own
+container, built from its own config file, which hard-codes the posture:
 
-| Mode | Launch | Internet | Package volumes | Seccomp | Use |
-|---|---|---|---|---|---|
-| YOLO mode (default) | `bbcode`, `bbe` | firewalled | read-only | `builtin` | everyday work; YOLO launchers allowed; agents ask when a package is missing |
-| Normie mode | `bbcode --normie`, `bbe --normie` | open | writable | `unconfined` | supervised work, like the Mac: open web, package installs, agents in approval modes |
+| Mode | Config | Launch | Internet | Package volumes | Seccomp | Use |
+|---|---|---|---|---|---|---|
+| YOLO mode (default) | `devcontainer.json` | `bbcode`, `bbe` | firewalled | read-only | `builtin` | everyday work; YOLO launchers allowed; agents ask when a package is missing |
+| Normie mode | `normie/devcontainer.json` | `bbcode --normie`, `bbe --normie` | open | writable | `unconfined` | supervised work, like the Mac: open web, package installs, agents in approval modes |
 
 Normie mode needs `unconfined` because Codex's approval modes run commands in
 Bubblewrap, which builtin seccomp blocks (see
 [Codex sandbox modes](#codex-sandbox-modes-and-launchers)). There are only the
 two presets; `post-start.sh` reports any other combination (a container made
-before the flags, say) as a custom posture, and `bbox` recreates it on request.
+before the per-mode configs, say) as a custom posture.
 
-`bbox` sets three variables for `devcontainer up`: `SANDBOX_SECCOMP` (runArgs),
-`SANDBOX_PKG_READONLY` (the three package mounts) and `SANDBOX_INTERNET`
-(containerEnv, read by `post-start.sh` at every start; anything but `open`
-arms the firewall). All three are fixed at creation, so a container in
-another mode is recreated (a rebuild from the cached image is quick), and
-editing a file in the workspace cannot switch it. A container created without
-`bbox`, for example by VS Code directly, gets none of them and is in YOLO mode.
-Without a flag, `bbox` means YOLO mode and asks before replacing a container in
-another mode, since that ends everything running in it; `--normie` attaches to
-a normie container as it is, and `bbox --status` reports the mode without
-changing anything.
+The config sets seccomp in `runArgs`, `readonly` on the three package mounts,
+and `SANDBOX_INTERNET` in `containerEnv` (read by `post-start.sh` at every
+start; anything but `open` arms the firewall). All three are fixed at
+creation. The Dev Containers tooling keys a container on its folder and config
+file, so the two containers coexist, and whatever recreates one, `bbox` or VS
+Code's own Rebuild or Reopen, recreates it from the same config, in the same
+mode. Neither container ever replaces the other: switching modes is attaching
+to the other one. A normie container runs, firewall open, until it is stopped
+(`bbox --stop --normie`); `bbox --status` lists both, and every YOLO
+bring-up mentions a running normie one. Why two files and not one with a
+switch: docs/journal/0927a.
+
+The two containers share every volume. The package volumes are shared by
+design: normie writes what YOLO then runs read-only (a running R or Python
+session sees new packages after a restart). The per-checkout volumes, which
+hold `~/.claude`, `~/.codex`, the AI CLIs and shell history, are named for the
+checkout's folder name alone, not `${devcontainerId}` (which depends on the
+config file and would give each mode its own). So one login and one CLI
+install serve both modes, and **each checkout's folder name must be unique on
+the Docker daemon**: a second checkout with the same name would share the
+Claude and Codex tokens and the CLIs themselves. `check-checkout.sh` enforces
+this at every start: it records the host folder in `~/.claude` the first
+time and refuses a different one, with the command to accept a deliberate
+move.
 
 The mode stays visible: `post-start.sh` prints it at every start; outside YOLO
-mode every interactive shell prints a banner, the zsh prompt and Claude's
+mode (in the normie container) every interactive shell prints a banner, the zsh prompt and Claude's
 status line lead with a `normie` (or `custom`) tag, and `vscode-posture.sh`
 turns the VS Code title and status bars red (amber for custom) and puts
 `NORMIE MODE` at the front of the window title, in the container's own VS Code
@@ -352,7 +368,7 @@ each volume the first time an empty one is mounted (docs/journal/0926f). After
 that the human changes the base in normie mode with
 `bash .setup/install-base.sh` (see the [setup README](../.setup/README.md)),
 and optionally adds the rest with `.setup/install-optional.sh`.
-`devcontainer.json` mounts them read-only unless `bbox --normie` created the container:
+The YOLO container mounts them read-only and the normie container writable:
 
 | Volume | Mount |
 |---|---|

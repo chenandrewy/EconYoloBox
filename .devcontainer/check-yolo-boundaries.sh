@@ -12,7 +12,7 @@ open_marker=${2:-/tmp/FIREWALL-WINDOW-OPEN}
 proc_status=${3:-/proc/1/status}
 
 if [ -e "$open_marker" ]; then
-    printf '%s: firewall is open; refusing. For YOLO mode, on the host: bbcode or bbe without --normie\n' "$launcher" >&2
+    printf '%s: firewall is open; refusing. This is not the YOLO container; on the host: bbcode or bbe\n' "$launcher" >&2
     exit 1
 fi
 
@@ -28,5 +28,5 @@ else
 fi
 printf '%s\n' \
     "$launcher: $detail; refusing YOLO mode." \
-    'For YOLO mode, on the host: bbcode or bbe without --normie (bbox --rebuild if it persists)' >&2
+    'This is not the YOLO container; on the host: bbcode or bbe (bbox --rebuild if it persists)' >&2
 exit 1

@@ -80,7 +80,8 @@ Windows and Linux support is partially wired but has not been tested.
 
 4. **Build and open the container.** In the cloned repository's VS Code window,
    open the Command Palette and select **Dev Containers: Reopen in Container**.
-   Direct VS Code creation always uses YOLO mode.
+   When VS Code asks which configuration, pick the plain one (YOLO mode); the
+   one named `(normie)` is normie mode.
 
    Wait for the first build to finish. It also installs the base R, Python
    and TeX Live stacks and, at first start, the Claude Code and Codex CLIs, so
@@ -89,8 +90,9 @@ Windows and Linux support is partially wired but has not been tested.
 
    The container starts in YOLO mode: firewall on, allowing only the network
    allowlist, with read-only package volumes and builtin seccomp. For open
-   internet access and package installs, use normie mode, which needs the
-   [host launcher](#optional-host-command-workflow): `bbcode --normie`.
+   internet access and package installs, use normie mode: the `(normie)`
+   configuration, or `bbcode --normie` with the
+   [host launcher](#optional-host-command-workflow).
    Normie mode also disables Docker's outer syscall filter for every
    container process; see
    [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
@@ -148,30 +150,31 @@ Windows and Linux support is partially wired but has not been tested.
 
 ### Switching modes
 
-The host launcher picks the mode when it creates the container. YOLO mode
-(firewalled internet, read-only package volumes, `builtin` seccomp) is the
-default; normie mode (open internet, writable package volumes, `unconfined`
-seccomp) is for supervised work:
+Each mode is its own container, built from its own configuration:
+`.devcontainer/devcontainer.json` for YOLO mode (firewalled internet,
+read-only package volumes, `builtin` seccomp) and
+`.devcontainer/normie/devcontainer.json` for normie mode (open internet,
+writable package volumes, `unconfined` seccomp), which is for supervised work.
+The launcher's flag picks which one to open:
 
 ```zsh
-bbcode             # YOLO mode, in VS Code (bbe: in a terminal)
-bbcode --normie    # normie mode
-bbox --status      # which mode the container is in, changing nothing
+bbcode             # the YOLO container, in VS Code (bbe: in a terminal)
+bbcode --normie    # the normie container
+bbox --status      # both containers and their modes, changing nothing
+bbox --stop --normie   # stop the normie container
 ```
 
-All three settings are fixed when the container is created, so switching
-recreates it. That is quick, since the image and every volume (logins, AI
-CLIs, packages, shell history) survive, but it ends every shell and agent
-running in the container, and it waits until any VS Code window on the
-container is closed. With no flag, the launcher always means YOLO mode: if the
-container is in normie mode it asks before switching, and `--normie` attaches
-to it as it is. So normie mode never outlasts the command that asked for it.
+Both can run at once, and neither replaces the other, so switching is instant
+and ends nothing. They share one set of volumes: logins, the AI CLIs, shell
+history and the packages normie mode installs. A normie container keeps
+running, firewall open, until it is stopped (or, possibly, until its last VS
+Code window closes), so every YOLO bring-up mentions a running one.
 
-The mode stays in view: outside YOLO mode the VS Code title and status bars
-turn red and the title starts with `NORMIE MODE`, the shell prompt and Claude's
-status line carry a `normie` tag, and every new shell says so. Startup prints
-`YOLO mode`, `Normie mode`, or `Custom posture` for a container made some other
-way (for example, before these flags existed).
+The mode stays in view: in the normie container the VS Code title and status
+bars turn red and the title starts with `NORMIE MODE`, the shell prompt and
+Claude's status line carry a `normie` tag, and every new shell says so.
+Startup prints `YOLO mode`, `Normie mode`, or `Custom posture` for a container
+made before the per-mode configurations.
 
 The `cchat-yolo`, `gptchat-yolo`, and `gptmini-yolo` launchers skip permission
 checks and refuse to start unless the firewall is enabled and PID 1 has a
@@ -202,7 +205,8 @@ python3 .credentials/setup.py
 
 Press Enter to skip any service you do not use. The container receives the
 credentials as environment variables when it is created, so a container that
-already exists needs recreating to see new ones: `bbox --rebuild`.
+already exists needs recreating to see new ones: `bbox --rebuild`, and
+`bbox --rebuild --normie` for the normie container.
 
 ### Update the AI CLIs
 
@@ -226,16 +230,15 @@ bash .setup/install-optional.sh      # the rest of the usual stack
 ```
 
 or `install.packages()`, `pip install` or `tlmgr install`. Switch back to YOLO
-mode (close the window, then `bbcode` without `--normie`) and run
+mode (`bbcode`, then `bbox --stop --normie`) and run
 `bash .devcontainer/tests/test-packages.sh`. See [setup](.setup/README.md) and
 the [devcontainer README](.devcontainer/README.md#working-modes) for the
 details.
 
 ## Optional host command workflow
 
-The general-purpose `bbox` launcher brings the container up in the requested
-mode, verifies it, and can open a shell or VS Code. It is the only way into
-normie mode, because direct VS Code creation always uses YOLO mode. Ensure the
+The general-purpose `bbox` launcher brings up the requested mode's container,
+verifies it, and can open a shell or VS Code at a project path. Ensure the
 VS Code `code` CLI is installed if using `--code`. To install the launcher, run the
 following from the checkout root in a host zsh terminal:
 
@@ -249,11 +252,9 @@ type bbox
 Run `bbox` to bring the container up, `bbcode My-Project` (`bbox --code`) to
 open a project in VS Code, or `bbe My-Project` (`bbox --shell`) to enter it in
 a terminal. Each takes `--normie` (or an explicit `--yolo`), and
-`bbox --rebuild` recreates the container after a Dockerfile change.
-
-VS Code's direct **Rebuild Container** command cannot see the launcher's flags,
-so it always recreates the container in YOLO mode. Use
-`bbox --rebuild --normie --code` to rebuild in normie mode.
+`bbox --rebuild` recreates that mode's container after a Dockerfile change.
+VS Code's own **Rebuild Container** works too: it rebuilds from the window's
+configuration, so it keeps the mode.
 
 Optional: the container picks up the Mac's timezone automatically. To force a
 different one, export it on the host before the container starts.

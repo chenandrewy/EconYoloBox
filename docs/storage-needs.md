@@ -95,10 +95,10 @@ state are about 115MB:
 
 | Volume | Mount | Size | Binaries | Config and state |
 |---|---|---|---|---|
-| `<folder>-npm-global-noble-node24-<id>` | `/usr/local/share/npm-global` | 559MB | 559MB | — |
-| `<folder>-codex-config-<id>` | `/home/node/.codex` | 746MB | 658MB | 88MB |
-| `<folder>-claude-config-<id>` | `/home/node/.claude` | 25MB | — | 25MB |
-| `claude-code-bashhistory-<id>` | `/commandhistory` | 48KB | — | 48KB |
+| `<folder>-npm-global-noble-node24` | `/usr/local/share/npm-global` | 559MB | 559MB | — |
+| `<folder>-codex-config` | `/home/node/.codex` | 746MB | 658MB | 88MB |
+| `<folder>-claude-config` | `/home/node/.claude` | 25MB | — | 25MB |
+| `claude-code-bashhistory-<folder>` | `/commandhistory` | 48KB | — | 48KB |
 
 The npm-global volume holds the CLIs themselves: Codex (329MB) and Claude
 Code (230MB), both bundling native binaries. The codex-config volume is
@@ -109,13 +109,14 @@ grow with Codex updates. The rest of it is mainly `logs_2.sqlite` (52MB) and
 `thread_history_1.sqlite` (20MB). Claude's volume is mostly plugins (15MB).
 Transcripts are not in these volumes (see below).
 
-`<id>` is `${devcontainerId}`, a ~52-character string identifying this
-devcontainer. The folder name is a readable prefix for `docker volume ls`.
-These volumes hold the AI CLIs and agent configuration for the one intended
-checkout. If another checkout were created on the same Docker daemon, it
-would share the package volumes but get its own devcontainer-specific volumes.
-Moving or renaming the sandbox folder also changes the id and leaves the old
-volumes behind. Find unused ones with `docker volume ls -f dangling=true`.
+`<folder>` is the checkout's folder name. The YOLO and normie containers
+mount the same set, so a second mode costs no extra space here
+(docs/journal/0927a). The folder name alone keys them, so a second checkout
+with the same folder name on the same Docker daemon would share them, logins
+and CLIs included; `check-checkout.sh` refuses that at startup. Renaming the
+sandbox folder leaves these volumes behind; moving it does not. Before 0927a
+the names ended in `${devcontainerId}` (a ~52-character id); those volumes,
+and any renamed-away ones, show up in `docker volume ls -f dangling=true`.
 
 **Superseded volumes** from before 0926b include
 `texlive-2026-small-noble`, `venv-noble-py3.12`, and

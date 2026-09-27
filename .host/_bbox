@@ -5,13 +5,14 @@
 
 _bbox() {
   _arguments -s \
-    '(--normie --status)--yolo[firewalled, read-only packages, seccomp filter (the default)]' \
-    '(--yolo --status)--normie[open internet, writable packages, seccomp unconfined]' \
-    '(--rebuild-without-cache --status)--rebuild[recreate the container using the Docker build cache]' \
-    '(--rebuild --status)--rebuild-without-cache[recreate the container without the Docker build cache]' \
-    '(--code --status)--shell[open a shell after bringing the container up]' \
-    '(--shell --status)--code[open VS Code after bringing the container up]' \
-    '(--yolo --normie --rebuild --rebuild-without-cache --shell --code)--status[report the container'"'"'s posture without changing it]' \
+    '(--normie --status)--yolo[the YOLO container: firewalled, read-only packages, seccomp filter (the default)]' \
+    '(--yolo --status)--normie[the normie container: open internet, writable packages, seccomp unconfined]' \
+    '(--rebuild-without-cache --status --stop)--rebuild[recreate the mode'"'"'s container using the Docker build cache]' \
+    '(--rebuild --status --stop)--rebuild-without-cache[recreate the mode'"'"'s container without the Docker build cache]' \
+    '(--code --status --stop)--shell[open a shell after bringing the container up]' \
+    '(--shell --status --stop)--code[open VS Code after bringing the container up]' \
+    '(--shell --code --status --rebuild --rebuild-without-cache)--stop[stop the mode'"'"'s container]' \
+    '(--yolo --normie --rebuild --rebuild-without-cache --shell --code --stop)--status[report both modes'"'"' containers without changing them]' \
     ':directory:_directories'
 }
 

@@ -141,7 +141,7 @@ require_install_mode() {
         echo "install-optional.sh: not in normie mode:" >&2
         printf '  - %s\n' "${problems[@]}" >&2
         echo 'Switch to normie mode: on the host, bbcode --normie (or bbe --normie),' >&2
-        echo 'and back to YOLO mode afterwards: bbcode or bbe without --normie.' >&2
+        echo 'and back to YOLO mode afterwards: bbcode or bbe; bbox --stop --normie.' >&2
         exit 1
     fi
 }
@@ -282,7 +282,7 @@ if [ "$status" -ne 0 ]; then
     exit 1
 fi
 if [ "$VERIFY" -eq 0 ]; then
-    echo 'Done. Back to YOLO mode: on the host, bbcode or bbe without --normie.'
+    echo 'Done. Back to YOLO mode: on the host, bbcode or bbe; bbox --stop --normie.'
 else
     echo "Done."
 fi
