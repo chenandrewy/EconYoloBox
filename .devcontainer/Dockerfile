@@ -376,6 +376,12 @@ RUN --mount=type=bind,source=.setup/install-base.sh,target=/tmp/install-base.sh 
   bash /tmp/install-base.sh --image-build
 USER root
 
+# ffmpeg and ffprobe, for reading, probing and converting audio and video
+# hard to put in a volume. takes 140 MB.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ffmpeg \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Copy and set up firewall script
 COPY .devcontainer/init-firewall.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/init-firewall.sh && \
