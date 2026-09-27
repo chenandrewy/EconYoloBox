@@ -170,4 +170,24 @@ the image's libraries and install from its P3M snapshot.
   everything missing). That predates this change.
 - Check 9 covered by the earlier refusal checks, shellcheck and host tests.
   Temporary `t0926f-*` volumes removed.
+- Uncached build (standalone `docker build --no-cache`, ubuntu:24.04 already
+  pulled): 8:53 in all, the install-base.sh layer 4:10 of it (Python 37s, R
+  18s, TeX and smoke tests the rest). Test tag removed.
+- Fresh-checkout test in YOLO mode. Deleting the real package volumes and the
+  running container was refused by the permission check, so instead: a local
+  clone of the branch at ~/EconYoloBox-freshtest (new devcontainerId, so fresh
+  claude/codex config, npm-global and bash-history volumes), its
+  devcontainer.json pointing the package volumes at `t0926f-fresh-*`, committed
+  SANDBOX.toml (YOLO), plain `devcontainer up` with no SANDBOX_* env, as
+  VS Code would. 5:19. post-start installed the CLIs (9s), "YOLO mode:
+  internet=firewalled packages=readonly seccomp=builtin", no "not built"
+  warning. `test-packages.sh` PASS ("readonly R/Python/TeX volumes ...
+  installs refused"). Mounts `ro`, node-owned. A new zsh prints no notes.
+- Curiosity: in the clone every layer was CACHED except the install layer,
+  which reran (250s). Its only extra input is the bind-mounted script, identical
+  in content, so the key must include file metadata that differs between the
+  Dropbox checkout and ~ (xattrs?). Not chased; a new user's first build is
+  uncached anyway.
+- Clone, its container, image and all seven of its volumes removed. The user's
+  container and volumes were untouched throughout.
 
