@@ -1,7 +1,7 @@
 # 0926f — plan: bake the base into the image; Docker seeds the volumes
 
 2026-09-26, branch `feature/package-install-modes`. Follows
-[0926e](0926e,container-only-setup-plan.md). Steps 1–5 implemented; see [log](#log).
+[0926e](0926e,container-only-setup-plan.md). Implemented and checked; see [log](#log). Step 6 skipped.
 
 ## why
 
@@ -98,17 +98,17 @@ the image's libraries and install from its P3M snapshot.
 
 ## checks
 
-- [ ] 7. Fresh volumes from empty, in YOLO mode (replaces 0926e check 6):
+- [x] 7. Fresh volumes from empty, in YOLO mode (replaces 0926e check 6):
   temporary volume names in devcontainer.json, `bbox --rebuild`. The volumes
   come up filled and node-owned; `test-packages.sh` passes; the CLIs are
   installed by post-start. Record build time and image size. Revert the names,
   remove the temporary volumes.
-- [ ] 8. Existing volumes: `bbox --rebuild` with today's names changes
+- [x] 8. Existing volumes: `bbox --rebuild` with today's names changes
   nothing in them; `test-packages.sh`, `test-optional.sh` pass.
-- [ ] 9. `install-base.sh --image-build` refuses in a running container (YOLO
+- [x] 9. `install-base.sh --image-build` refuses in a running container (YOLO
   and normie). `test-bbox.zsh`, `test-setup.py`, `test-agent-policy.sh`,
   shellcheck.
-- [ ] 10. Rebuild after editing a policy file: the install layer stays cached.
+- [x] 10. Rebuild after editing a policy file: the install layer stays cached.
 
 ## log
 
@@ -148,4 +148,26 @@ the image's libraries and install from its P3M snapshot.
   removed; build cache kept.
 - Still open: check 7 second half (a real `bbox --rebuild` with temporary
   volume names: post-start CLI install, `test-packages.sh`), checks 8-10.
+- VS Code was attached, so bbox refused the rebuild; the user was away and said
+  to kill it. `quit app` hung (a dialog, presumably), so it was killed with
+  SIGKILL. This session ran in Ghostty, so it was unaffected.
+- Check 7, second half: devcontainer.json temporarily pointed the three
+  package volumes and npm-global at fresh names (`t0926f-*`), then
+  `bbox --rebuild`, in the user's current posture (normie: open, writable,
+  unconfined). Read-only seeding was shown by the standalone test above. The
+  rebuild took 30s (image cached). post-start: "installing the AI CLIs", npm
+  "added 4 packages in 9s", "AI CLIs OK", then test-agent-policy PASS with
+  both CLIs present; no "not built" warning. `test-packages.sh` PASS (135 R
+  packages load, fixest, pdflatex/biber/latexindent/latexmk, LyX); volumes
+  node-owned.
+- Check 10: a blank line appended to SANDBOX-codex-config.toml, standalone
+  build: the install-base.sh layer CACHED. Reverted.
+- Check 8: real names restored, `bbox --rebuild`: no CLI install (already
+  present), no "not built" warning, `test-packages.sh` PASS. The real volumes
+  are the same size as before (201M / 767M / 482M, TeX marker from 03:00, before
+  this work). `test-optional.sh` FAILs, but only because the optional set was
+  never installed in these volumes (`install-optional.sh --verify` lists
+  everything missing). That predates this change.
+- Check 9 covered by the earlier refusal checks, shellcheck and host tests.
+  Temporary `t0926f-*` volumes removed.
 
