@@ -41,6 +41,7 @@ rc file or testing, use `bash .host/setup.sh --rc-file PATH`.
 | `setup.sh`         | host prerequisite checks and shell registration             |
 | `devcontainer.zsh` | `bbox`, short wrappers, bring-up, and verification        |
 | `_bbox`            | side-effect-free native zsh completion                     |
+| `_bbcode`          | zsh completion for the VS Code wrapper                     |
 | `dc-resolve.py`    | container-path, CLI-output, and folder-URI helpers          |
 
 Keep these files flat in `.host/`: `devcontainer.zsh` resolves its siblings from
@@ -105,9 +106,10 @@ In the normie container the mode stays visible: `NORMIE` at the front of the
 VS Code window title, a `normie` tag at the front of the zsh prompt and
 Claude's status line, and a warning banner in every new shell.
 
-`devcontainer.zsh` sources `_bbox`. Source it after your zsh completion setup;
-if `compdef` was unavailable at that point, source `.host/_bbox` again after
-`compinit`. Completion reads no configuration and never invokes Docker.
+`devcontainer.zsh` sources `_bbox` and `_bbcode`. Source it after your zsh
+completion setup; if `compdef` was unavailable at that point, source both
+completion files again after `compinit`. Completion reads no configuration and
+never invokes Docker.
 
 ## Claude Code sessions
 

@@ -1,0 +1,17 @@
+#compdef bbcode
+# Run:     source .host/_bbcode after zsh completion initialization.
+# Inputs:  the current bbcode command line only.
+# Outputs: the _bbcode completion function and, when available, its compdef binding.
+
+_bbcode() {
+  _arguments -s \
+    '(--normie)--yolo[use the YOLO container (the default)]' \
+    '(--yolo)--normie[use the normie container]' \
+    '(--rebuild-without-cache)--rebuild[recreate the container using the Docker build cache]' \
+    '(--rebuild)--rebuild-without-cache[recreate the container without the Docker build cache]' \
+    ':directory:_directories'
+}
+
+if (( $+functions[compdef] )); then
+  compdef _bbcode bbcode
+fi

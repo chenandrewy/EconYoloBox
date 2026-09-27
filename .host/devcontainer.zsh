@@ -349,3 +349,4 @@ bbcode() { bbox --code "$@"; }
 
 # Completion initialization belongs to the user's zsh setup.
 source "$_DC_HOST_DIR/_bbox"
+source "$_DC_HOST_DIR/_bbcode"
