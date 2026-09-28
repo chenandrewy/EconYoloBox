@@ -1,7 +1,7 @@
 # ai-sesh
 
 Machine-to-machine session sync for Claude Code and Codex, built on the
-Dropbox-synced `/sandbox` mount. Each machine's live home stores are symlinks
+Dropbox-synced `/yolobox` mount. Each machine's live home stores are symlinks
 into a per-machine folder here, so this machine's sessions sync passively;
 `sesh-push` installs the *other* machines' sessions when you switch desks.
 Design notes: `docs/journal/0708T08-ai-sesh-redesign.md`.
@@ -16,7 +16,7 @@ these links in place:
 - `~/.claude/todos` -> `data/<machine>/todos`
 
 Claude and Codex therefore write real bytes into the synced tree; the data
-survives container rebuilds because it lives in the `/sandbox` mount. The
+survives container rebuilds because it lives in the `/yolobox` mount. The
 machine id derives from the host name the devcontainer injects
 (`write-local-env.sh` -> `LOCAL_HOSTNAME`, e.g. `Mac-Studio.local` ->
 `mac-studio`); set `AI_SESH_MACHINE` to override. Credentials, caches, and
@@ -37,7 +37,7 @@ data/
 
 ## Commands
 
-This directory is on `PATH` (via `/sandbox/.devcontainer/shellrc.sh`), so
+This directory is on `PATH` (via `/yolobox/.devcontainer/shellrc.sh`), so
 the filenames are the commands:
 
 - `sesh-init`: idempotent symlink setup/migration; auto-run per shell. It

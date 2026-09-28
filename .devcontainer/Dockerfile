@@ -230,7 +230,7 @@ options(Ncpus = 2)
 EOF
 
 # Git defaults
-# safe.directory '*': the bind-mounted /sandbox root intermittently reports
+# safe.directory '*': the bind-mounted /yolobox root intermittently reports
 # uid 0 under Docker Desktop's virtiofs, which trips git's ownership check for
 # the sandbox repo and every project repo nested under it.
 # worktree.useRelativePaths: the repo is bind-mounted at a different path in the
@@ -249,7 +249,7 @@ RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhisto
 # Set `DEVCONTAINER` environment variable to help with orientation
 ENV DEVCONTAINER=true
 
-WORKDIR /sandbox
+WORKDIR /yolobox
 
 # The Python, R and TeX stacks live in shared volumes, which devcontainer.json
 # mounts over /opt/venv, the R site library and /usr/local/texlive, read-only
@@ -285,8 +285,8 @@ RUN ARCH=$(dpkg --print-architecture) && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
 # Create node-owned mount point and config directories before switching users.
-RUN mkdir -p /sandbox /home/node/.claude /home/node/.codex /home/node/.config && \
-  chown -R node:node /sandbox /home/node/.claude /home/node/.codex /home/node/.config
+RUN mkdir -p /yolobox /home/node/.claude /home/node/.codex /home/node/.config && \
+  chown -R node:node /yolobox /home/node/.claude /home/node/.codex /home/node/.config
 
 # Set up non-root user
 USER node
@@ -310,7 +310,7 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
   -a "source /usr/share/doc/fzf/examples/key-bindings.zsh" \
   -a "source /usr/share/doc/fzf/examples/completion.zsh" \
   -a "export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
-  -a "source /sandbox/.devcontainer/shellrc.sh" \
+  -a "source /yolobox/.devcontainer/shellrc.sh" \
   -x
 
 # zsh-in-docker defaults to en_US.UTF-8, which is not generated in this image.
@@ -411,7 +411,7 @@ RUN chmod 0444 /etc/claude-code/managed-settings.json \
   /etc/codex/requirements.toml
 
 # Policy verification, run manually or from postStartCommand. Copied rather than
-# invoked from /sandbox so a check of the policy is not itself node-writable.
+# invoked from /yolobox so a check of the policy is not itself node-writable.
 COPY .devcontainer/test-agent-policy.sh /usr/local/bin/
 RUN chmod 0755 /usr/local/bin/test-agent-policy.sh
 

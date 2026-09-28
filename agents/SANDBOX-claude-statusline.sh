@@ -35,7 +35,7 @@ fi
 
 # Outside YOLO mode, lead with the posture (bbox --normie, or custom), so an
 # agent session shows it the way the shell prompt does.
-posture=$(bash /sandbox/.devcontainer/posture.sh 2>/dev/null)
+posture=$(bash /yolobox/.devcontainer/posture.sh 2>/dev/null)
 case "${posture%% *}" in
   normie) mode=$(printf "\033[1;97;41m normie \033[0m ") ;;
   yolo | "") mode="" ;;

@@ -1,4 +1,4 @@
-# User level agent guidelines for Sandbox
+# User level agent guidelines for EconYoloBox
 
 ## Permission guidelines
 
@@ -23,13 +23,13 @@ Codex specific instructions: When working with git and sandbox protections, requ
 
 ## Key Paths
 
-- Research library (cellar): `/sandbox/cellar/`
-- Finished and retired projects (done): `/sandbox/done/`
-- macOS screenshots: `/sandbox/workspace/dev/screenshots/`
+- Research library (cellar): `/yolobox/cellar/`
+- Finished and retired projects (done): `/yolobox/done/`
+- macOS screenshots: `/yolobox/workspace/dev/screenshots/`
 
 ### Custom Tools
 
-Custom tools live in `/sandbox/tools/`, organized by topic. Check these folders when the user asks to use the tools. All are on `PATH` (set in `.devcontainer/shellrc.sh`), so the filenames are the commands:
+Custom tools live in `/yolobox/tools/`, organized by topic. Check these folders when the user asks to use the tools. All are on `PATH` (set in `.devcontainer/shellrc.sh`), so the filenames are the commands:
 
 - `tools/pdf/`: `pdf2md.py` (PDF to markdown), `rebookmark.py` (bookmarks PDFs)
 - `tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
@@ -58,25 +58,25 @@ Custom tools live in `/sandbox/tools/`, organized by topic. Check these folders 
 
 ## The Environment
 
-- The sandbox repo is bind-mounted at `/sandbox`, so edits are live on the
-  host. User projects live under `/sandbox/workspace/`, which is gitignored
+- The sandbox repo is bind-mounted at `/yolobox`, so edits are live on the
+  host. User projects live under `/yolobox/workspace/`, which is gitignored
   by the sandbox repo. Terms: **sandbox** = the infrastructure repo at
-  `/sandbox`; **workspace** = user content under `/sandbox/workspace/`;
+  `/yolobox`; **workspace** = user content under `/yolobox/workspace/`;
   **project** = one working tree inside the workspace.
 
-You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
+You are running inside a devcontainer, defined in `/yolobox/.devcontainer/`.
 For container behavior and agent configuration, see
-[the devcontainer documentation](/sandbox/.devcontainer/README.md). For installed
+[the devcontainer documentation](/yolobox/.devcontainer/README.md). For installed
 software, package stacks, and installation procedures, see
-[the setup documentation](/sandbox/infra/setup/README.md). The security design and
-available services are described in [the feature guide](/sandbox/docs/features.md).
+[the setup documentation](/yolobox/infra/setup/README.md). The security design and
+available services are described in [the feature guide](/yolobox/docs/features.md).
 
 ## Sandbox Configuration
 
 Each mode is its own container,
 built from its own config file (`.devcontainer/devcontainer.json` or
 `.devcontainer/normie/devcontainer.json`), and the posture is fixed for the
-container's life. Both containers may be running at once, sharing `/sandbox`,
+container's life. Both containers may be running at once, sharing `/yolobox`,
 the package volumes and `~/.claude`/`~/.codex`. You are in one of them, and
 startup prints which:
 
@@ -88,7 +88,7 @@ startup prints which:
    the user watching and agents in approval modes. This is where the web is
    open and packages get installed.
 
-To see the current mode, run `bash /sandbox/.devcontainer/posture.sh`.
+To see the current mode, run `bash /yolobox/.devcontainer/posture.sh`.
 Switching modes is the user's decision (see `USER PERMISSION REQUIRED`), made on
 the host by opening the other container; nothing in this container can switch it.
 Do not edit either config file's posture settings.

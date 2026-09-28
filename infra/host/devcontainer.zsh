@@ -95,8 +95,8 @@ _bbox_rebuild_hint() {
 
 # _bbox_verify_layout <root> <expected-folder> <container>...
 # A reused container mounts the sandbox wherever its config said when it was
-# created. If workspaceFolder has since moved (for example /workspace to
-# /sandbox), devcontainer up would start it and then fail postStartCommand
+# created. If workspaceFolder has since moved (for example /sandbox to
+# /yolobox), devcontainer up would start it and then fail postStartCommand
 # with an opaque "chdir to cwd ... no such file or directory". Catch that
 # first: a stale mount target cannot be worked around, so it is an error, and
 # only a rebuild fixes it. An inspect failure is left for devcontainer up to

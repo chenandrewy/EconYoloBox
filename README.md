@@ -37,7 +37,7 @@ Key features:
    - Convert PDFs to Markdown with high fidelity using a tool built on Mistral
      OCR (h/t Don Bowen).
 
-More concretely, the whole checkout is bind-mounted at `/sandbox` in the
+More concretely, the whole checkout is bind-mounted at `/yolobox` in the
 container. The sandbox itself is these tracked folders:
 
 - `.devcontainer/`: sandbox implementation
@@ -107,24 +107,24 @@ Windows and Linux support is partially wired but has not been tested.
    [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
 
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
-   The sandbox repository is mounted at `/sandbox`; all user content goes
-   under `/sandbox/workspace/`, which `.gitignore` excludes wholesale, so the
+   The sandbox repository is mounted at `/yolobox`; all user content goes
+   under `/yolobox/workspace/`, which `.gitignore` excludes wholesale, so the
    outer EconYoloBox repository never sees your projects whatever they are
    named. Each project must therefore be its own Git repository. Projects that
-   are finished or retired move to `/sandbox/done/`, which is ignored the same
+   are finished or retired move to `/yolobox/done/`, which is ignored the same
    way; `workspace/` holds only active work.
 
    For a new project:
 
    ```bash
-   mkdir -p /sandbox/workspace/My-Project
-   git -C /sandbox/workspace/My-Project init
+   mkdir -p /yolobox/workspace/My-Project
+   git -C /yolobox/workspace/My-Project init
    ```
 
    For an existing project, clone its repository instead:
 
    ```bash
-   cd /sandbox/workspace
+   cd /yolobox/workspace
    git clone https://github.com/your-name/your-project.git My-Project
    ```
 
@@ -132,7 +132,7 @@ Windows and Linux support is partially wired but has not been tested.
    you to authenticate. Start Claude with auto mode selected:
 
    ```bash
-   cd /sandbox/workspace/My-Project
+   cd /yolobox/workspace/My-Project
    claude --permission-mode auto
    ```
 
@@ -143,7 +143,7 @@ Windows and Linux support is partially wired but has not been tested.
    Or start Codex with:
 
    ```bash
-   cd /sandbox/workspace/My-Project
+   cd /yolobox/workspace/My-Project
    codex
    ```
 
@@ -225,7 +225,7 @@ volume, so a rebuild does not undo an update. They do not update themselves;
 to update both, in any mode:
 
 ```bash
-bash /sandbox/infra/setup/install-base.sh cli
+bash /yolobox/infra/setup/install-base.sh cli
 ```
 
 ### Add to the package stacks

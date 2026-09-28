@@ -51,7 +51,7 @@ container user is `node`, and the shell-history volume is still named
 
 The consequence is worth stating plainly: ordinary agent preferences are not
 the boundary. The container isolates the process and the firewall bounds its
-network reach when enabled; files deliberately bind-mounted into `/sandbox`
+network reach when enabled; files deliberately bind-mounted into `/yolobox`
 remain live host files. With the firewall down, commands approved to run outside
 the inner sandbox have the container's internet access and can affect or transmit
 accessible data. Automatic review is a safeguard, not an OS-level restriction

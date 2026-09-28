@@ -15,7 +15,7 @@ normie_config=$root/.devcontainer/normie/devcontainer.json
 #   $tmp/containers/<id>: "<config> <internet> <packages-rw> <seccomp> <state>"
 store=$tmp/containers
 mkdir -p $store
-typeset -g MOCK_VSCODE=0 MOCK_WORKDIR=/sandbox MOCK_UP_POSTURE='' MOCK_UP_STRAY=0
+typeset -g MOCK_VSCODE=0 MOCK_WORKDIR=/yolobox MOCK_UP_POSTURE='' MOCK_UP_STRAY=0
 
 # add_container <id> <config> <yolo|normie> [state]
 add_container() {
@@ -120,7 +120,7 @@ pass 'reload removes legacy dcu/dce/dccode names and defines bbu/bbe/bbcode'
 out=$(run --code "$root") || fail 'bbcode'
 grep -qF "devcontainer|up --workspace-folder $root --config $yolo_config" $log || fail 'no flag must use the YOLO config'
 [[ "$out" == *'YOLO mode container yolo-new-1'* ]] || fail 'YOLO report'
-expected_uri=$(python3 "$root/infra/host/dc-resolve.py" folder-uri "$root" "$yolo_config" /sandbox desktop-linux)
+expected_uri=$(python3 "$root/infra/host/dc-resolve.py" folder-uri "$root" "$yolo_config" /yolobox desktop-linux)
 grep -qF "code|--new-window --folder-uri $expected_uri" $log || fail 'VS Code must open the YOLO config'
 pass 'no flag brings up the YOLO config and opens it in VS Code'
 out=$(run --code --normie "$root") || fail 'bbcode --normie'
@@ -128,7 +128,7 @@ grep -qF "devcontainer|up --workspace-folder $root --config $normie_config" $log
 grep -q -- '--remove-existing-container' $log && fail 'a second mode must not recreate anything'
 grep -q 'docker|rm' $log && fail 'a second mode must not remove anything'
 (( $(count yolo-new) == 1 && $(count normie-new) == 1 )) || fail 'both containers must exist'
-expected_uri=$(python3 "$root/infra/host/dc-resolve.py" folder-uri "$root" "$normie_config" /sandbox desktop-linux)
+expected_uri=$(python3 "$root/infra/host/dc-resolve.py" folder-uri "$root" "$normie_config" /yolobox desktop-linux)
 grep -qF "code|--new-window --folder-uri $expected_uri" $log || fail 'VS Code must open the normie config'
 [[ "$out" == *'normie mode container normie-new-2'* ]] || fail 'normie report'
 pass '--normie brings up a second container beside the YOLO one'
@@ -147,7 +147,7 @@ out=$(run --normie "$root") || fail 'normie reuse'
 pass 'a normie bring-up reuses its container'
 
 run --shell --normie "$root/workspace" >/dev/null || fail 'bbe --normie'
-grep -qF "devcontainer|exec --workspace-folder $root --config $normie_config zsh -c cd /sandbox/workspace && exec zsh" $log || fail 'shell must exec into the normie container'
+grep -qF "devcontainer|exec --workspace-folder $root --config $normie_config zsh -c cd /yolobox/workspace && exec zsh" $log || fail 'shell must exec into the normie container'
 run --shell --yolo "$root" >/dev/null || fail 'bbe --yolo'
 grep -qF "devcontainer|exec --workspace-folder $root --config $yolo_config" $log || fail 'shell must exec into the YOLO container'
 : >$log; bbe --normie "$root" </dev/null >/dev/null || fail 'bbe wrapper'
@@ -177,7 +177,7 @@ grep -qF -- "--config $normie_config --remove-existing-container" $log || fail '
 yolo_new=($store/yolo-new-*(N:t))
 (( $#yolo_new == 1 )) && [[ "$(field $yolo_new[1] 5)" == running ]] || fail 'a running YOLO container stays running'
 grep -q 'docker|stop' $log && fail 'nothing that was running is stopped'
-expected_uri=$(python3 "$root/infra/host/dc-resolve.py" folder-uri "$root" "$normie_config" /sandbox desktop-linux)
+expected_uri=$(python3 "$root/infra/host/dc-resolve.py" folder-uri "$root" "$normie_config" /yolobox desktop-linux)
 grep -qF "code|--new-window --folder-uri $expected_uri" $log || fail 'the rebuild opens the chosen mode'
 [[ "$(grep -c '^code|' $log)" == 1 ]] || fail 'only the chosen mode is opened'
 [[ "$out" == *'recreating the YOLO mode container'*'recreating the normie mode container'* ]] || fail 'the chosen mode comes last'
@@ -254,12 +254,12 @@ pass 'containers from other configs are left alone and not listed'
 # Layout.
 reset_store
 add_container yolo-a "$yolo_config" yolo
-MOCK_WORKDIR=/workspace
+MOCK_WORKDIR=/sandbox
 if err=$(run "$root" 2>&1); then fail 'stale mount target should fail'; fi
-[[ "$err" == *'mounts the sandbox at /workspace'* && "$err" == *'expects /sandbox'* ]] || fail 'stale mount message'
+[[ "$err" == *'mounts the sandbox at /sandbox'* && "$err" == *'expects /yolobox'* ]] || fail 'stale mount message'
 grep -q 'devcontainer|up' $log && fail 'stale mount target must be caught before up'
 run --rebuild "$root" >/dev/null || fail 'rebuild should bypass the layout check'
-MOCK_WORKDIR=/sandbox
+MOCK_WORKDIR=/yolobox
 pass 'a stale mount target fails before up; rebuild skips the check'
 
 # Option errors.

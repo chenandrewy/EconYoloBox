@@ -1,17 +1,17 @@
 # Interactive shell setup for the container: PATH, aliases, and functions.
 # Sourced, not executed: the Dockerfile (via zsh-in-docker) appends
-# "source /sandbox/.devcontainer/shellrc.sh" to ~/.zshrc, so every
+# "source /yolobox/.devcontainer/shellrc.sh" to ~/.zshrc, so every
 # interactive shell picks this up. Currently only zsh sources it, but keep
 # the syntax bash/zsh-portable so ~/.bashrc could source it too.
 # Inputs: mounted workspace tools, installed toolchains, and container env.
 # Outputs: shell PATH, aliases/functions, and local setup warnings.
 
-# research tools on PATH, organized by topic (see /sandbox/agents/SANDBOX-CLAUDE.md)
+# research tools on PATH, organized by topic (see /yolobox/agents/SANDBOX-CLAUDE.md)
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
 #   lit:     citation lookup (cited_by.py, via OpenAlex)
 #   ai-sesh: sesh-init, sesh-push, sesh-wipe, gpt-fork
-export PATH="/sandbox/tools/pdf:/sandbox/tools/latex:/sandbox/tools/lit:/sandbox/tools/ai-sesh:$PATH"
+export PATH="/yolobox/tools/pdf:/yolobox/tools/latex:/yolobox/tools/lit:/yolobox/tools/ai-sesh:$PATH"
 
 # ai-sesh: keep the home session stores symlinked into the Dropbox-synced
 # tree (idempotent; silent once the links exist — see tools/ai-sesh/README.md)
@@ -57,7 +57,7 @@ fi
 # itself: the firewall-open marker post-start.sh leaves, the package mounts,
 # and PID 1's seccomp mode (PID 1, since an inner agent sandbox may add a
 # filter to the checking process).
-_sbx_posture=$(bash /sandbox/.devcontainer/posture.sh)
+_sbx_posture=$(bash /yolobox/.devcontainer/posture.sh)
 _sbx_mode=${_sbx_posture%% *}
 if [ "$_sbx_mode" != yolo ]; then
     if [ -t 1 ]; then
@@ -107,7 +107,7 @@ unset _sbx_posture _sbx_mode
 # Start Claude in the container, always under --remote-control so the session is
 # visible to `ccsessions` / `cckill` on the host. The name is derived from the
 # working directory rather than asked for, so starting a session is still one
-# word: on host "MacBook.local", /sandbox/workspace/My-Project becomes
+# word: on host "MacBook.local", /yolobox/workspace/My-Project becomes
 # "MacBook:My-Project#1". The sandbox root itself uses the host folder's
 # name. Set CC_SESSION_NAME to override the project portion. Yolo needs no
 # flag here because the container is the blast radius — host-side launchers
@@ -118,9 +118,9 @@ unset _sbx_posture _sbx_mode
 _cc_session_name() {
     local base host n=1 running
     # Strip the user-workspace prefix first, then the sandbox root, so both
-    # /sandbox/workspace/Foo and /sandbox/tools reduce to a short name.
-    base="${CC_SESSION_NAME:-${PWD#/sandbox/workspace}}"
-    base="${base#/sandbox}"
+    # /yolobox/workspace/Foo and /yolobox/tools reduce to a short name.
+    base="${CC_SESSION_NAME:-${PWD#/yolobox/workspace}}"
+    base="${base#/yolobox}"
     base="${base#/}"
     base="${base:-${LOCAL_CONTAINER_FOLDER##*/}}"
     host="${LOCAL_HOSTNAME:-}"
@@ -144,7 +144,7 @@ _cc_session_name() {
 }
 
 cchat-yolo() {
-    bash /sandbox/.devcontainer/check-yolo-boundaries.sh cchat-yolo || return 1
+    bash /yolobox/.devcontainer/check-yolo-boundaries.sh cchat-yolo || return 1
     claude --dangerously-skip-permissions --remote-control "$(_cc_session_name)" "$@"
 }
 
@@ -156,12 +156,12 @@ alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'
 # approvals_reviewer="auto_review" user preference. Only YOLO needs a wrapper
 # here, to refuse startup unless the container's outer boundaries are active.
 gptchat-yolo() {
-    bash /sandbox/.devcontainer/check-yolo-boundaries.sh gptchat-yolo || return 1
+    bash /yolobox/.devcontainer/check-yolo-boundaries.sh gptchat-yolo || return 1
     codex --dangerously-bypass-approvals-and-sandbox "$@"
 }
 
 gptmini-yolo() {
-    bash /sandbox/.devcontainer/check-yolo-boundaries.sh gptmini-yolo || return 1
+    bash /yolobox/.devcontainer/check-yolo-boundaries.sh gptmini-yolo || return 1
     codex --model gpt-5.4-mini --dangerously-bypass-approvals-and-sandbox "$@"
 }
 
@@ -176,7 +176,7 @@ alias gitlog="git log --graph --oneline --decorate --pretty=format:'%C(auto)%h %
 # R_PROFILE_USER points R at .devcontainer/home/Rprofile instead (see that file
 # for what it sets, e.g. suppressing the stray Rplots.pdf). Add a home/Renviron
 # and R_ENVIRON_USER here alongside it if env-style R settings are ever needed.
-export R_PROFILE_USER=/sandbox/.devcontainer/home/Rprofile
+export R_PROFILE_USER=/yolobox/.devcontainer/home/Rprofile
 
 # Never prompt to save the workspace image (.RData) on exit from an interactive
 # R session. There is no R option for this - it is a front-end flag - so an

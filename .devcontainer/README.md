@@ -54,6 +54,14 @@ tools baked into it. `infra/host/` is the launcher (`bbox`), and
 [`infra/setup/`](../infra/setup/README.md) is provisioning you run by hand, in the
 container: the package volumes and the AI CLIs.
 
+The checkout mounts at `/yolobox` inside both containers. The host checkout
+folder can keep its existing name. When changing an existing installation from
+the former `/sandbox` mount, close attached VS Code windows and run
+`bbox --rebuild` on the host. The launcher recreates both modes if both exist;
+an old container cannot be reused with the new working directory. Open a fresh
+shell afterward so `sesh-init` can update the home-directory session links.
+Stored session transcripts may still mention the old path as historical data.
+
 ### TeX Live and LyX
 
 TeX Live 2026 is installed with `bash infra/setup/install-base.sh tex` in the

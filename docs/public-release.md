@@ -19,7 +19,7 @@ Set this before any other step; every block below assumes it. This is the one
 place the path appears, so moving the checkout is a one-line change here.
 
 ```bash
-release_dir="/sandbox/workspace/Live_AIWorkFlow/EconYoloBox"
+release_dir="/yolobox/workspace/Live_AIWorkFlow/EconYoloBox"
 ```
 
 ## 1. Export
@@ -94,7 +94,7 @@ git -C "$release_dir" grep --cached -n -i -F \
   -e '--cluster' -- .
 
 private_names="$(
-  ls -d1 /sandbox/workspace/*/ \
+  ls -d1 /yolobox/workspace/*/ \
     | sed 's#^.*/##; s#/$##' \
     | grep -v -x -e DONE -e Other -e dev \
     | sed -n 'p; s#^[A-Za-z]*[,_]##p' \
@@ -114,7 +114,7 @@ git -C "$release_dir" diff --cached
 
 Private names are derived rather than listed here, so the audit stays correct
 as projects come and go. They come from listing the user workspace
-(`/sandbox/workspace/*/`, minus the generic `DONE`, `Other`, and `dev`), once with the `Live,`/`Ref,`-style prefix and once without. The bare
+(`/yolobox/workspace/*/`, minus the generic `DONE`, `Other`, and `dev`), once with the `Live,`/`Ref,`-style prefix and once without. The bare
 form matters because a name is revealing without its prefix — a document that
 says "GoogleScholar" and never says "Live," would otherwise pass. Confirm the printed list is non-empty and looks right before trusting a
 quiet result. Judge each hit on context —
@@ -150,14 +150,14 @@ Reuse the same checkout. Export the new commit to a temporary directory, scrub
 and audit and test it there, then swap it in.
 
 ```bash
-release_commit="$(git -C /sandbox rev-parse HEAD)"
+release_commit="$(git -C /yolobox rev-parse HEAD)"
 next_snapshot="$(mktemp -d)"
 
 test "$(git -C "$release_dir" rev-parse --show-toplevel)" = "$release_dir"
 git -C "$release_dir" remote -v
 test -z "$(git -C "$release_dir" status --porcelain)"
 
-git -C /sandbox archive "$release_commit" -- \
+git -C /yolobox archive "$release_commit" -- \
   . \
   ':(exclude)docs/journal' \
   ':(exclude)docs/journal/**' \
