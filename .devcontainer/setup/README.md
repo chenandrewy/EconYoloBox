@@ -1,8 +1,8 @@
 # Setup
 
-`infra/setup/` is provisioning run inside the container: the package volumes and
+`.devcontainer/setup/` is provisioning run inside the container: the package volumes and
 the AI CLIs. The first build and first start run `install-base.sh` for you
-(docs/journal/0926f); you run it by hand to change the base. `infra/host/` is the launcher (`ybox`), and
+(docs/journal/0926f); you run it by hand to change the base. `.devcontainer/host/` is the launcher (`ybox`), and
 `.devcontainer/` is the container itself: its definition, its startup, and the
 tools baked into it (docs/journal/0926d).
 
@@ -29,7 +29,7 @@ volume, it copies the image's contents at the mount point into it (read-only
 mounts included; checked 2026-09-26), so a new checkout's first build comes up
 with the base, in YOLO mode. The first start then installs the AI CLIs:
 `post-start.sh` runs `install-base.sh cli` while either is missing. After the
-first build, `bash .devcontainer/tests/test-packages.sh` checks the result.
+first build, `bash .devcontainer/setup/tests/test-packages.sh` checks the result.
 
 Seeding happens once. A volume that holds anything, even the bare skeleton an
 older image left, is never touched again, and the volume hides the image's
@@ -52,13 +52,13 @@ or repairing one, happens from inside, in normie mode:
 
 1. Open the normie container: on the host, `ybcode --normie` (or
    `bbe --normie`).
-2. In the container: `bash infra/setup/install-base.sh` (for a base change or a
+2. In the container: `bash .devcontainer/setup/install-base.sh` (for a base change or a
    repair; it skips what is present).
-3. Optionally, in the container: `bash infra/setup/install-optional.sh`.
+3. Optionally, in the container: `bash .devcontainer/setup/install-optional.sh`.
 4. Back to YOLO mode: on the host, `ybcode` (or `bbe`) opens the YOLO
    container, which already sees the new packages; `ybox --stop --normie`
    stops the normie one.
-5. In the YOLO container: `bash .devcontainer/tests/test-packages.sh`.
+5. In the YOLO container: `bash .devcontainer/setup/tests/test-packages.sh`.
 
 Skipping step 3 is fine; the base passes its tests alone, and a project can
 install just what it needs in normie mode instead.
@@ -66,12 +66,12 @@ install just what it needs in normie mode instead.
 From anywhere in the repository, in the container:
 
 ```sh
-bash infra/setup/install-base.sh            # python r tex cli (the default)
-bash infra/setup/install-base.sh tex        # minimal TeX Live only
-bash infra/setup/install-base.sh r          # R only
-bash infra/setup/install-base.sh r --force  # reinstall present R packages
-bash infra/setup/install-base.sh cli        # AI CLIs only; any mode
-bash infra/setup/install-base.sh --verify   # check the base; writes nothing; any mode
+bash .devcontainer/setup/install-base.sh            # python r tex cli (the default)
+bash .devcontainer/setup/install-base.sh tex        # minimal TeX Live only
+bash .devcontainer/setup/install-base.sh r          # R only
+bash .devcontainer/setup/install-base.sh r --force  # reinstall present R packages
+bash .devcontainer/setup/install-base.sh cli        # AI CLIs only; any mode
+bash .devcontainer/setup/install-base.sh --verify   # check the base; writes nothing; any mode
 ```
 
 `python`, `r` and `tex` check for normie mode before installing anything, the
@@ -87,16 +87,16 @@ the Dockerfile, give the volume a new name in `devcontainer.json`, then
 volume. The optional set then goes in with the steps above.
 
 The AI CLIs live in the per-checkout npm-global volume, which is writable in
-every mode, so `bash infra/setup/install-base.sh cli` updates them in YOLO mode too.
+every mode, so `bash .devcontainer/setup/install-base.sh cli` updates them in YOLO mode too.
 
 Volume names are written once, in `.devcontainer/devcontainer.json`. To try a
 new volume, rename it there and `ybox --rebuild`; Docker seeds it from the
 image, which already carries the base. Rename back to abandon it, and remove
 the unused volume with `docker volume rm`.
 
-After a rebuild, `bash .devcontainer/tests/test-packages.sh` (as `ubuntu`, in the
+After a rebuild, `bash .devcontainer/setup/tests/test-packages.sh` (as `ubuntu`, in the
 container) is the acceptance check for the base in either mode;
-`bash .devcontainer/tests/test-optional.sh` checks the optional set.
+`bash .devcontainer/setup/tests/test-optional.sh` checks the optional set.
 
 Stop R, Python and TeX work in every other container that mounts the volumes
 before an install. An unpinned pip addition can replace existing dependencies,
@@ -125,17 +125,17 @@ docker run --rm --mount type=volume,source=<volume>,target=/v ubuntu:24.04 chown
 
 Usually in normie mode: `install.packages("x")`, `pip install x` or
 `tlmgr install x` in the container, as `ubuntu`. If the package is generally
-useful, also add it to a list in `infra/setup/install-optional.sh` so the
+useful, also add it to a list in `.devcontainer/setup/install-optional.sh` so the
 next rebuild of the volume brings it back; an ad hoc install that is not added
 is lost then. `install-optional.sh` prints each command it runs, so it doubles
 as the reference for pryr (CRAN archive) and Bioconductor installs.
 
 The base changes only when the yolobox itself needs something:
 
-1. Edit the list in `infra/setup/install-base.sh`: `PY_PKGS`,
+1. Edit the list in `.devcontainer/setup/install-base.sh`: `PY_PKGS`,
    `cran_pkgs`, or `TEX_PKGS` (TeX package or collection names). Commit it;
    the list is the environment's declaration.
-2. In normie mode, in the container: `bash infra/setup/install-base.sh r` (or
+2. In normie mode, in the container: `bash .devcontainer/setup/install-base.sh r` (or
    `python`, `tex`). It re-runs the idempotent installer into the existing
    volume, so only the new package downloads.
 3. Switch back to YOLO mode. Restart sessions in other running containers;

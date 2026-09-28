@@ -1,10 +1,13 @@
 # Dev Container & Credentials
 
-Both `.devcontainer/` and `infra/credentials/` are designed to be copied across projects.
+`.devcontainer/` holds the environment implementation, including host launchers,
+provisioning, and tests. User-maintained agent configuration and credential
+management stay visible at the repository root in `agents/` and `credentials/`.
+Copy these directories together when adapting the environment to another project.
 
 This file documents how the pieces work.
 
-## Credentials (`infra/credentials/`)
+## Credentials (`credentials/`)
 
 Credentials are resolved in two ways, in order:
 
@@ -50,8 +53,8 @@ recreating them; emptying the file no longer does it.
 ## Dev Container (`.devcontainer/`)
 
 `.devcontainer/` is the container itself: its definition, its startup, and the
-tools baked into it. `infra/host/` is the launcher (`ybox`), and
-[`infra/setup/`](../infra/setup/README.md) is provisioning you run by hand, in the
+tools baked into it. `.devcontainer/host/` is the launcher (`ybox`), and
+[`.devcontainer/setup/`](setup/README.md) is provisioning you run by hand, in the
 container: the package volumes and the AI CLIs.
 
 The checkout mounts at `/yolobox` inside both containers. The host checkout
@@ -62,9 +65,19 @@ an old container cannot be reused with the new working directory. Open a fresh
 shell afterward so `sesh-init` can update the home-directory session links.
 Stored session transcripts may still mention the old path as historical data.
 
+### Updating an existing checkout after the directory reorganization
+
+Host support and provisioning moved from `infra/` into `host/` and `setup/`
+inside `.devcontainer/`; credential management moved to root `credentials/`.
+From the checkout root on the host, rerun `bash .devcontainer/host/setup.sh`,
+then open a new shell (or run `exec zsh`) to load the new launcher registration.
+Setup migrates earlier registrations while preserving unrelated shell settings.
+Run `ybox --rebuild` to recreate the containers with the updated initialization
+commands and image scripts. Existing package and authentication volumes are kept.
+
 ### TeX Live and LyX
 
-TeX Live 2026 is installed with `bash infra/setup/install-base.sh tex` in the
+TeX Live 2026 is installed with `bash .devcontainer/setup/install-base.sh tex` in the
 container, **in normie mode**, using upstream `install-tl`. It is minimal and pdfLaTeX-only. The base is
 `scheme-small` without XeTeX, plus bibtexextra (biblatex, biber), latexindent,
 latexmk and cm-super; `install-optional.sh` adds latexextra, fontsrecommended,
@@ -81,7 +94,7 @@ preventing other container use. If TeX is installed after startup, run
 `tex-refresh` manually in each consumer and reopen any already-running LyX.
 The user configuration is not persisted across container recreation, so it
 is regenerated at startup. Custom LyX `-userdir` locations are not managed by
-this helper. See the host setup README for installation and failure handling.
+this helper. See the [package setup README](setup/README.md) for installation and failure handling.
 
 ### Configuration files
 
@@ -112,7 +125,7 @@ this helper. See the host setup README for installation and failure handling.
 
 ### Hostname and Claude session names
 
-`write-local-env.sh` captures the host's name as `LOCAL_HOSTNAME` when the
+`host/write-local-env.sh` captures the host's name as `LOCAL_HOSTNAME` when the
 container initializes. The `hostname-local` alias prints that value inside the
 container. `cchat-yolo` uses it, without the routine `.local` suffix, to prefix
 Claude Code remote-control session names so sessions from different computers
@@ -284,7 +297,7 @@ The three `managed/` files are **not** handled by the seed script. They are
 `COPY`ed into the image as root-owned `0444`, so changing one requires a
 rebuild. The Codex system config provides stable, user-overridable defaults;
 the two policy files enforce settings that user config cannot override.
-`.devcontainer/test-agent-policy.sh` verifies that the default is installed
+`.devcontainer/tests/test-agent-policy.sh` verifies that the default is installed
 and that the policies are actually in force.
 
 The seed script handles guidance and settings differently:
@@ -357,20 +370,20 @@ In normie mode, install as `ubuntu` with the ordinary commands:
 The image seeds the volumes `ubuntu`-owned, so no sudo is needed. pip
 resolves against current PyPI and can replace dependencies, one reason the mode
 is supervised. Agents install in normie mode only when the user asks.
-`infra/setup/install-base.sh` installs the base this way, and
-`infra/setup/install-optional.sh` the optional set;
-`install-optional.sh --verify` and `tests/test-optional.sh` check it in any
+`.devcontainer/setup/install-base.sh` installs the base this way, and
+`.devcontainer/setup/install-optional.sh` the optional set;
+`install-optional.sh --verify` and `setup/tests/test-optional.sh` check it in any
 mode.
 
-### Package stacks and AI CLIs (`infra/setup/install-base.sh`)
+### Package stacks and AI CLIs (`.devcontainer/setup/install-base.sh`)
 
 The R, Python and TeX stacks live in three shared Docker volumes. The image
 carries a copy of the lean base only to seed them: its build runs
 `install-base.sh --image-build`, and Docker copies the image's directory into
 each volume the first time an empty one is mounted (docs/journal/0926f). After
 that the human changes the base in normie mode with
-`bash infra/setup/install-base.sh` (see the [setup README](../infra/setup/README.md)),
-and optionally adds the rest with `infra/setup/install-optional.sh`.
+`bash .devcontainer/setup/install-base.sh` (see the [setup README](setup/README.md)),
+and optionally adds the rest with `.devcontainer/setup/install-optional.sh`.
 The YOLO container mounts them read-only and the normie container writable:
 
 | Volume | Mount |
@@ -399,7 +412,7 @@ System dependencies that need root (`gfortran`, `libcurl4-openssl-dev`,
 the volume a new name, rebuild the container in normie mode, then fill it.
 
 The Claude Code and Codex CLIs are part of the base, installed into a writable
-per-container volume by the same script, `bash infra/setup/install-base.sh cli`,
+per-container volume by the same script, `bash .devcontainer/setup/install-base.sh cli`,
 which works in any mode. `post-start.sh` runs it at startup while either CLI
 is missing, so a fresh volume fills itself. They were a Dockerfile layer pinned to
 `@latest`, which turned out to mean "whatever was current the day the layer
@@ -413,12 +426,12 @@ while either CLI is missing. The npm-managed CLIs should not be assumed to
 self-update; re-run `install-base.sh cli` to update both to their current
 releases.
 
-`tests/test-packages.sh`, run as `ubuntu` in a rebuilt container, is the
+`setup/tests/test-packages.sh`, run as `ubuntu` in a rebuilt container, is the
 acceptance check for the base. It covers mounts that match `packages`, the
 declared base stacks, every installed R package loading, a `fixest`
 regression, refused installs of absent packages (read-only mode), and pdflatex,
 biber, latexindent, latexmk and LyX export. It passes without the optional
-set; `tests/test-optional.sh` checks that set separately.
+set; `setup/tests/test-optional.sh` checks that set separately.
 
 ### Dockerfile ordering
 

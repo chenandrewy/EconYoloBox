@@ -1,7 +1,7 @@
 # devcontainer.zsh — create, verify, and enter this repo's dev containers.
 #
 # Source from an interactive host zsh:
-#   source /path/to/EconYoloBox/host/devcontainer.zsh
+#   source /path/to/EconYoloBox/.devcontainer/host/devcontainer.zsh
 #
 # Inputs:  --yolo (the default) or --normie, and an optional project directory.
 # Outputs: ybox plus the bbu/bbe/ybcode wrappers, which take the same flags

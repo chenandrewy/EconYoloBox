@@ -11,6 +11,6 @@ takes effect only after a rebuild (`ybox --rebuild` on the host).
 | `YOLOBOX-codex-config.toml` | `/etc/codex/config.toml` | Codex system defaults; user config can override them |
 
 Agents in the container can read these files here but cannot change the
-installed copies. `.devcontainer/test-agent-policy.sh` checks that the
+installed copies. `.devcontainer/tests/test-agent-policy.sh` checks that the
 installed policy is in force. See "Agent Config" in the
 [devcontainer README](../../.devcontainer/README.md#agent-config).

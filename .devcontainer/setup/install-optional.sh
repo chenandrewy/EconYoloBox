@@ -3,9 +3,9 @@
 #
 # Run, inside the devcontainer as ubuntu, in normie mode (on the host,
 # `ybcode --normie` or `bbe --normie`):
-#   bash infra/setup/install-optional.sh              # python r tex
-#   bash infra/setup/install-optional.sh r            # one stack
-#   bash infra/setup/install-optional.sh --verify     # check only; any mode
+#   bash .devcontainer/setup/install-optional.sh              # python r tex
+#   bash .devcontainer/setup/install-optional.sh r            # one stack
+#   bash .devcontainer/setup/install-optional.sh --verify     # check only; any mode
 #
 # Inputs:  the lists below; PyPI; the dated P3M snapshot pinned in the image's
 #          Rprofile.site; the CRAN archive (pryr); Bioconductor; the TeX Live
@@ -14,7 +14,7 @@
 #          /usr/local/texlive; an "... OK" line per stack, or MISSING lines and
 #          a nonzero exit.
 #
-# The base stacks come from infra/setup/install-base.sh, in the same mode and with the
+# The base stacks come from .devcontainer/setup/install-base.sh, in the same mode and with the
 # same check; this is the rest of what we use, installed by the user while
 # watching (docs/journal/0926a, 0926e).
 # The yolobox's own tools and tests never depend on it. Each step is the
@@ -131,7 +131,7 @@ require_install_mode() {
         elif findmnt -n -o OPTIONS -T "$mount" | tr ',' '\n' | grep -qx ro; then
             problems+=("$mount is mounted read-only")
         elif [ ! -w "$mount" ]; then
-            problems+=("$mount is not writable by $(id -un) (see infra/setup/README.md, \"Volume ownership\")")
+            problems+=("$mount is not writable by $(id -un) (see .devcontainer/setup/README.md, \"Volume ownership\")")
         fi
     done
     # post-start.sh leaves this marker when it skips the firewall. Armed, the

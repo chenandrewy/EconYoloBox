@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Run as ubuntu in a rebuilt devcontainer: bash .devcontainer/tests/test-packages.sh
+# Run as ubuntu in a rebuilt devcontainer: bash .devcontainer/setup/tests/test-packages.sh
 # Inputs: the shared R, Python and TeX volumes, mounted read-only (YOLO mode,
-#   the default) or writable (ybox --normie); infra/setup/install-base.sh (its --verify
+#   the default) or writable (ybox --normie); .devcontainer/setup/install-base.sh (its --verify
 #   mode holds the declared base lists). In read-only mode pip reaches PyPI
 #   only to prove an install is refused. Passes on the base alone; the
 #   optional set has its own check, tests/test-optional.sh.
@@ -25,7 +25,7 @@ case "$site_library" in
 *) fail "R's first library is $site_library, not the mounted site-library" ;;
 esac
 
-mode=$(bash "$here/../package-mode.sh")
+mode=$(bash "$here/../../package-mode.sh")
 echo "--- package mounts agree: $mode"
 case "$mode" in
 readonly | writable) ;;
@@ -46,13 +46,13 @@ for mount in /opt/venv "$site_library" /usr/local/texlive; do
     fi
 done
 if [ "$mode" = readonly ]; then
-    bash "$here/../../infra/setup/install-base.sh" python >refuse-python.log 2>&1 && fail "install-base.sh python ran in a consumer"
+    bash "$here/../install-base.sh" python >refuse-python.log 2>&1 && fail "install-base.sh python ran in a consumer"
     grep -q 'mounted read-only' refuse-python.log || fail "install-base.sh python did not explain the refusal"
     grep -q 'install-base.sh cli' refuse-python.log || fail "install-base.sh python refusal did not point to cli"
 fi
 
 echo '--- declared stacks (install-base.sh --verify)'
-bash "$here/../../infra/setup/install-base.sh" --verify python r tex >verify.log 2>&1 || {
+bash "$here/../install-base.sh" --verify python r tex >verify.log 2>&1 || {
     cat verify.log >&2
     fail "declared stack verification"
 }

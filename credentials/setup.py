@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # ABOUTME: Interactively saves project credentials to host OS credential storage.
 #
-# Run:     python infra/credentials/setup.py
+# Run:     python credentials/setup.py
 # Inputs:  Interactive prompts based on credentials-map.json
 # Outputs: Saves credentials to macOS Keychain or Windows Credential Manager
 
@@ -121,7 +121,7 @@ def main() -> int:
             saved_any = True
 
     if saved_any:
-        print("\nCredentials saved. They will be available to all scripts via infra/credentials/get-credentials.py.")
+        print("\nCredentials saved. They will be available to all scripts via credentials/get-credentials.py.")
     else:
         print("\nNo credentials were saved.")
 

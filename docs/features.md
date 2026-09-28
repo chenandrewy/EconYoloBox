@@ -86,7 +86,7 @@ tooling those changes exist to support is described in
   config hard-codes `YOLOBOX_INTERNET=open` in the container's environment,
   fixed at creation, and anything other than `open` arms. Every shell says so
   while it is off. The configs and the startup scripts are in the tracked,
-  writable workspace, and so is the host launcher, `infra/host/devcontainer.zsh`,
+  writable workspace, and so is the host launcher, `.devcontainer/host/devcontainer.zsh`,
   which the host's `~/.zshrc` sources straight from the checkout: an agent
   that edits them changes what the next creation, start, or host shell
   runs. They are not a security boundary against an
@@ -141,7 +141,7 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   minimal pdfLaTeX TeX Live live in shared Docker volumes. The first build
   fills them with a lean base: the image carries a copy, and Docker seeds each
   empty volume from it. After that the human changes them with
-  `bash infra/setup/install-base.sh` from inside the container in normie mode, with
+  `bash .devcontainer/setup/install-base.sh` from inside the container in normie mode, with
   the firewall off and the volumes writable, and every project mounts them
   read-only by default. Agents run the stacks but cannot
   change them. Packages change only in normie mode, from inside.
@@ -192,15 +192,15 @@ workable should each be one step.
 
 | Location | Commands |
 | --- | --- |
-| `infra/host/devcontainer.zsh` (host shell) | `ybox` (`bbu`, `bbe`, and `ybcode` are short wrappers) |
+| `.devcontainer/host/devcontainer.zsh` (host shell) | `ybox` (`bbu`, `bbe`, and `ybcode` are short wrappers) |
 | `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
 | `tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork` |
 | `tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
 | `tools/latex/` | `sync-lyx.sh` |
 | `tools/lit/` | `cited_by.py` |
 | `agents/` | `seed-agent-guidelines.sh` (runs at container start) |
-| `.devcontainer/` | `test-firewall.sh`, `test-agent-policy.sh` |
-| `infra/setup/` (container; normie mode except `cli`, `--verify`) | `install-base.sh`, `install-optional.sh` |
+| `.devcontainer/tests/` | `test-firewall.sh`, `test-agent-policy.sh` (also installed on PATH) |
+| `.devcontainer/setup/` (container; normie mode except `cli`, `--verify`) | `install-base.sh`, `install-optional.sh` |
 
 Everything in `tools/` is on `PATH` via `shellrc.sh`, so the filenames are the
 commands.
@@ -218,7 +218,7 @@ commands.
 
 ### Containers, sessions, and agents
 
-- **One-command project opening (`infra/host/`).** Source `devcontainer.zsh` in your
+- **One-command project opening (`.devcontainer/host/`).** Source `devcontainer.zsh` in your
   `~/.zshrc` and use `ybcode [dir]` to bring up the enclosing YOLO container
   (or `ybcode --normie [dir]` for the normie one), verify its posture, and
   open that exact subfolder in VS Code. `bbe [dir]` follows the same bring-up
@@ -235,7 +235,7 @@ commands.
   tooling can list sessions across all running containers and terminate them in
   one command. Running many agents at once stays tractable. Note that the
   launchers themselves (`ccsessions`, `cckill`, `cc-remote-*`) are personal
-  machine-level configuration and are **not shipped here** — see `infra/host/README.md`.
+  machine-level configuration and are **not shipped here** — see `.devcontainer/host/README.md`.
   What this repo provides is the half that makes them possible: every session
   remote-controlled and deterministically named.
 

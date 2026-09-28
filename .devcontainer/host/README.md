@@ -1,7 +1,7 @@
 # Host-side toolkit
 
-`infra/host/` is the supported host launcher for this yolobox,
-[`infra/setup/`](../setup/README.md) is provisioning you run by hand (package
+`.devcontainer/host/` is the supported host launcher for this yolobox,
+[`.devcontainer/setup/`](../setup/README.md) is provisioning you run by hand (package
 volumes and AI CLIs, in the container), and `.devcontainer/` is
 the container itself: its definition, its startup, and the tools baked into
 it.
@@ -17,7 +17,7 @@ Launching and managing Claude Code sessions remains a separate personal concern.
 From the checkout root on the host, run:
 
 ```zsh
-bash infra/host/setup.sh
+bash .devcontainer/host/setup.sh
 exec zsh
 ybox --code
 ```
@@ -27,12 +27,14 @@ Setup locates its own checkout and registers the launcher in
 it, preserves unrelated shell configuration, and replaces its managed block
 when rerun, including after a checkout move or rename. Simple source lines for
 this launcher from the previous README are migrated into the managed block.
+This includes the former `infra/host/` registration. After this directory move,
+rerun setup and open a new shell before using the launcher.
 The block is appended after existing completion setup.
 
 It checks for Python 3, zsh, Docker, the Dev Containers CLI, and the VS Code
 `code` command, reporting missing prerequisites without installing software or
 starting containers. Python 3 is required to edit the registration. For a custom
-rc file or testing, use `bash infra/host/setup.sh --rc-file PATH`.
+rc file or testing, use `bash .devcontainer/host/setup.sh --rc-file PATH`.
 
 ## Layout
 
@@ -43,8 +45,10 @@ rc file or testing, use `bash infra/host/setup.sh --rc-file PATH`.
 | `_ybox`            | side-effect-free native zsh completion                     |
 | `_ybcode`          | zsh completion for the VS Code wrapper                     |
 | `dc-resolve.py`    | container-path, CLI-output, and folder-URI helpers          |
+| `find-python.sh`   | Python discovery for host initialization                  |
+| `write-local-env.sh` | host name, checkout path, and time zone for the container |
 
-Keep these files flat in `infra/host/`: `devcontainer.zsh` resolves its siblings from
+Keep these files flat in `.devcontainer/host/`: `devcontainer.zsh` resolves its siblings from
 its own path, so another checkout cannot redirect its helpers.
 
 ## Functions
@@ -83,7 +87,7 @@ therefore rebuilds the same mode. Containers for the folder with any other
 config label are not `ybox`'s and are left alone. The two containers share
 one set of per-checkout volumes (logins, the AI CLIs, shell history), which
 is why a checkout's folder name must be unique on the Docker daemon (see the
-[container README](../.devcontainer/README.md#working-modes)).
+[container README](../README.md#working-modes)).
 
 All modes walk up from `dir` (default: the current directory) and resolve the
 yolobox once. `ybox` then calls `devcontainer up` for the mode's config and

@@ -2,7 +2,7 @@
 # ABOUTME: Cross-platform Python finder for devcontainer initializeCommand.
 # ABOUTME: Finds a working Python 3 interpreter on macOS, Linux, or Windows (Git Bash).
 #
-# Run:     source .devcontainer/find-python.sh  (sets PYTHON variable)
+# Run:     source .devcontainer/host/find-python.sh  (sets PYTHON variable)
 # Inputs:  None
 # Outputs: PYTHON env var pointing to a working Python 3 interpreter
 

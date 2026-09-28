@@ -1,5 +1,5 @@
 #compdef ybox
-# Run:     source infra/host/_ybox after zsh completion initialization.
+# Run:     source .devcontainer/host/_ybox after zsh completion initialization.
 # Inputs:  the current command line only; completion does not read configuration.
 # Outputs: the _ybox completion function and, when available, its compdef binding.
 

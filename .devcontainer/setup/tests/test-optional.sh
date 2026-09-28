@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Run as ubuntu in the devcontainer, any mode: bash .devcontainer/tests/test-optional.sh
+# Run as ubuntu in the devcontainer, any mode: bash .devcontainer/setup/tests/test-optional.sh
 # Inputs: the shared R, Python and TeX volumes after install-optional.sh has
-#   filled them; infra/setup/install-optional.sh (its --verify mode holds the lists).
+#   filled them; .devcontainer/setup/install-optional.sh (its --verify mode holds the lists).
 # Outputs: fixtures and logs in a new /tmp/optional-check.* directory (printed
 #   first); a PASS line and exit 0, or a FAIL line and nonzero exit.
 #
@@ -19,7 +19,7 @@ echo "Logs and fixtures: $dir"
 cd "$dir"
 
 echo '--- declared optional set (install-optional.sh --verify)'
-bash "$here/../../infra/setup/install-optional.sh" --verify >verify.log 2>&1 || {
+bash "$here/../install-optional.sh" --verify >verify.log 2>&1 || {
     cat verify.log >&2
     fail "optional set verification; install it with install-optional.sh in writable mode"
 }

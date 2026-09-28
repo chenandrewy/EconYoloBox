@@ -3,12 +3,12 @@
 #
 # Run, inside the devcontainer as ubuntu, from anywhere in this checkout:
 #   In normie mode (on the host, `ybcode --normie` or `bbe --normie`):
-#     bash infra/setup/install-base.sh                # python r tex cli (all)
-#     bash infra/setup/install-base.sh tex            # TeX Live only
-#     bash infra/setup/install-base.sh r --force      # reinstall present R packages
+#     bash .devcontainer/setup/install-base.sh                # python r tex cli (all)
+#     bash .devcontainer/setup/install-base.sh tex            # TeX Live only
+#     bash .devcontainer/setup/install-base.sh r --force      # reinstall present R packages
 #   In any mode:
-#     bash infra/setup/install-base.sh cli            # AI CLIs, always @latest
-#     bash infra/setup/install-base.sh --verify       # check only; writes nothing
+#     bash .devcontainer/setup/install-base.sh cli            # AI CLIs, always @latest
+#     bash .devcontainer/setup/install-base.sh --verify       # check only; writes nothing
 #   In the Dockerfile only (RUN as ubuntu, BuildKit bind-mounting this file):
 #     bash install-base.sh --image-build         # python r tex into the image
 #
@@ -147,8 +147,8 @@ fi
 # its own check below.
 if [ "$IMAGE_BUILD" -eq 0 ] && [ ! -f /.dockerenv ] && [ ! -f /run/.containerenv ]; then
     echo "install-base.sh: runs only inside the devcontainer; nothing was installed." >&2
-    echo "Switch to normie mode (see infra/setup/README.md), then in the container run:" >&2
-    echo "  bash infra/setup/install-base.sh $*" >&2
+    echo "Switch to normie mode (see .devcontainer/setup/README.md), then in the container run:" >&2
+    echo "  bash .devcontainer/setup/install-base.sh $*" >&2
     exit 1
 fi
 
@@ -177,7 +177,7 @@ require_install_mode() {
         else
             owner=$(stat -c %U "$mount")
             if [ "$owner" != ubuntu ]; then
-                problems+=("$mount is owned by $owner, not ubuntu (see infra/setup/README.md, \"Volume ownership\")")
+                problems+=("$mount is owned by $owner, not ubuntu (see .devcontainer/setup/README.md, \"Volume ownership\")")
             elif [ ! -w "$mount" ]; then
                 problems+=("$mount is not writable by $(id -un)")
             fi
@@ -190,9 +190,9 @@ require_install_mode() {
         echo "install-base.sh: not in normie mode:" >&2
         printf '  - %s\n' "${problems[@]}" >&2
         echo 'Switch to normie mode: on the host, ybcode --normie (or bbe --normie),' >&2
-        echo "then in the container: bash infra/setup/install-base.sh $STACK_TARGETS" >&2
+        echo "then in the container: bash .devcontainer/setup/install-base.sh $STACK_TARGETS" >&2
         echo 'Back to YOLO mode afterwards: ybcode or bbe; ybox --stop --normie.' >&2
-        echo 'The AI CLIs update in any mode: bash infra/setup/install-base.sh cli' >&2
+        echo 'The AI CLIs update in any mode: bash .devcontainer/setup/install-base.sh cli' >&2
         exit 1
     fi
 }
@@ -202,7 +202,7 @@ require_install_mode() {
 require_cli_mount() {
     if ! mountpoint -q "$CLI_TARGET"; then
         echo "install-base.sh: $CLI_TARGET is not a mounted volume; refusing to install into the image layer." >&2
-        echo "Run ybox --rebuild on the host, then bash infra/setup/install-base.sh cli" >&2
+        echo "Run ybox --rebuild on the host, then bash .devcontainer/setup/install-base.sh cli" >&2
         exit 1
     fi
 }
@@ -226,7 +226,7 @@ require_image_build() {
     if [ ${#problems[@]} -gt 0 ]; then
         echo "install-base.sh: --image-build is for the Dockerfile only:" >&2
         printf '  - %s\n' "${problems[@]}" >&2
-        echo "In a container, install in normie mode: bash infra/setup/install-base.sh" >&2
+        echo "In a container, install in normie mode: bash .devcontainer/setup/install-base.sh" >&2
         exit 1
     fi
 }
@@ -649,13 +649,13 @@ install_tex() {
 
     if [ "$VERIFY" -eq 1 ]; then
         if [ ! -f "$TEX_MARKER" ]; then
-            echo "MISSING (tex): no $TEX_MARKER; in normie mode, in the container: bash infra/setup/install-base.sh tex" >&2
+            echo "MISSING (tex): no $TEX_MARKER; in normie mode, in the container: bash .devcontainer/setup/install-base.sh tex" >&2
             return 1
         fi
         local absent=()
         mapfile -t absent < <(tex_missing "$year")
         if [ ${#absent[@]} -gt 0 ]; then
-            echo "MISSING (tex): ${absent[*]}; in normie mode, in the container: bash infra/setup/install-base.sh tex" >&2
+            echo "MISSING (tex): ${absent[*]}; in normie mode, in the container: bash .devcontainer/setup/install-base.sh tex" >&2
             return 1
         fi
         echo "TeX stack OK (marked; ${#TEX_COLLECTIONS[@]} collections, ${#TEX_PKGS[@]} extra packages present)"

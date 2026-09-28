@@ -2,13 +2,13 @@
 # ABOUTME: Writes stable host-local info to an env file consumed by the Dev
 # ABOUTME: Container via runArgs --env-file.
 #
-# Run:     bash .devcontainer/write-local-env.sh   (host, at initializeCommand)
+# Run:     bash .devcontainer/host/write-local-env.sh   (host, at initializeCommand)
 # Inputs:  host name and zone; optional host TZ environment variable.
 # Outputs: /tmp/devcontainer-local.env with LOCAL_HOSTNAME, LOCAL_CONTAINER_FOLDER, TZ.
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-LOCAL_CONTAINER_FOLDER=$(cd "$SCRIPT_DIR/.." && pwd -P)
+LOCAL_CONTAINER_FOLDER=$(cd "$SCRIPT_DIR/../.." && pwd -P)
 
 # Host IANA zone. $TZ is rarely set on macOS/desktop Linux (and VS Code launched
 # from the Dock inherits no shell profile), so read the system setting directly.

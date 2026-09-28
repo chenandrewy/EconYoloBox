@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # ABOUTME: Checks that WRDS credentials are available and can connect.
 #
-# Run:     python infra/credentials/check-wrds.py
+# Run:     python credentials/check-wrds.py
 # Inputs:  WRDS credentials via env, mounted secret file, or host store
 # Outputs: Prints connection status, exits 0 on success, 1 on failure
 
@@ -28,7 +28,7 @@ def main() -> int:
             missing.append("WRDS_PASSWORD / wrds-password")
         print(f"FAIL: Missing credentials: {', '.join(missing)}")
         print(
-            "Rerun `python infra/credentials/setup.py` on your host/local machine, "
+            "Rerun `python credentials/setup.py` on your host/local machine, "
             "then reopen the devcontainer or rerun its host-side injector."
         )
         return 1

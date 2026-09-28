@@ -7,7 +7,7 @@
 # setting the same values in a user config, which an agent can simply override
 # on the command line.
 #
-# Verify with .devcontainer/test-agent-policy.sh after a rebuild. Do not assume
+# Verify with .devcontainer/tests/test-agent-policy.sh after a rebuild. Do not assume
 # this file works because it exists: a key Codex does not recognize can take the
 # whole requirements layer out of service, and nothing warns you.
 

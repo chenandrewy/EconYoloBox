@@ -1,5 +1,5 @@
 #compdef ybcode
-# Run:     source infra/host/_ybcode after zsh completion initialization.
+# Run:     source .devcontainer/host/_ybcode after zsh completion initialization.
 # Inputs:  the current ybcode command line only.
 # Outputs: the _ybcode completion function and, when available, its compdef binding.
 

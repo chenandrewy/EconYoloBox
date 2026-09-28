@@ -2,7 +2,7 @@
 # Run:     python3 .devcontainer/tests/test_config_twins.py
 # Inputs:  .devcontainer/devcontainer.json (YOLO) and
 #          .devcontainer/normie/devcontainer.json (normie), parsed as JSONC with
-#          infra/host/dc-resolve.py's comment stripper.
+#          .devcontainer/host/dc-resolve.py's comment stripper.
 # Outputs: unittest results. Fails unless each file carries its mode's posture
 #          and the two differ in nothing else but the name, the normie: window
 #          title prefix and the paths that are relative to the file's own
@@ -26,7 +26,7 @@ POSTURE = {
 
 
 def load_resolver():
-    path = ROOT / "infra" / "host" / "dc-resolve.py"
+    path = ROOT / ".devcontainer" / "host" / "dc-resolve.py"
     loader = importlib.machinery.SourceFileLoader("dc_resolve_under_test", str(path))
     spec = importlib.util.spec_from_loader("dc_resolve_under_test", loader)
     module = importlib.util.module_from_spec(spec)

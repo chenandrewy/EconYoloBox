@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run: bash /path/to/checkout/host/setup.sh [--rc-file PATH]
+# Run: bash /path/to/checkout/.devcontainer/host/setup.sh [--rc-file PATH]
 # Inputs: this checkout's launcher; ${ZDOTDIR:-$HOME}/.zshrc by default.
 # Outputs: a backed-up, idempotent launcher registration and prerequisite report.
 # Requires Python 3. Installs no software and does not start Docker or a container.
@@ -8,7 +8,7 @@
 # Keep the legacy bbox markers and backup prefix to recognize existing setups.
 #
 #   # >>> bbox host launcher >>>
-#   source /path/to/checkout/host/devcontainer.zsh
+#   source /path/to/checkout/.devcontainer/host/devcontainer.zsh
 #   # <<< bbox host launcher <<<
 #
 # The path is this checkout's, shell-quoted if needed. Rerunning cuts out the
@@ -24,7 +24,7 @@ toolkit_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 rc_file="${ZDOTDIR:-$HOME}/.zshrc"
 if [ "$#" -gt 0 ]; then
     if [ "$#" -ne 2 ] || [ "$1" != --rc-file ]; then
-        echo 'Usage: bash infra/host/setup.sh [--rc-file PATH]' >&2
+        echo 'Usage: bash .devcontainer/host/setup.sh [--rc-file PATH]' >&2
         exit 2
     fi
     rc_file=$2
@@ -43,9 +43,9 @@ import sys
 import tempfile
 
 launcher = Path(sys.argv[1])
-# Earlier layouts kept the launcher in .host/ or host/ at the checkout root.
+# Earlier layouts kept the launcher in .host/, host/, or infra/host/.
 checkout = launcher.parent.parent.parent
-old_launchers = [checkout / d / launcher.name for d in ('.host', 'host')]
+old_launchers = [checkout / d / launcher.name for d in ('.host', 'host', 'infra/host')]
 rc = Path(sys.argv[2]).expanduser()
 begin = '# >>> bbox host launcher >>>'
 end = '# <<< bbox host launcher <<<'

@@ -40,12 +40,11 @@ Key features:
 More concretely, the whole checkout is bind-mounted at `/yolobox` in the
 container. The yolobox itself is these tracked folders:
 
-- `.devcontainer/`: yolobox implementation
+- `.devcontainer/`: container definitions, runtime support, host launchers,
+  provisioning, and tests
 - `agents/`: agent guidance, settings and skills; `agents/managed/` is the
   policy baked into the image
-- `infra/credentials/`: credential injection mechanism
-- `infra/host/`: ergonomic container access
-- `infra/setup/`: package and CLI provisioning
+- `credentials/`: user-maintained credential mapping and host credential management
 - `docs/`: design notes and the feature tour
 - `tools/`: custom research tooling
 
@@ -210,7 +209,7 @@ are not needed to authenticate Claude or Codex. In the Mac's Terminal, open
 your checkout root and run:
 
 ```bash
-python3 infra/credentials/setup.py
+python3 credentials/setup.py
 ```
 
 Press Enter to skip any service you do not use. The container receives the
@@ -225,7 +224,7 @@ volume, so a rebuild does not undo an update. They do not update themselves;
 to update both, in any mode:
 
 ```bash
-bash /yolobox/infra/setup/install-base.sh cli
+bash /yolobox/.devcontainer/setup/install-base.sh cli
 ```
 
 ### Add to the package stacks
@@ -236,12 +235,12 @@ of the usual stack, or any other package, switch to normie mode with
 `ybcode --normie` on the host. Then, in the container:
 
 ```bash
-bash infra/setup/install-optional.sh      # the rest of the usual stack
+bash .devcontainer/setup/install-optional.sh      # the rest of the usual stack
 ```
 
 or `install.packages()`, `pip install` or `tlmgr install`. Switch back to YOLO
 mode (`ybcode`, then `ybox --stop --normie`) and run
-`bash .devcontainer/tests/test-packages.sh`. See [setup](infra/setup/README.md) and
+`bash .devcontainer/setup/tests/test-packages.sh`. See [setup](.devcontainer/setup/README.md) and
 the [devcontainer README](.devcontainer/README.md#working-modes) for the
 details.
 
@@ -254,7 +253,7 @@ following from the checkout root in a host zsh terminal:
 
 ```zsh
 npm install -g @devcontainers/cli
-bash infra/host/setup.sh
+bash .devcontainer/host/setup.sh
 exec zsh
 type ybox
 ```
@@ -289,7 +288,7 @@ to confirm that eviction is the actual problem.
 ## TeX Live setup
 
 The devcontainer uses a shared, pdfLaTeX-only TeX Live volume, read-only by
-default, which the first build fills. See [setup](infra/setup/README.md) for adding
+default, which the first build fills. See [setup](.devcontainer/setup/README.md) for adding
 packages and for validation.
 
 ## License

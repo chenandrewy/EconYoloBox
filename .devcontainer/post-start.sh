@@ -59,8 +59,8 @@ bash agents/seed-agent-guidelines.sh
 # A failure warns and moves on; shellrc.sh keeps reminding.
 if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; then
     echo "post-start.sh: installing the AI CLIs (first start of this checkout's npm-global volume)" >&2
-    bash infra/setup/install-base.sh cli ||
-        echo "post-start.sh: AI CLI install failed; in the container: bash infra/setup/install-base.sh cli" >&2
+    bash .devcontainer/setup/install-base.sh cli ||
+        echo "post-start.sh: AI CLI install failed; in the container: bash .devcontainer/setup/install-base.sh cli" >&2
 fi
 
 if command -v test-agent-policy.sh >/dev/null; then
@@ -79,8 +79,8 @@ Rscript -e 'quit(status = !requireNamespace("fixest", quietly = TRUE))' >/dev/nu
 [ -f /usr/local/texlive/.yolobox-installed ] || [ -f /usr/local/texlive/.sandbox-installed ] || missing+=(tex)
 if [ ${#missing[@]} -gt 0 ]; then
     echo "post-start.sh: package volume not built or not loadable: ${missing[*]}" >&2
-    echo "  in normie mode, in the container: bash infra/setup/install-base.sh ${missing[*]}" >&2
-    echo "  or remove the volume on the host and ybox --rebuild to seed it (infra/setup/README.md)" >&2
+    echo "  in normie mode, in the container: bash .devcontainer/setup/install-base.sh ${missing[*]}" >&2
+    echo "  or remove the volume on the host and ybox --rebuild to seed it (.devcontainer/setup/README.md)" >&2
 fi
 
 # The posture, read from the container: internet as armed above, and the
@@ -94,7 +94,7 @@ case "${posture%% *}" in
     normie)
         echo "Normie mode: ${posture#* }"
         echo "  supervised: install with install.packages(), pip install or tlmgr install,"
-        echo "  or bash infra/setup/install-optional.sh. Back to YOLO mode: on the host,"
+        echo "  or bash .devcontainer/setup/install-optional.sh. Back to YOLO mode: on the host,"
         echo "  ybcode or bbe; ybox --stop --normie stops this container."
         ;;
     *)

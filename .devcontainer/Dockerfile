@@ -323,7 +323,7 @@ RUN sed -i "s/^export LANG=.*/export LANG='C.UTF-8'/" /home/ubuntu/.zshrc && \
 # The Claude Code and Codex CLIs are NOT baked into the image either: a baked
 # `npm install -g ...@latest` layer pins itself to whenever it was first
 # cached, so rebuilds kept serving whatever was current on that day. They are
-# installed at runtime by `infra/setup/install-base.sh` into NPM_CONFIG_PREFIX,
+# installed at runtime by `.devcontainer/setup/install-base.sh` into NPM_CONFIG_PREFIX,
 # which is a writable per-container volume - so an update made in a running
 # container survives rebuilds instead of being reverted by them. A fresh volume
 # starts empty, and post-start.sh installs them; if that fails, shellrc.sh
@@ -373,7 +373,7 @@ RUN chmod 0755 /usr/local/bin/tex-refresh
 # still reruns whenever the script changes. A CTAN or PyPI failure fails the
 # build; rebuilding is the retry.
 USER ubuntu
-RUN --mount=type=bind,source=infra/setup/install-base.sh,target=/tmp/install-base.sh \
+RUN --mount=type=bind,source=.devcontainer/setup/install-base.sh,target=/tmp/install-base.sh \
   bash /tmp/install-base.sh --image-build
 USER root
 
@@ -413,7 +413,7 @@ RUN chmod 0444 /etc/claude-code/managed-settings.json \
 
 # Policy verification, run manually or from postStartCommand. Copied rather than
 # invoked from /yolobox so a check of the policy is not itself ubuntu-writable.
-COPY .devcontainer/test-agent-policy.sh /usr/local/bin/
+COPY .devcontainer/tests/test-agent-policy.sh /usr/local/bin/
 RUN chmod 0755 /usr/local/bin/test-agent-policy.sh
 
 # Debian installs fd as fdfind to avoid a package-name collision. Provide the

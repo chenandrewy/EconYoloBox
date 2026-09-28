@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Run: bash .devcontainer/tests/test-firewall.sh (inside the YOLO container).
+# Inputs: live firewall rules, DNS, and public endpoints listed below.
+# Outputs: PASS/FAIL diagnostics; nonzero exit if any network boundary check fails.
 
 set -u
 

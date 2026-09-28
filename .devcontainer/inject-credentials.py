@@ -3,7 +3,7 @@
 # ABOUTME: env file Docker passes to the Dev Container at creation (--env-file).
 #
 # Run:     python .devcontainer/inject-credentials.py
-# Inputs:  Host OS credential entries via infra/credentials/get-credentials.py
+# Inputs:  Host OS credential entries via credentials/get-credentials.py
 # Outputs: /tmp/devcontainer-credentials.env (mode 600) with all found credentials,
 #          which devcontainer.json's runArgs pass as --env-file. The container
 #          gets them as environment variables when it is created; a running
@@ -16,7 +16,7 @@ import stat
 import sys
 from pathlib import Path
 
-_mod_path = str(Path(__file__).resolve().parent.parent / "infra" / "credentials" / "get-credentials.py")
+_mod_path = str(Path(__file__).resolve().parent.parent / "credentials" / "get-credentials.py")
 _spec = importlib.util.spec_from_loader("get_credentials", importlib.machinery.SourceFileLoader("get_credentials", _mod_path))
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
@@ -72,7 +72,7 @@ def main() -> int:
 
     if missing:
         print(f"Warning: could not load: {', '.join(missing)}", file=sys.stderr)
-        print("Run `python infra/credentials/setup.py` on your host to save them.", file=sys.stderr)
+        print("Run `python credentials/setup.py` on your host to save them.", file=sys.stderr)
 
     if not found:
         print("No credentials found. Container will start without them.", file=sys.stderr)
