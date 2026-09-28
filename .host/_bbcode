@@ -1,4 +1,4 @@
-#compdef bbcode
+#compdef bbcode ybcode
 # Run:     source .host/_bbcode after zsh completion initialization.
 # Inputs:  the current bbcode command line only.
 # Outputs: the _bbcode completion function and, when available, its compdef binding.
@@ -13,5 +13,5 @@ _bbcode() {
 }
 
 if (( $+functions[compdef] )); then
-  compdef _bbcode bbcode
+  compdef _bbcode bbcode ybcode
 fi

@@ -389,11 +389,12 @@ bbox() {
 # Short names. All creation and resolution stays in bbox.
 # Earlier launchers shipped dcu/dce/dccode as aliases or functions. Remove them
 # first so this file can be sourced again in an already-running host shell.
-unalias dcu dce dccode bbu bbe bbcode 2>/dev/null || true
+unalias dcu dce dccode bbu bbe bbcode ybcode 2>/dev/null || true
 unfunction dcu dce dccode 2>/dev/null || true
 bbu() { bbox "$@"; }
 bbe() { bbox --shell "$@"; }
 bbcode() { bbox --code "$@"; }
+ybcode() { bbox --code "$@"; }
 
 # Completion initialization belongs to the user's zsh setup.
 source "$_DC_HOST_DIR/_bbox"
