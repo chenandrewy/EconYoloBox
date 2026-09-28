@@ -1,19 +1,25 @@
 # User level agent guidelines for Sandbox
 
-## The Environment
+## Permission guidelines
 
-- The sandbox repo is bind-mounted at `/sandbox`, so edits are live on the
-  host. User projects live under `/sandbox/workspace/`, which is gitignored
-  by the sandbox repo. Terms: **sandbox** = the infrastructure repo at
-  `/sandbox`; **workspace** = user content under `/sandbox/workspace/`;
-  **project** = one working tree inside the workspace.
+### USER PERMISSION REQUIRED
 
-You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
-For container behavior and agent configuration, see
-[the devcontainer documentation](/sandbox/.devcontainer/README.md). For installed
-software, package stacks, and installation procedures, see
-[the setup documentation](/sandbox/.setup/README.md). The security design and
-available services are described in [the feature guide](/sandbox/docs/features.md).
+The actions below are forbidden unless the user explicitly asks for them in the
+current conversation. If one seems necessary, STOP work, describe the problem,
+and ask. The default fix is for the user to update the environment.
+
+- Get permission before installing packages or other software into the running environment.
+- Get permission before authenticating to GitHub or pushing/publishing anything.
+- Get permission before connecting to WRDS or testing WRDS credentials. Permission
+  allows one connection attempt only. If authentication, 2FA, or connection setup
+  fails, stop and ask the user; do not retry, use another client, or delegate the
+  attempt to another agent.
+- Get permission before hand-rolling replacements for missing libraries or tools.
+- Get permission before working around environment problems (Dropbox locks, auth, firewall, or similar).
+
+### Git Guidelines for Codex
+
+Codex specific instructions: When working with git and sandbox protections, request elevated sandbox permissions upfront.
 
 ## Key Paths
 
@@ -29,6 +35,41 @@ Custom tools live in `/sandbox/.tools/`, organized by topic. Check these folders
 - `.tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
 - `.tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork`); see its README
 - `.tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README
+
+## Coding and Writing Guidelines
+
+- Python: Use bare `python3`/`pip`. They resolve to the venv at `/opt/venv`,
+  which is already active via `PATH`; an unset `VIRTUAL_ENV` is expected.
+- Latex: Build using pdflatex and biber
+- Note taking: Use LyX if math is involved. We often do math and the human finds this much easier to work with.
+- Dropbox: Online-only files cannot be read inside the container. They may
+  stat and open normally, but reads fail with `EDEADLK` (errno 35), or `mmap`
+  fails with `SIGBUS` (exit code 135). This can also break git when an index or
+  object is online-only. Ask the user to run `dbhydrate -f <path>` on the host,
+  then retry. `dbhydrate <path>` alone checks without downloading. Do not
+  regenerate or re-download the data as a workaround without permission.
+- R: When running R scripts non-interactively (`Rscript`), add `pdf(NULL)` near the top to suppress the stray `Rplots.pdf` that R creates whenever a transient graphics device is opened (e.g. by `ggsave()` on a `gridExtra::arrangeGrob` output).
+
+## Documentation
+
+### Script headers
+
+- At the top of every script, document how to run it, its inputs, and its outputs.
+
+## The Environment
+
+- The sandbox repo is bind-mounted at `/sandbox`, so edits are live on the
+  host. User projects live under `/sandbox/workspace/`, which is gitignored
+  by the sandbox repo. Terms: **sandbox** = the infrastructure repo at
+  `/sandbox`; **workspace** = user content under `/sandbox/workspace/`;
+  **project** = one working tree inside the workspace.
+
+You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
+For container behavior and agent configuration, see
+[the devcontainer documentation](/sandbox/.devcontainer/README.md). For installed
+software, package stacks, and installation procedures, see
+[the setup documentation](/sandbox/.setup/README.md). The security design and
+available services are described in [the feature guide](/sandbox/docs/features.md).
 
 ## Sandbox Configuration
 
@@ -91,44 +132,3 @@ Do not edit either config file's posture settings.
 - If the firewall blocks a resource you need: **ASK THE USER TO ADD IT**
 - For "this screenshot," "the image," or "latest screenshot," look up
   the screenshots path under Key Paths.
-
-## Coding and Writing Guidelines
-
-- Python: Use bare `python3`/`pip`. They resolve to the venv at `/opt/venv`,
-  which is already active via `PATH`; an unset `VIRTUAL_ENV` is expected.
-- Latex: Build using pdflatex and biber
-- Note taking: Use LyX if math is involved. We often do math and the human finds this much easier to work with.
-- Dropbox: Online-only files cannot be read inside the container. They may
-  stat and open normally, but reads fail with `EDEADLK` (errno 35), or `mmap`
-  fails with `SIGBUS` (exit code 135). This can also break git when an index or
-  object is online-only. Ask the user to run `dbhydrate -f <path>` on the host,
-  then retry. `dbhydrate <path>` alone checks without downloading. Do not
-  regenerate or re-download the data as a workaround without permission.
-- R: When running R scripts non-interactively (`Rscript`), add `pdf(NULL)` near the top to suppress the stray `Rplots.pdf` that R creates whenever a transient graphics device is opened (e.g. by `ggsave()` on a `gridExtra::arrangeGrob` output).
-
-## Documentation
-
-### Script headers
-
-- At the top of every script, document how to run it, its inputs, and its outputs.
-
-## Permission guidelines
-
-### USER PERMISSION REQUIRED
-
-The actions below are forbidden unless the user explicitly asks for them in the
-current conversation. If one seems necessary, STOP work, describe the problem,
-and ask. The default fix is for the user to update the environment.
-
-- Get permission before installing packages or other software into the running environment.
-- Get permission before authenticating to GitHub or pushing/publishing anything.
-- Get permission before connecting to WRDS or testing WRDS credentials. Permission
-  allows one connection attempt only. If authentication, 2FA, or connection setup
-  fails, stop and ask the user; do not retry, use another client, or delegate the
-  attempt to another agent.
-- Get permission before hand-rolling replacements for missing libraries or tools.
-- Get permission before working around environment problems (Dropbox locks, auth, firewall, or similar).
-
-### Git Guidelines for Codex
-
-Codex specific instructions: When working with git and sandbox protections, request elevated sandbox permissions upfront.

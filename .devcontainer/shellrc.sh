@@ -6,7 +6,7 @@
 # Inputs: mounted workspace tools, installed toolchains, and container env.
 # Outputs: shell PATH, aliases/functions, and local setup warnings.
 
-# workspace tools on PATH, organized by topic (see .devcontainer/agents/SANDBOX-CLAUDE.md)
+# workspace tools on PATH, organized by topic (see /sandbox/SANDBOX-CLAUDE.md)
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
 #   lit:     citation lookup (cited_by.py, via OpenAlex)

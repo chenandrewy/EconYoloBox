@@ -250,14 +250,12 @@ commands.
   [AIChatRender repository](https://github.com/chenandrewy/aichatrender) and is
   installed automatically from the VS Code Marketplace by this devcontainer.
 
-- **Agent config and skills as code (`.devcontainer/agents/`).** The single
-  source of truth for Claude/Codex guidance, shared LyX and PDF-bookmark skills,
-  and settings is re-seeded on every container start. Guidance and skills are
-  symlinked so edits apply live; writable settings are copied so drift resets to
-  canonical. Separately, root-owned managed policy files enforce the connector
-  and plugin restrictions described above. Preferences such as model, effort
-  level, statusline, and remote control remain workflow defaults, not a security
-  mechanism.
+- **Agent config and skills as code.** Root-level `SANDBOX-CLAUDE.md` holds
+  shared Claude/Codex guidance; `.devcontainer/agents/` holds shared LyX and
+  PDF-bookmark skills and settings, all re-seeded on every container start.
+  Guidance and skills are symlinked so edits apply live; writable settings are
+  copied so drift resets to canonical. Separately, root-owned managed policy
+  files enforce the connector and plugin restrictions described above.
 
 - **Host-aware workspace settings.** Startup captures a stable host name and
   the host time zone. `SANDBOX-CLAUDE.md` provides agent-visible paths for the

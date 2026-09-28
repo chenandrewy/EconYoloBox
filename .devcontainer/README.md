@@ -96,7 +96,7 @@ this helper. See the host setup README for installation and failure handling.
   `custom`) from the container itself; `package-mode.sh` reports how the
   package volumes are mounted.
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
-- `agents/` — canonical agent guidance and settings, applied to the container's user-level config on every start (see "Agent Config" below).
+- `agents/` — agent settings, shared skills, and guidance seeding (see "Agent Config" below).
 - `home/` — user-level dotfiles that must survive a rebuild. The container's
   home directory is not a persisted volume, so a file placed at `~` would be
   wiped; these live in the tracked repo instead and are pointed at by
@@ -258,13 +258,13 @@ it:
 "dev.containers.gitCredentialHelperConfigLocation": "none"
 ```
 
-### Agent Config (`agents/`)
+### Agent Config
 
-`.devcontainer/agents/` is the single source of truth for agent config and
-managed agent policy inside the container:
+The root-level `SANDBOX-CLAUDE.md` is the editable source for shared Claude
+and Codex guidance. Root-level `SANDBOX-AGENTS.md` is a symlink to it, kept
+separate so Codex-specific guidance can diverge later. `.devcontainer/agents/`
+holds the remaining agent config and managed policy:
 
-- `SANDBOX-CLAUDE.md` — canonical agent guidance
-- `SANDBOX-AGENTS.md` — symlink to `SANDBOX-CLAUDE.md`; kept separate so Codex-specific guidance can diverge later
 - `SANDBOX-claude-settings.json` — canonical user-level Claude Code settings
 - `SANDBOX-claude-statusline.sh` — status line script referenced by the settings
 - `SANDBOX-claude-managed-settings.json` — system-enforced Claude Code policy, baked to `/etc/claude-code/managed-settings.json`
@@ -292,7 +292,7 @@ The seed script handles guidance and settings differently:
   belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
 
 Agent-visible paths for the research library, finished and retired projects,
-and screenshots live under **Key Paths** in `agents/SANDBOX-CLAUDE.md`.
+and screenshots live under **Key Paths** in the root-level `SANDBOX-CLAUDE.md`.
 Guidance is symlinked, so path edits require no container restart. The host
 time zone is detected separately when the container is created (see
 [Timezone](#timezone)).

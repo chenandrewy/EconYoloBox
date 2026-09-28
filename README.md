@@ -24,8 +24,8 @@ Key features:
 2. **Ergonomic container and AI access**
 
    - Enter the container at a project-specific path with one command.
-   - Organize agent guidance and settings as code, with optional Dropbox
-     synchronization.
+   - Edit agent guidance in [SANDBOX-CLAUDE.md](SANDBOX-CLAUDE.md) and keep
+     settings as code, with optional Dropbox synchronization.
    - Synchronize AI chat sessions across machines via Dropbox.
 
 3. **Economics-research AI tooling**
