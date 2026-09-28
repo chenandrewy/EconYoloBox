@@ -322,7 +322,7 @@ RUN sed -i "s/^export LANG=.*/export LANG='C.UTF-8'/" /home/node/.zshrc && \
 # The Claude Code and Codex CLIs are NOT baked into the image either: a baked
 # `npm install -g ...@latest` layer pins itself to whenever it was first
 # cached, so rebuilds kept serving whatever was current on that day. They are
-# installed at runtime by `.setup/install-base.sh` into NPM_CONFIG_PREFIX,
+# installed at runtime by `setup/install-base.sh` into NPM_CONFIG_PREFIX,
 # which is a writable per-container volume - so an update made in a running
 # container survives rebuilds instead of being reverted by them. A fresh volume
 # starts empty, and post-start.sh installs them; if that fails, shellrc.sh
@@ -372,7 +372,7 @@ RUN chmod 0755 /usr/local/bin/tex-refresh
 # still reruns whenever the script changes. A CTAN or PyPI failure fails the
 # build; rebuilding is the retry.
 USER node
-RUN --mount=type=bind,source=.setup/install-base.sh,target=/tmp/install-base.sh \
+RUN --mount=type=bind,source=setup/install-base.sh,target=/tmp/install-base.sh \
   bash /tmp/install-base.sh --image-build
 USER root
 
@@ -394,15 +394,15 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
 # Claude Code policy. `disableClaudeAiConnectors` has any-source-true semantics,
 # so user- and project-level settings cannot override this file. The companion
 # denylist covers the gap it leaves: connectors passed via `--mcp-config`.
-COPY .devcontainer/agents/SANDBOX-claude-managed-settings.json /etc/claude-code/managed-settings.json
+COPY agents/SANDBOX-claude-managed-settings.json /etc/claude-code/managed-settings.json
 
 # Codex system config supplies stable defaults without touching the volatile,
 # node-owned ~/.codex/config.toml where Codex persists user preferences.
-COPY .devcontainer/agents/SANDBOX-codex-config.toml /etc/codex/config.toml
+COPY agents/SANDBOX-codex-config.toml /etc/codex/config.toml
 
 # Codex requirements are admin-enforced and outrank user config, profiles, and
 # CLI --config / --enable overrides.
-COPY .devcontainer/agents/SANDBOX-codex-requirements.toml /etc/codex/requirements.toml
+COPY agents/SANDBOX-codex-requirements.toml /etc/codex/requirements.toml
 
 # COPY already lands these root-owned, since this stage runs as root; the chmod
 # is what makes them read-only to `node`.

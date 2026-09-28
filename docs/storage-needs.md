@@ -68,7 +68,7 @@ with the lean base, or about **4.7GB** with the optional set.
 There is one set on the Docker daemon. Docker seeds them from the image on
 the first build (so the image carries another copy of the lean base, about
 1.5GB, not yet measured in the image figures above; docs/journal/0926f), the
-optional set is added in normie mode by `.setup/install-optional.sh`, and they
+optional set is added in normie mode by `setup/install-optional.sh`, and they
 are mounted read-only in YOLO mode:
 
 | Volume | Mount | Lean base | With optional set |

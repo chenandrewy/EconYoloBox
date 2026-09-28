@@ -11,10 +11,10 @@
 #   latex:   sync-lyx.sh
 #   lit:     citation lookup (cited_by.py, via OpenAlex)
 #   ai-sesh: sesh-init, sesh-push, sesh-wipe, gpt-fork
-export PATH="/sandbox/.tools/pdf:/sandbox/.tools/latex:/sandbox/.tools/lit:/sandbox/.tools/ai-sesh:$PATH"
+export PATH="/sandbox/tools/pdf:/sandbox/tools/latex:/sandbox/tools/lit:/sandbox/tools/ai-sesh:$PATH"
 
 # ai-sesh: keep the home session stores symlinked into the Dropbox-synced
-# tree (idempotent; silent once the links exist — see .tools/ai-sesh/README.md)
+# tree (idempotent; silent once the links exist — see tools/ai-sesh/README.md)
 sesh-init || true
 
 # The Python, R and TeX stacks live in shared volumes, read-only outside normie
@@ -35,7 +35,7 @@ if [ ! -f /usr/local/texlive/.sandbox-installed ]; then
     _stacks_missing="${_stacks_missing:+$_stacks_missing }tex"
 fi
 if [ -n "$_stacks_missing" ]; then
-    echo "note: package volume not built ($_stacks_missing) - in normie mode, in the container: bash .setup/install-base.sh $_stacks_missing"
+    echo "note: package volume not built ($_stacks_missing) - in normie mode, in the container: bash setup/install-base.sh $_stacks_missing"
 fi
 unset _stacks_missing
 
@@ -47,7 +47,7 @@ unset _stacks_missing
 # whereas asking npm what `latest` is would put a network round-trip in front of
 # every shell. Codex announces its own updates at launch; that is enough.
 if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; then
-    echo "note: AI CLIs not installed - run .setup/install-base.sh cli"
+    echo "note: AI CLIs not installed - run setup/install-base.sh cli"
 fi
 
 # Posture warning banner and prompt tag. Each mode has its own container,
@@ -118,7 +118,7 @@ unset _sbx_posture _sbx_mode
 _cc_session_name() {
     local base host n=1 running
     # Strip the user-workspace prefix first, then the sandbox root, so both
-    # /sandbox/workspace/Foo and /sandbox/.tools reduce to a short name.
+    # /sandbox/workspace/Foo and /sandbox/tools reduce to a short name.
     base="${CC_SESSION_NAME:-${PWD#/sandbox/workspace}}"
     base="${base#/sandbox}"
     base="${base#/}"
@@ -192,10 +192,10 @@ if [ ! -x /usr/local/texlive-bin/pdflatex ]; then
         echo "note: mounted TeX Live 2026 is not active; using $(command -v pdflatex)"
         echo "      Rebuild this container to activate the recent TeX-volume change."
     else
-        echo "note: TeX unavailable - in normie mode, in the container: bash .setup/install-base.sh tex"
+        echo "note: TeX unavailable - in normie mode, in the container: bash setup/install-base.sh tex"
         echo "      For a nonempty failed install, inspect the volume's install.log first."
     fi
 elif [ ! -f /usr/local/texlive/.sandbox-installed ]; then
-    echo "note: TeX volume has no install marker - in normie mode, in the container: bash .setup/install-base.sh tex"
-    echo "      If it refuses, an earlier install failed: see .setup/README.md."
+    echo "note: TeX volume has no install marker - in normie mode, in the container: bash setup/install-base.sh tex"
+    echo "      If it refuses, an earlier install failed: see setup/README.md."
 fi

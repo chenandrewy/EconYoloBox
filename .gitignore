@@ -23,4 +23,4 @@ __pycache__/
 .vscode/
 
 # agent session transcripts are a local-only cache, never committed
-.tools/ai-sesh/data/
+tools/ai-sesh/data/

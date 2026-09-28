@@ -39,10 +39,12 @@ Key features:
 
 More concretely, it's a shared sandbox built around the following folders:
 
-- `.credentials/`: credential injection mechanism
+- `credentials/`: credential injection mechanism
 - `.devcontainer/`: sandbox implementation
-- `.host/`: ergonomic container access
-- `.tools/`: custom AI tooling
+- `agents/`: shared agent settings and skills
+- `host/`: ergonomic container access
+- `setup/`: package and CLI provisioning
+- `tools/`: custom AI tooling
 
 See [Sandbox Features](docs/features.md) for a detailed tour.
 
@@ -201,7 +203,7 @@ are not needed to authenticate Claude or Codex. In the Mac's Terminal, open
 your checkout root and run:
 
 ```bash
-python3 .credentials/setup.py
+python3 credentials/setup.py
 ```
 
 Press Enter to skip any service you do not use. The container receives the
@@ -216,7 +218,7 @@ volume, so a rebuild does not undo an update. They do not update themselves;
 to update both, in any mode:
 
 ```bash
-bash /sandbox/.setup/install-base.sh cli
+bash /sandbox/setup/install-base.sh cli
 ```
 
 ### Add to the package stacks
@@ -227,12 +229,12 @@ of the usual stack, or any other package, switch to normie mode with
 `bbcode --normie` on the host. Then, in the container:
 
 ```bash
-bash .setup/install-optional.sh      # the rest of the usual stack
+bash setup/install-optional.sh      # the rest of the usual stack
 ```
 
 or `install.packages()`, `pip install` or `tlmgr install`. Switch back to YOLO
 mode (`bbcode`, then `bbox --stop --normie`) and run
-`bash .devcontainer/tests/test-packages.sh`. See [setup](.setup/README.md) and
+`bash .devcontainer/tests/test-packages.sh`. See [setup](setup/README.md) and
 the [devcontainer README](.devcontainer/README.md#working-modes) for the
 details.
 
@@ -245,7 +247,7 @@ following from the checkout root in a host zsh terminal:
 
 ```zsh
 npm install -g @devcontainers/cli
-bash .host/setup.sh
+bash host/setup.sh
 exec zsh
 type bbox
 ```
@@ -280,7 +282,7 @@ to confirm that eviction is the actual problem.
 ## TeX Live setup
 
 The devcontainer uses a shared, pdfLaTeX-only TeX Live volume, read-only by
-default, which the first build fills. See [setup](.setup/README.md) for adding
+default, which the first build fills. See [setup](setup/README.md) for adding
 packages and for validation.
 
 ## License

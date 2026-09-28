@@ -1,10 +1,10 @@
 # Dev Container & Credentials
 
-Both `.devcontainer/` and `.credentials/` are designed to be copied across projects.
+Both `.devcontainer/` and `credentials/` are designed to be copied across projects.
 
 This file documents how the pieces work.
 
-## Credentials (`.credentials/`)
+## Credentials (`credentials/`)
 
 Credentials are resolved in two ways, in order:
 
@@ -50,13 +50,13 @@ recreating them; emptying the file no longer does it.
 ## Dev Container (`.devcontainer/`)
 
 `.devcontainer/` is the container itself: its definition, its startup, and the
-tools baked into it. `.host/` is the launcher (`bbox`), and
-[`.setup/`](../.setup/README.md) is provisioning you run by hand, in the
+tools baked into it. `host/` is the launcher (`bbox`), and
+[`setup/`](../setup/README.md) is provisioning you run by hand, in the
 container: the package volumes and the AI CLIs.
 
 ### TeX Live and LyX
 
-TeX Live 2026 is installed with `bash .setup/install-base.sh tex` in the
+TeX Live 2026 is installed with `bash setup/install-base.sh tex` in the
 container, **in normie mode**, using upstream `install-tl`. It is minimal and pdfLaTeX-only. The base is
 `scheme-small` without XeTeX, plus bibtexextra (biblatex, biber), latexindent,
 latexmk and cm-super; `install-optional.sh` adds latexextra, fontsrecommended,
@@ -262,7 +262,7 @@ it:
 
 The root-level `SANDBOX-CLAUDE.md` is the editable source for shared Claude
 and Codex guidance. Root-level `SANDBOX-AGENTS.md` is a symlink to it, kept
-separate so Codex-specific guidance can diverge later. `.devcontainer/agents/`
+separate so Codex-specific guidance can diverge later. `agents/`
 holds the remaining agent config and managed policy:
 
 - `SANDBOX-claude-settings.json` — canonical user-level Claude Code settings
@@ -350,20 +350,20 @@ In normie mode, install as `node` with the ordinary commands:
 The image seeds the volumes `node`-owned, so no sudo is needed. pip
 resolves against current PyPI and can replace dependencies, one reason the mode
 is supervised. Agents install in normie mode only when the user asks.
-`.setup/install-base.sh` installs the base this way, and
-`.setup/install-optional.sh` the optional set;
+`setup/install-base.sh` installs the base this way, and
+`setup/install-optional.sh` the optional set;
 `install-optional.sh --verify` and `tests/test-optional.sh` check it in any
 mode.
 
-### Package stacks and AI CLIs (`.setup/install-base.sh`)
+### Package stacks and AI CLIs (`setup/install-base.sh`)
 
 The R, Python and TeX stacks live in three shared Docker volumes. The image
 carries a copy of the lean base only to seed them: its build runs
 `install-base.sh --image-build`, and Docker copies the image's directory into
 each volume the first time an empty one is mounted (docs/journal/0926f). After
 that the human changes the base in normie mode with
-`bash .setup/install-base.sh` (see the [setup README](../.setup/README.md)),
-and optionally adds the rest with `.setup/install-optional.sh`.
+`bash setup/install-base.sh` (see the [setup README](../setup/README.md)),
+and optionally adds the rest with `setup/install-optional.sh`.
 The YOLO container mounts them read-only and the normie container writable:
 
 | Volume | Mount |
@@ -392,7 +392,7 @@ System dependencies that need root (`gfortran`, `libcurl4-openssl-dev`,
 the volume a new name, rebuild the container in normie mode, then fill it.
 
 The Claude Code and Codex CLIs are part of the base, installed into a writable
-per-container volume by the same script, `bash .setup/install-base.sh cli`,
+per-container volume by the same script, `bash setup/install-base.sh cli`,
 which works in any mode. `post-start.sh` runs it at startup while either CLI
 is missing, so a fresh volume fills itself. They were a Dockerfile layer pinned to
 `@latest`, which turned out to mean "whatever was current the day the layer
