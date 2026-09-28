@@ -7,8 +7,8 @@ _bbcode() {
   _arguments -s \
     '(--normie)--yolo[use the YOLO container (the default)]' \
     '(--yolo)--normie[use the normie container]' \
-    '(--rebuild-without-cache)--rebuild[recreate the container using the Docker build cache]' \
-    '(--rebuild)--rebuild-without-cache[recreate the container without the Docker build cache]' \
+    '(--rebuild-without-cache)--rebuild[recreate both modes'"'"' containers using the Docker build cache]' \
+    '(--rebuild)--rebuild-without-cache[recreate both modes'"'"' containers without the Docker build cache]' \
     ':directory:_directories'
 }
 

@@ -206,8 +206,8 @@ python3 .credentials/setup.py
 
 Press Enter to skip any service you do not use. The container receives the
 credentials as environment variables when it is created, so a container that
-already exists needs recreating to see new ones: `bbox --rebuild`, and
-`bbox --rebuild --normie` for the normie container.
+already exists needs recreating to see new ones: `bbox --rebuild`, which
+recreates both modes' containers.
 
 ### Update the AI CLIs
 
@@ -253,9 +253,9 @@ type bbox
 Run `bbox` to bring the container up, `bbcode My-Project` (`bbox --code`) to
 open a project in VS Code, or `bbe My-Project` (`bbox --shell`) to enter it in
 a terminal. Each takes `--normie` (or an explicit `--yolo`), and
-`bbox --rebuild` recreates that mode's container after a Dockerfile change.
-VS Code's own **Rebuild Container** works too: it rebuilds from the window's
-configuration, so it keeps the mode.
+`bbox --rebuild` recreates both modes' containers after a Dockerfile or
+config change, then opens the chosen one. VS Code's own **Rebuild Container**
+rebuilds only the window's mode, from its configuration.
 
 Optional: the container picks up the Mac's timezone automatically. To force a
 different one, export it on the host before the container starts.

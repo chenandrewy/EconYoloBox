@@ -74,7 +74,7 @@ if [ "$_sbx_mode" != yolo ]; then
     else
         printf '%s\n' \
             "${_sbx_hi}Warning: Custom Posture${_sbx_off}" \
-            "${_sbx_posture#* }; to fix, on the host: bbox --rebuild or bbox --rebuild --normie"
+            "${_sbx_posture#* }; to fix, on the host: bbox --rebuild"
     fi
     unset _sbx_hi _sbx_off
 fi

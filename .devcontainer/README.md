@@ -42,7 +42,7 @@ Edit `credentials-map.json`:
 Keys are credential store entry names; values are the env var names scripts will use. `setup.py` automatically groups prompts by the first segment of the key (e.g. `wrds-username` and `wrds-password` are grouped under "WRDS").
 
 After changing credentials on the host, recreate the containers
-(`bbox --rebuild`, and `bbox --rebuild --normie` if you use normie mode):
+(`bbox --rebuild`, which recreates both modes' containers):
 `initializeCommand` rewrites the env file from the host store, and Docker
 reads it only when it creates a container. Revoking access likewise means
 recreating them; emptying the file no longer does it.

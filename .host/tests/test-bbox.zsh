@@ -164,25 +164,53 @@ out=$(run --stop "$root") || fail 'stop YOLO'
 [[ "$(field yolo-new-1-0123456789abcdef 5)" == exited ]] || fail 'no flag stops YOLO'
 pass '--stop stops only the chosen mode'"'"'s container'
 
-# Rebuild touches only the chosen mode.
+# Rebuild recreates both modes' containers and attaches to the chosen one.
 reset_store
 add_container yolo-a "$yolo_config" yolo
 add_container normie-a "$normie_config" normie
-run --rebuild --normie "$root" >/dev/null || fail 'normie rebuild'
+out=$(run --rebuild --normie --code "$root") || fail 'normie rebuild'
 grep -q 'docker|rm -f normie-a' $log || fail 'rebuild removes the normie container'
-grep -q 'docker|rm -f yolo-a' $log && fail 'a normie rebuild must leave YOLO alone'
+grep -q 'docker|rm -f yolo-a' $log || fail 'rebuild removes the YOLO container too'
+grep -qF -- "--config $yolo_config --remove-existing-container" $log || fail 'YOLO rebuild flag'
 grep -qF -- "--config $normie_config --remove-existing-container" $log || fail 'normie rebuild flag'
-pass '--rebuild --normie recreates only the normie container'
-run --rebuild-without-cache "$root" >/dev/null || fail 'no-cache rebuild'
-grep -qF -- "--config $yolo_config --remove-existing-container --build-no-cache" $log || fail 'no-cache flags'
-grep -q 'docker|rm -f normie' $log && fail 'a YOLO rebuild must leave normie alone'
-pass '--rebuild-without-cache recreates the YOLO container with both CLI flags'
+(( $(count yolo-new) == 1 && $(count normie-new) == 1 && $(count -a) == 0 )) || fail 'both containers must be new'
+yolo_new=($store/yolo-new-*(N:t))
+(( $#yolo_new == 1 )) && [[ "$(field $yolo_new[1] 5)" == running ]] || fail 'a running YOLO container stays running'
+grep -q 'docker|stop' $log && fail 'nothing that was running is stopped'
+expected_uri=$(python3 "$root/.host/dc-resolve.py" folder-uri "$root" "$normie_config" /sandbox desktop-linux)
+grep -qF "code|--new-window --folder-uri $expected_uri" $log || fail 'the rebuild opens the chosen mode'
+[[ "$(grep -c '^code|' $log)" == 1 ]] || fail 'only the chosen mode is opened'
+[[ "$out" == *'recreating the YOLO mode container'*'recreating the normie mode container'* ]] || fail 'the chosen mode comes last'
+pass '--rebuild --normie recreates both containers and opens the normie one'
+
+reset_store
+add_container yolo-a "$yolo_config" yolo
+add_container normie-a "$normie_config" normie exited
+out=$(run --rebuild-without-cache "$root") || fail 'no-cache rebuild'
+grep -qF -- "--config $yolo_config --remove-existing-container --build-no-cache" $log || fail 'YOLO no-cache flags'
+grep -qF -- "--config $normie_config --remove-existing-container --build-no-cache" $log || fail 'normie no-cache flags'
+normie_new=($store/normie-new-*(N:t))
+(( $#normie_new == 1 )) && [[ "$(field $normie_new[1] 5)" == exited ]] || fail 'a stopped normie container is stopped again'
+[[ "$out" == *'stopped the normie mode container'*'as it was not running'* ]] || fail 'stop-again message'
+[[ "$out" == *'also running'* ]] && fail 'no running-normie note after the rebuild'
+pass '--rebuild-without-cache recreates both, leaving a stopped container stopped'
+
+reset_store
+add_container yolo-a "$yolo_config" yolo
+run --rebuild "$root" >/dev/null || fail 'YOLO-only rebuild'
+(( $(count normie) == 0 )) || fail 'a rebuild must not create a missing mode'
+grep -qF -- "--config $normie_config" $log && fail 'no normie up without a normie container'
+pass 'a rebuild does not create the other mode when it has no container'
+
+reset_store
+add_container yolo-a "$yolo_config" yolo
+add_container normie-a "$normie_config" normie
 MOCK_VSCODE=1
 if err=$(run --rebuild "$root" 2>&1); then fail 'rebuild with VS Code attached should fail'; fi
 [[ "$err" == *'VS Code is attached'* ]] || fail 'VS Code attached message'
 grep -q 'docker|rm' $log && fail 'must not remove while VS Code is attached'
 grep -q 'devcontainer|up' $log && fail 'must not run up while VS Code is attached'
-pass 'a rebuild refuses while VS Code is attached'
+pass 'a rebuild refuses while VS Code is attached, before removing either mode'
 MOCK_VSCODE=0
 
 # Duplicates of one mode.

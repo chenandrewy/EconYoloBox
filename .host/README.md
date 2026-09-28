@@ -57,8 +57,8 @@ its own path, so another checkout cannot redirect its helpers.
 | `bbox --code [dir]` | Bring it up, verify it, and open that path in VS Code. |
 | `bbox --stop [dir]` | Stop the mode's container (`--normie` for the normie one). |
 | `bbox --status [dir]` | Report both containers and their modes; change nothing. |
-| `bbox --rebuild [dir]` | Recreate the mode's container while retaining Docker's build cache. |
-| `bbox --rebuild-without-cache [dir]` | Recreate it with `--build-no-cache`. |
+| `bbox --rebuild [dir]` | Recreate both modes' containers, keeping Docker's build cache, then bring up the chosen mode's. |
+| `bbox --rebuild-without-cache [dir]` | The same with `--build-no-cache`. |
 
 `bbu`, `bbe`, and `bbcode` are short wrappers around `bbox`, `bbox --shell`,
 and `bbox --code`, and take the same flags: `bbcode --normie`, `bbe --yolo`.
@@ -94,10 +94,18 @@ it stops before attachment and names the rebuild that fixes it. Otherwise it
 prints the mode, and a YOLO bring-up also mentions a running normie
 container, whose firewall is open until something stops it.
 
-Before a rebuild, the launcher refuses if a VS Code window is connected to one
-of that mode's containers, then removes every one of them; the other mode's
-container is untouched. The check looks for a live connection to the
-in-container VS Code server, which itself lingers after the window closes.
+A rebuild recreates both modes' containers, since the configs are twins and
+a change that needs one rebuilt needs the other too; a container left on the
+old config fails later, and confusingly. The mode flag only picks the one
+brought up and attached to at the end. The other mode is recreated first, and
+only if it has a container: a rebuild never creates a mode you have not used.
+If that container was not running, it is stopped again afterwards, so a
+rebuild never leaves an idle normie container running with its firewall open.
+Before removing anything, the launcher refuses if a VS Code window is
+connected to a container of either mode. The check looks for a live
+connection to the in-container VS Code server, which itself lingers after the
+window closes. VS Code's own **Rebuild Container** still rebuilds only the
+window's mode.
 `--shell`, `--code`, `--stop` and `--status` are mutually exclusive, as are
 the rebuild flags and the mode flags; `--status` takes no other option, and
 `--stop` only a mode flag.

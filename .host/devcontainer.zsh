@@ -127,27 +127,36 @@ _bbox_vscode_attached() {
   ' >/dev/null 2>&1
 }
 
+# _bbox_refuse_attached <root> <config>...
+# On rebuild, refuse while VS Code is attached to any container of those
+# configs, before anything is removed, so a refusal leaves both modes as they
+# were.
+_bbox_refuse_attached() {
+  local root="$1" config container listed
+  shift
+  for config in "$@"; do
+    listed=$(_bbox_containers "$root" "$config") || return 1
+    for container in ${(f)listed}; do
+      [[ -n "$container" ]] || continue
+      if _bbox_vscode_attached "$container"; then
+        print -u2 -- "bbox: ERROR: VS Code is attached to container ${container:0:12} for $root."
+        print -u2 -- 'bbox: close that VS Code window (or Dev Containers: Close Remote Connection), then rerun the rebuild.'
+        return 1
+      fi
+    done
+  done
+}
+
 # _bbox_clear_containers <root> <config>
-# On rebuild, refuse while VS Code is attached to one of this mode's
-# containers, then remove every one of them so no duplicate survives
-# --remove-existing-container. The other mode's container is left alone. An
-# extension that recreates in the meantime uses the same config, so at worst
-# it makes a duplicate of the same mode, which _bbox_check_duplicates removes.
+# Remove every container of that config, so no duplicate survives
+# --remove-existing-container. An extension that recreates in the meantime
+# uses the same config, so at worst it makes a duplicate of the same mode,
+# which _bbox_check_duplicates removes.
 _bbox_clear_containers() {
   local root="$1" config="$2" container listed
-  local -a containers
 
   listed=$(_bbox_containers "$root" "$config") || return 1
-  containers=(${(f)listed})
-  for container in "${containers[@]}"; do
-    [[ -n "$container" ]] || continue
-    if _bbox_vscode_attached "$container"; then
-      print -u2 -- "bbox: ERROR: VS Code is attached to container ${container:0:12} for $root."
-      print -u2 -- 'bbox: close that VS Code window (or Dev Containers: Close Remote Connection), then rerun the rebuild.'
-      return 1
-    fi
-  done
-  for container in "${containers[@]}"; do
+  for container in ${(f)listed}; do
     [[ -n "$container" ]] || continue
     docker rm -f "$container" >/dev/null || return 1
   done
@@ -195,6 +204,52 @@ _bbox_note_normie() {
   done
 }
 
+# _bbox_up <root> <yolo|normie> <rebuild> [devcontainer up options...]
+# Brings up the mode's container, handles duplicates, refuses one not in its
+# config's posture, and reports it. Sets REPLY to the container id.
+_bbox_up() {
+  local root="$1" mode="$2" rebuild="$3" config up_output container_id actual
+  shift 3
+  config=$(_bbox_config "$root" "$mode")
+  up_output=$(devcontainer up --workspace-folder "$root" --config "$config" "$@") || return 1
+  container_id=$(print -r -- "$up_output" | python3 "$_DC_RESOLVE_PY" up-container-id) || return 1
+  _bbox_check_duplicates "$root" "$config" "$container_id" "$rebuild" || return 1
+  # The config fixes the posture, so a mismatch means a container from before
+  # the two configs (docs/journal/0927a) or a hand-edited config.
+  actual=$(_bbox_posture "$container_id")
+  if [[ "${actual%% *}" != "$mode" ]]; then
+    print -u2 -- "bbox: ERROR: expected $(_bbox_mode_name "$mode"), but container ${container_id:0:12} has ${actual#* }."
+    print -u2 -- "bbox: refusing attachment; on the host run: $(_bbox_rebuild_hint "$mode" "$root")"
+    return 1
+  fi
+  print -- "bbox: $(_bbox_mode_name "$mode") container ${container_id:0:12} (${actual#* })"
+  REPLY=$container_id
+}
+
+# _bbox_rebuild_other <root> <yolo|normie> [devcontainer up options...]
+# The two configs are twins, so a change that needs one mode rebuilt needs
+# both. Recreate the other mode's container too, if it has one, and stop it
+# again unless it was running: a rebuild must not leave an idle normie
+# container running with its firewall open.
+_bbox_rebuild_other() {
+  local root="$1" mode="$2" other config listed container running=0
+  shift 2
+  [[ "$mode" == yolo ]] && other=normie || other=yolo
+  config=$(_bbox_config "$root" "$other")
+  listed=$(_bbox_containers "$root" "$config") || return 1
+  [[ -n "$listed" ]] || return 0
+  for container in ${(f)listed}; do
+    [[ "$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null)" == running ]] && running=1
+  done
+  _bbox_clear_containers "$root" "$config" || return 1
+  print -- "bbox: recreating the $(_bbox_mode_name "$other") container for $root"
+  _bbox_up "$root" "$other" 1 "$@" || return 1
+  if (( ! running )); then
+    docker stop "$REPLY" >/dev/null || return 1
+    print -- "bbox: stopped the $(_bbox_mode_name "$other") container ${REPLY:0:12} again, as it was not running"
+  fi
+}
+
 # bbox [--yolo|--normie] [--rebuild|--rebuild-without-cache] [--shell|--code] [DIRECTORY]
 # bbox [--yolo|--normie] --stop [DIRECTORY]
 # bbox --status [DIRECTORY]
@@ -202,11 +257,12 @@ _bbox_note_normie() {
 # The flag picks the mode's container; no flag means YOLO:
 #   --yolo (the default)  internet=firewalled packages=readonly seccomp=builtin
 #   --normie              internet=open packages=writable seccomp=unconfined
-# Both containers can exist and run at once. --rebuild and --stop act on the
-# chosen mode's container only; --status reports both.
+# Both containers can exist and run at once. --rebuild recreates both modes'
+# containers (the other only if it exists) and then attaches to the chosen
+# one; --stop acts on the chosen mode's container only; --status reports both.
 bbox() {
   local action='' mode='' project_dir='.' rebuild=0 positional_seen=0 arg resolved root relative_dir
-  local config remote_path existing listed container actual state up_output container_id docker_context folder_uri m
+  local config remote_path existing listed container actual state container_id docker_context folder_uri m REPLY
   local -a up_args
 
   while (( $# )); do
@@ -306,24 +362,16 @@ bbox() {
   remote_path=$(python3 "$_DC_RESOLVE_PY" remote-path "$config" "$relative_dir") || return 1
   existing=$(_bbox_containers "$root" "$config") || return 1
   if (( rebuild )); then
+    _bbox_refuse_attached "$root" "$(_bbox_config "$root" yolo)" "$(_bbox_config "$root" normie)" || return 1
+    _bbox_rebuild_other "$root" "$mode" "${up_args[@]}" || return 1
     _bbox_clear_containers "$root" "$config" || return 1
     print -- "bbox: recreating the $(_bbox_mode_name "$mode") container for $root"
   elif [[ -n "$existing" ]]; then
     _bbox_verify_layout "$root" "$(python3 "$_DC_RESOLVE_PY" remote-path "$config" "")" ${(f)existing} || return 1
   fi
 
-  up_output=$(devcontainer up --workspace-folder "$root" --config "$config" "${up_args[@]}") || return 1
-  container_id=$(print -r -- "$up_output" | python3 "$_DC_RESOLVE_PY" up-container-id) || return 1
-  _bbox_check_duplicates "$root" "$config" "$container_id" "$rebuild" || return 1
-  # The config fixes the posture, so a mismatch means a container from before
-  # the two configs (docs/journal/0927a) or a hand-edited config.
-  actual=$(_bbox_posture "$container_id")
-  if [[ "${actual%% *}" != "$mode" ]]; then
-    print -u2 -- "bbox: ERROR: expected $(_bbox_mode_name "$mode"), but container ${container_id:0:12} has ${actual#* }."
-    print -u2 -- "bbox: refusing attachment; on the host run: $(_bbox_rebuild_hint "$mode" "$root")"
-    return 1
-  fi
-  print -- "bbox: $(_bbox_mode_name "$mode") container ${container_id:0:12} (${actual#* })"
+  _bbox_up "$root" "$mode" "$rebuild" "${up_args[@]}" || return 1
+  container_id=$REPLY
   [[ "$mode" == yolo ]] && _bbox_note_normie "$root"
 
   case "$action" in

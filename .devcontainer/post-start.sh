@@ -96,7 +96,7 @@ case "${posture%% *}" in
         ;;
     *)
         echo "Custom posture, neither YOLO nor normie mode: ${posture#* }" >&2
-        echo "  made before the per-mode configs? on the host: bbox --rebuild (YOLO) or bbox --rebuild --normie" >&2
+        echo "  made before the per-mode configs? on the host: bbox --rebuild" >&2
         ;;
 esac
 
