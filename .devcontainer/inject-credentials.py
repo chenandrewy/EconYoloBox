@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-# ABOUTME: Reads project credentials from host credential storage and writes a
-# ABOUTME: temporary file that is bind-mounted read-only into the Dev Container.
+# ABOUTME: Reads project credentials from host credential storage and writes the
+# ABOUTME: env file Docker passes to the Dev Container at creation (--env-file).
 #
 # Run:     python .devcontainer/inject-credentials.py
 # Inputs:  Host OS credential entries via .credentials/get-credentials.py
-# Outputs: /tmp/devcontainer-credentials.env (mode 600) with all found credentials
+# Outputs: /tmp/devcontainer-credentials.env (mode 600) with all found credentials,
+#          which devcontainer.json's runArgs pass as --env-file. The container
+#          gets them as environment variables when it is created; a running
+#          container does not see later changes.
 
 import importlib.machinery
 import importlib.util
@@ -33,10 +36,10 @@ def _write_credentials(found: dict[str, str]) -> None:
         names = ", ".join(invalid)
         raise ValueError(f"Credential values must be single-line: {names}")
 
-    # If the container was started while the mount source was missing (e.g.
-    # after a host reboot cleared /tmp), Docker recreates the source as an
-    # empty directory. rmdir refuses to remove a non-empty one, so anything
-    # with real content still fails loudly below instead of being deleted.
+    # The file used to be a bind-mount source, and Docker recreated a missing
+    # source as an empty directory; one may be left over. rmdir refuses to
+    # remove a non-empty one, so anything with real content still fails loudly
+    # below instead of being deleted.
     if not ENV_FILE.is_symlink() and ENV_FILE.is_dir():
         os.rmdir(ENV_FILE)
 
@@ -73,11 +76,11 @@ def main() -> int:
 
     if not found:
         print("No credentials found. Container will start without them.", file=sys.stderr)
-        # The bind-mount source must exist even when no credentials are available.
+        # docker run fails on a missing --env-file, so write it even when empty.
         try:
             _write_credentials({})
         except (OSError, ValueError) as error:
-            print(f"Could not create credential mount source: {error}", file=sys.stderr)
+            print(f"Could not create credential env file: {error}", file=sys.stderr)
             return 1
         return 0
 

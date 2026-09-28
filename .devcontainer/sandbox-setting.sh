@@ -1,6 +1,6 @@
 #!/bin/bash
-# ABOUTME: Prints one value from SANDBOX.toml. Shared by the host-side
-# ABOUTME: write-local-env.sh and the in-container post-start.sh.
+# ABOUTME: Prints one value from SANDBOX.toml. Used by the host-side
+# ABOUTME: write-local-env.sh (timezone).
 #
 # Run:     bash .devcontainer/sandbox-setting.sh KEY [FILE]
 # Inputs:  KEY, a bare TOML key; FILE defaults to SANDBOX.toml beside .devcontainer.
@@ -14,11 +14,10 @@
 # this has to run on the host (macOS bash 3.2, no guaranteed Python) and in the
 # container before any stack is installed. Anything ambiguous yields nothing,
 # and callers treat nothing as the safe default: a key that appears more than
-# once (a stale line left beside a new one), a quoted boolean (`firewall =
-# "false"` is a string, not false), or trailing junk (`firewall = false oops`).
+# once (a stale line left beside a new one), a quoted boolean (`flag =
+# "false"` is a string, not false), or trailing junk (`flag = false oops`).
 # After the value, only whitespace or a # comment is allowed. String values
-# must not contain double quotes. This matches seccomp-setting.sh's rejection
-# of duplicate keys, so the two readers never disagree about one file.
+# must not contain double quotes.
 set -euo pipefail
 
 key=$1

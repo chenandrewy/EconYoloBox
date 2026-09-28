@@ -3,6 +3,20 @@
 # Inputs: this checkout's launcher; ${ZDOTDIR:-$HOME}/.zshrc by default.
 # Outputs: a backed-up, idempotent launcher registration and prerequisite report.
 # Requires Python 3. Installs no software and does not start Docker or a container.
+#
+# The registration is a managed block at the end of the rc file:
+#
+#   # >>> bbox host launcher >>>
+#   source /path/to/checkout/.host/devcontainer.zsh
+#   # <<< bbox host launcher <<<
+#
+# The path is this checkout's, shell-quoted if needed. Rerunning cuts out the
+# old block and appends a fresh one, so the block moves back to the end (after
+# the user's completion setup) and follows a moved checkout. Outside the block,
+# only bare `source`/`.` lines for this same launcher (the previous README's
+# registration) are removed; everything else is kept byte for byte. A changed
+# file is backed up first to <rc>.bbox-backup-XXXXXX beside it; a missing,
+# duplicated or out-of-order marker aborts with no changes.
 set -euo pipefail
 
 toolkit_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)

@@ -6,15 +6,19 @@ This file documents how the pieces work.
 
 ## Credentials (`.credentials/`)
 
-Credentials are resolved in three ways, in order:
+Credentials are resolved in two ways, in order:
 
-1. **Environment variable** (an explicit per-command override)
-2. **Mounted secret file** (`/run/secrets/credentials.env` inside the container)
-3. **Host credential store** (macOS Keychain or Windows Credential Manager)
+1. **Environment variable.** In the container, Docker sets every credential in
+   the environment at creation (`--env-file`, below); a variable set for one
+   command still overrides it.
+2. **Host credential store** (macOS Keychain or Windows Credential Manager),
+   which is how scripts on the host find them.
 
 This means scripts work both inside and outside the container without changes.
-Credentials are not placed in the container-wide environment: that would expose
-them through Docker metadata and ambiently inherit them into every subprocess.
+The costs of the environment are accepted (docs/journal/0927a): the values
+appear in `docker inspect` on the host and persist in Docker's container
+metadata, every process in the container inherits them, and they are fixed at
+creation.
 
 ### Files
 
@@ -37,41 +41,31 @@ Edit `credentials-map.json`:
 
 Keys are credential store entry names; values are the env var names scripts will use. `setup.py` automatically groups prompts by the first segment of the key (e.g. `wrds-username` and `wrds-password` are grouped under "WRDS").
 
-To update the mounted file after changing credentials, run this command **on the
-host**, from the repository root:
-
-```bash
-source .devcontainer/find-python.sh
-$PYTHON .devcontainer/inject-credentials.py
-```
-
-The resolver re-reads the mounted file on every lookup, so updates take effect
-immediately, and truncating the file on the host
-(`: > /tmp/devcontainer-credentials.env`) immediately revokes the container's
-access.
-
-If the host reboots (clearing `/tmp`) and the container is then started without
-VS Code (plain `docker start`), Docker recreates the missing mount source as an
-empty directory and the container may fail to start. Rerunning the command
-above — or just reopening in VS Code, which runs it automatically — repairs
-this.
+After changing credentials on the host, recreate the containers
+(`bbox --rebuild`, which recreates both modes' containers):
+`initializeCommand` rewrites the env file from the host store, and Docker
+reads it only when it creates a container. Revoking access likewise means
+recreating them; emptying the file no longer does it.
 
 ## Dev Container (`.devcontainer/`)
 
-`.devcontainer/` defines the container, `.host/` is session navigation, and
-[`.setup/`](../.setup/README.md) is host machine setup and maintenance.
+`.devcontainer/` is the container itself: its definition, its startup, and the
+tools baked into it. `.host/` is the launcher (`bbox`), and
+[`.setup/`](../.setup/README.md) is provisioning you run by hand, in the
+container: the package volumes and the AI CLIs.
 
 ### TeX Live and LyX
 
-TeX Live 2026 is installed with `bash .setup/packages.sh tex` **on the host**,
-using upstream `install-tl`. It is minimal and pdfLaTeX-only: `scheme-small`
-without XeTeX, plus latexextra, fontsrecommended, bibtexextra (biblatex,
-biber), pictures, mathscience and fontsextra, plus latexindent and latexmk. It
-has no documentation files. It lives in the shared `texlive-2026-small-noble`
-volume, mounted read-only at `/usr/local/texlive`. The image puts the matching
-architecture's binaries on PATH; user TeX caches live in the writable home
-directory. Packages are added by listing them in `TEX_PKGS` and rerunning the
-builder; existing packages are never updated in place.
+TeX Live 2026 is installed with `bash .setup/install-base.sh tex` in the
+container, **in normie mode**, using upstream `install-tl`. It is minimal and pdfLaTeX-only. The base is
+`scheme-small` without XeTeX, plus bibtexextra (biblatex, biber), latexindent,
+latexmk and cm-super; `install-optional.sh` adds latexextra, fontsrecommended,
+pictures, mathscience and fontsextra. It has no documentation files. It lives
+in the shared `texlive-2026-base-noble` volume at `/usr/local/texlive`. The
+image puts the matching architecture's binaries on PATH; user TeX caches live
+in the writable home directory. Packages are added with `tlmgr install` in
+normie mode, or by listing them in `TEX_PKGS` and rerunning the builder;
+existing packages are never updated in place.
 
 `tex-refresh` runs LyX converter detection as `node` in `~/.lyx` at startup,
 after the firewall configuration step. A missing installation warns without
@@ -85,19 +79,22 @@ this helper. See the host setup README for installation and failure handling.
 
 - `inject-credentials.py` — runs on the host before the container starts
   (`initializeCommand`). It writes a `0600` file at
-  `/tmp/devcontainer-credentials.env`, bind-mounted read-only at
-  `/run/secrets/credentials.env`. The file is not timed: it remains available
-  for the container session and is overwritten on the next initialization.
-  Because it is host-side, it may remain after the container stops until it is
-  overwritten, manually removed, or cleaned up by the host OS.
-- `devcontainer.json` — container configuration.
+  `/tmp/devcontainer-credentials.env`, which `runArgs` passes as `--env-file`,
+  so a new container gets the credentials as environment variables. It is
+  overwritten on the next initialization, and may remain on the host until
+  then or until the host OS cleans `/tmp`.
+- `devcontainer.json` — container configuration, YOLO mode.
+  `normie/devcontainer.json` is its twin for normie mode; they differ only in
+  the posture and the name, which `tests/test_config_twins.py` enforces.
+- `check-checkout.sh` — refuses a second checkout with the same folder name,
+  whose containers would share this one's volumes (run by `post-start.sh`).
 - `Dockerfile` — container image definition.
 - `check-yolo-boundaries.sh` — refuses supplied YOLO launchers unless the
   firewall is enabled and PID 1 has filtered seccomp.
 - `init-firewall.sh` — network firewall rules applied by `post-start.sh` when enabled.
-- `install-packages.sh` — the package lists and installer for the R, Python and
-  TeX volumes (run on the host through `.setup/packages.sh`), and the AI CLI
-  installer inside the container (see "Package stacks and AI CLIs" below).
+- `posture.sh` — reports the container's posture (`yolo`, `normie` or
+  `custom`) from the container itself; `package-mode.sh` reports how the
+  package volumes are mounted.
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
 - `agents/` — canonical agent guidance and settings, applied to the container's user-level config on every start (see "Agent Config" below).
 - `home/` — user-level dotfiles that must survive a rebuild. The container's
@@ -122,41 +119,27 @@ Because the name appears in every session, a short one is worth setting.
 
 ### Codex sandbox modes and launchers
 
-Docker's outer seccomp policy is selected in root-level `SANDBOX.toml`:
-
-```toml
-seccomp = "unconfined" # or "builtin"
-```
-
-`unconfined` is the chosen configuration
+Docker's outer seccomp policy is part of each mode's config: `builtin` in the
+YOLO container (the default), `unconfined` in the normie container
+(`bbcode --normie`). Codex's sandboxed modes need `unconfined`,
 because builtin seccomp blocks Bubblewrap setup here and
 automatic review did not provide reliable recovery for all native tools.
-Validation after container recreation is still required; this setting alone is
+Validation after container recreation is still required; the mode alone is
 not evidence that the inner sandbox works.
 
 `unconfined` removes Docker's outer syscall filter for every container process,
 including Claude, YOLO sessions, and commands approved to run outside Codex's
 sandbox. A working Codex sandbox does not restore that outer protection for
-other processes. Every interactive shell rereads the setting and compares it
-with container PID 1's live `/proc` mode. It always displays **Warning: Seccomp
-Unconfined** when PID 1 is unfiltered, even when that matches the setting.
-It also warns on a mismatch, invalid
-configuration, or an unverifiable mode. Filtered mode is only a runtime mode
-check, not proof of Docker's exact builtin profile.
+other processes. `posture.sh` reads container PID 1's live `/proc` mode, and
+every interactive shell outside YOLO mode says so. Filtered mode is only a
+runtime mode check, not proof of Docker's exact builtin profile.
 See [Docker's seccomp documentation](https://docs.docker.com/engine/security/seccomp/).
 
-Changing this setting requires **container recreation** with `bbox --rebuild`
-on the host, not an image change. A plain restart or plain `bbox` does not apply
-it. Direct VS Code creation uses `builtin`, matching the checked-in YOLO
-posture, but does not read this setting. Reuse the existing image when
-recreating; named volumes and the bind-mounted workspace persist, but files
-only in the old container's writable layer do not.
-
-`bbox` inspects the exact container returned by `devcontainer up`. Reuse warns
-about a mismatch and continues; explicit recreation stops before attachment if
-the policy cannot be verified. VS Code's direct **Rebuild Container** path does
-not inherit the launcher's validated environment and defaults to `builtin`.
-Use `bbox --rebuild --code` when applying `seccomp = "unconfined"`.
+Changing mode means using the other container, not changing this one; each
+keeps its seccomp policy for life. `bbox` inspects the exact container
+returned by `devcontainer up` and stops before attachment if its posture is
+not its config's. VS Code's **Rebuild Container** rebuilds from the window's
+config, so it keeps the mode.
 
 Codex separates the sandbox (filesystem and network limits), approval policy
 (when approval is requested), and reviewer (a person or automatic review).
@@ -236,8 +219,8 @@ Then start a normal Codex workspace-write session and verify:
 
 Record the results before calling the compatibility fix validated. If a check
 fails, inspect that failure before adding capabilities or relaxing other
-controls. Re-enabling builtin requires another recreation and is expected to
-restore the observed namespace failure until compatibility is addressed.
+controls. The YOLO container, with builtin, is expected to show the observed
+namespace failure until compatibility is addressed.
 
 Commands executed outside the inner sandbox retain Docker's restrictions but
 have the container user's filesystem and network access. With the firewall
@@ -259,6 +242,7 @@ The template mounts persistent volumes for:
 - `/home/node/.codex` — Codex auth and config
 
 This keeps interactive login state across container rebuilds and restarts.
+Both modes' containers mount the same volumes, so one login serves both.
 
 GitHub auth is different: nothing is persisted in a volume, but VS Code's Dev
 Containers extension forwards the host's Git credentials on demand (its default,
@@ -307,80 +291,129 @@ The seed script handles guidance and settings differently:
   mixes model choices, project trust, and other runtime state. Stable defaults
   belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
 
-User-specific settings live in the root-level `SANDBOX.toml`: `seccomp`
-(`"builtin"` or `"unconfined"`), `firewall` (`true` or `false`), `timezone`
+User-specific settings live in the root-level `SANDBOX.toml`: `timezone`
 (IANA zone; comment out to use the detected host zone), `cellar` (the research
 library), `done` (finished and retired projects), and `screenshot_directory`. Paths are container paths. Agents read path settings
 directly, so path edits take effect immediately.
-`firewall` is read by `post-start.sh` at every container start (stop + reopen
-or Rebuild Container); `timezone` becomes `TZ` at create time, so it needs a
-rebuild. General settings use `sandbox-setting.sh`, a `sed` over flat `key = "value"`
-/ `key = true|false` lines rather than a TOML parser: keep the file flat, and
-note that a malformed line, a duplicated key, or a quoted boolean
-(`firewall = "false"`) yields nothing, which for `firewall` means armed.
-Seccomp uses the stricter shared `seccomp-setting.sh`: it rejects tables,
-duplicate keys, malformed lines, and unsupported TOML and falls back to
-`builtin`.
+`timezone` becomes `TZ` at create time, so it needs a
+rebuild. Settings are read with `sandbox-setting.sh`, a `sed` over flat `key = "value"`
+/ `key = true|false` lines rather than a TOML parser.
 
-The checked-in default is `firewall = true`: the YOLO posture, with the
-allowlist active and the YOLO wrappers permitted. Set `firewall = false` for
-internet access and use Claude's auto mode; the firewall switch does not
-configure either agent's approval mode. Apply changes through Dev Containers:
-editing the file does not change live rules, and a bare `docker restart` skips
-the startup hook. The seccomp choice is independent of either firewall mode;
-enabling the firewall does not restore syscall filtering.
+### Working modes
 
-### Package stacks and AI CLIs (`install-packages.sh`)
+The security posture is not in `SANDBOX.toml`. Each mode is its own
+container, built from its own config file, which hard-codes the posture:
 
-The R, Python and TeX stacks are **not** in the image, and they are not
-installed from inside the container either. They live in three shared Docker
-volumes that the human builds on the host with `bash .setup/packages.sh` (see
-the [host setup README](../.setup/README.md)), and `devcontainer.json` mounts
-them read-only:
+| Mode | Config | Launch | Internet | Package volumes | Seccomp | Use |
+|---|---|---|---|---|---|---|
+| YOLO mode (default) | `devcontainer.json` | `bbcode`, `bbe` | firewalled | read-only | `builtin` | everyday work; YOLO launchers allowed; agents ask when a package is missing |
+| Normie mode | `normie/devcontainer.json` | `bbcode --normie`, `bbe --normie` | open | writable | `unconfined` | supervised work, like the Mac: open web, package installs, agents in approval modes |
+
+Normie mode needs `unconfined` because Codex's approval modes run commands in
+Bubblewrap, which builtin seccomp blocks (see
+[Codex sandbox modes](#codex-sandbox-modes-and-launchers)). There are only the
+two presets; `post-start.sh` reports any other combination (a container made
+before the per-mode configs, say) as a custom posture.
+
+The config sets seccomp in `runArgs`, `readonly` on the three package mounts,
+and `SANDBOX_INTERNET` in `containerEnv` (read by `post-start.sh` at every
+start; anything but `open` arms the firewall). All three are fixed at
+creation. The Dev Containers tooling keys a container on its folder and config
+file, so the two containers coexist, and whatever recreates one, `bbox` or VS
+Code's own Rebuild or Reopen, recreates it from the same config, in the same
+mode. Neither container ever replaces the other: switching modes is attaching
+to the other one. A normie container runs, firewall open, until it is stopped
+(`bbox --stop --normie`); `bbox --status` lists both, and every YOLO
+bring-up mentions a running normie one. Why two files and not one with a
+switch: docs/journal/0927a.
+
+The two containers share every volume. The package volumes are shared by
+design: normie writes what YOLO then runs read-only (a running R or Python
+session sees new packages after a restart). The per-checkout volumes, which
+hold `~/.claude`, `~/.codex`, the AI CLIs and shell history, are named for the
+checkout's folder name alone, not `${devcontainerId}` (which depends on the
+config file and would give each mode its own). So one login and one CLI
+install serve both modes, and **each checkout's folder name must be unique on
+the Docker daemon**: a second checkout with the same name would share the
+Claude and Codex tokens and the CLIs themselves. `check-checkout.sh` enforces
+this at every start: it records the host folder in `~/.claude` the first
+time and refuses a different one, with the command to accept a deliberate
+move.
+
+The mode stays visible: `post-start.sh` prints it at every start; outside YOLO
+mode (in the normie container) every interactive shell prints a warning banner
+spelling out the loosened boundaries, the zsh prompt and Claude's status line
+lead with a `normie` (or `custom`) tag, and the VS Code window title starts
+with `normie:`, set by `window.title` in `normie/devcontainer.json`.
+
+In normie mode, install as `node` with the ordinary commands:
+`install.packages()` writes to the shared site library, `pip install` to
+`/opt/venv`, and `tlmgr install` to the TeX tree (then run `tex-refresh`).
+The image seeds the volumes `node`-owned, so no sudo is needed. pip
+resolves against current PyPI and can replace dependencies, one reason the mode
+is supervised. Agents install in normie mode only when the user asks.
+`.setup/install-base.sh` installs the base this way, and
+`.setup/install-optional.sh` the optional set;
+`install-optional.sh --verify` and `tests/test-optional.sh` check it in any
+mode.
+
+### Package stacks and AI CLIs (`.setup/install-base.sh`)
+
+The R, Python and TeX stacks live in three shared Docker volumes. The image
+carries a copy of the lean base only to seed them: its build runs
+`install-base.sh --image-build`, and Docker copies the image's directory into
+each volume the first time an empty one is mounted (docs/journal/0926f). After
+that the human changes the base in normie mode with
+`bash .setup/install-base.sh` (see the [setup README](../.setup/README.md)),
+and optionally adds the rest with `.setup/install-optional.sh`.
+The YOLO container mounts them read-only and the normie container writable:
 
 | Volume | Mount |
 |---|---|
-| `r-site-library-noble-4.5.3-2026-07-15` | `/opt/R/4.5.3/lib/R/site-library` |
-| `venv-noble-py3.12` | `/opt/venv` |
-| `texlive-2026-small-noble` | `/usr/local/texlive` |
+| `r-site-library-noble-4.5.3-2026-07-15-base` | `/opt/R/4.5.3/lib/R/site-library` |
+| `venv-noble-py3.12-base` | `/opt/venv` |
+| `texlive-2026-base-noble` | `/usr/local/texlive` |
 
 The principle is that agents in the container only execute; the human maintains
-the environment (docs/journal/0921a). Inside the container,
-`install-packages.sh python|r|tex` refuses with the host command, and
-`install-packages.sh --verify python r tex` checks the stacks without writing.
+the environment, watching in normie mode (docs/journal/0921a, 0926e). In the
+default read-only mode, `install-base.sh python|r|tex` refuses and says how to
+switch, and
+`install-base.sh --verify python r tex` checks the base without writing.
 `pip install` and `install.packages()` into the stacks fail with a read-only or
 not-writable error. At startup, `post-start.sh` warns if a volume is not built.
 It tests a sentinel package (`pyfixest`, `fixest`, the TeX marker), because
-Docker seeds even a fresh read-only volume from the image, so an unbuilt venv
-still shows its skeleton. Interactive shells print a one-line note as well.
+a volume created by an older image holds only the skeleton it was seeded
+with. Interactive shells print a one-line note as well.
 
 The volumes are shared by every project on the Docker daemon, and they are
-built by this workspace's own devcontainer image. R packages link against the
+built in this workspace's own devcontainer. R packages link against the
 image's libraries and install from the dated P3M snapshot in `Rprofile.site`.
 System dependencies that need root (`gfortran`, `libcurl4-openssl-dev`,
 `libxml2-dev`, `libpq-dev`, `libsecret-1-dev`, freetype/harfbuzz/fribidi,
-`cmake`) stay in the Dockerfile. After a snapshot or interpreter bump, rebuild
-the container first, then build a new volume under a new name.
+`cmake`) stay in the Dockerfile. After a snapshot or interpreter bump, give
+the volume a new name, rebuild the container in normie mode, then fill it.
 
-The Claude Code and Codex CLIs are runtime-installed into a writable
-per-container volume with `install-packages.sh cli`, which is also what the
-script does with no arguments. They were a Dockerfile layer pinned to
+The Claude Code and Codex CLIs are part of the base, installed into a writable
+per-container volume by the same script, `bash .setup/install-base.sh cli`,
+which works in any mode. `post-start.sh` runs it at startup while either CLI
+is missing, so a fresh volume fills itself. They were a Dockerfile layer pinned to
 `@latest`, which turned out to mean "whatever was current the day the layer
 was first cached": rebuilds kept restoring a months-old Codex. They now install
 into `/usr/local/share/npm-global`, which is a **volume**, so updating Codex in
 a running container is no longer reverted by the next rebuild.
 
-Because the volume can start empty, `test-agent-policy.sh` reports `SKIP`
+Because the install at startup can fail, `test-agent-policy.sh` reports `SKIP`
 (not `PASS`) for a CLI that is not installed, and interactive shells nudge
 while either CLI is missing. The npm-managed CLIs should not be assumed to
-self-update; re-run `install-packages.sh cli` to update both to their current
+self-update; re-run `install-base.sh cli` to update both to their current
 releases.
 
 `tests/test-packages.sh`, run as `node` in a rebuilt container, is the
-acceptance check. It covers the read-only mounts, the declared stacks, every
-installed R package loading, a `fixest` regression, a parquet round trip
-between arrow and pyarrow, refused installs of absent packages, and pdflatex,
-biber, latexindent, latexmk and LyX export.
+acceptance check for the base. It covers mounts that match `packages`, the
+declared base stacks, every installed R package loading, a `fixest`
+regression, refused installs of absent packages (read-only mode), and pdflatex,
+biber, latexindent, latexmk and LyX export. It passes without the optional
+set; `tests/test-optional.sh` checks that set separately.
 
 ### Dockerfile ordering
 

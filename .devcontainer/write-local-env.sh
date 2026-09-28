@@ -8,7 +8,7 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-LOCAL_CONTAINER_FOLDER=$(cd "$SCRIPT_DIR/.." && pwd)
+LOCAL_CONTAINER_FOLDER=$(cd "$SCRIPT_DIR/.." && pwd -P)
 
 # Host IANA zone. $TZ is rarely set on macOS/desktop Linux (and VS Code launched
 # from the Dock inherits no shell profile), so read the system setting directly.

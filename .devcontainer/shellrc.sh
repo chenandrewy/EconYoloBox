@@ -17,11 +17,12 @@ export PATH="/sandbox/.tools/pdf:/sandbox/.tools/latex:/sandbox/.tools/lit:/sand
 # tree (idempotent; silent once the links exist — see .tools/ai-sesh/README.md)
 sesh-init || true
 
-# The Python and R stacks live in read-only shared volumes built on the host,
-# so an unbuilt volume means no stack. Say so once per shell instead of letting
-# the first import fail mysteriously. Test a sentinel package, not emptiness:
+# The Python, R and TeX stacks live in shared volumes, read-only outside normie
+# mode, so an unbuilt volume means no stack. Say so once per shell instead of
+# letting the first import fail mysteriously. Test a sentinel, not emptiness:
 # Docker seeds even a fresh read-only volume from the image, so an unbuilt venv
-# still holds the bare skeleton. post-start.sh does the slower import check.
+# still holds the bare skeleton. TeX's sentinel is the marker install-base.sh
+# writes when a TeX install finishes. post-start.sh does the slower import check.
 # (find, not a glob: an unmatched glob is a hard error under zsh's nomatch.)
 _stacks_missing=""
 if [ -z "$(find /opt/venv/lib -maxdepth 3 -type d -name pyfixest -print -quit 2>/dev/null)" ]; then
@@ -30,8 +31,11 @@ fi
 if [ -z "$(find /opt/R -maxdepth 5 -type d -path '*/site-library/fixest' -print -quit 2>/dev/null)" ]; then
     _stacks_missing="${_stacks_missing:+$_stacks_missing }r"
 fi
+if [ ! -f /usr/local/texlive/.sandbox-installed ]; then
+    _stacks_missing="${_stacks_missing:+$_stacks_missing }tex"
+fi
 if [ -n "$_stacks_missing" ]; then
-    echo "note: package volume not built ($_stacks_missing) - on the host run: bash .setup/packages.sh $_stacks_missing"
+    echo "note: package volume not built ($_stacks_missing) - in normie mode, in the container: bash .setup/install-base.sh $_stacks_missing"
 fi
 unset _stacks_missing
 
@@ -43,46 +47,61 @@ unset _stacks_missing
 # whereas asking npm what `latest` is would put a network round-trip in front of
 # every shell. Codex announces its own updates at launch; that is enough.
 if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; then
-    echo "note: AI CLIs not installed - run .devcontainer/install-packages.sh cli"
+    echo "note: AI CLIs not installed - run .setup/install-base.sh cli"
 fi
 
-# Firewall window warning. post-start.sh skips init-firewall.sh when
-# SANDBOX.toml says firewall = false, leaving the container on
-# Docker's default ACCEPT policies - no network restrictions at all. Nothing
-# else surfaces that state: startup looks entirely normal and the only symptom
-# is that blocked hosts start answering.
-#
-# post-start.sh touches this marker on the open path and removes it on the
-# armed one, so no network probe is needed here. Not inferred from dnsmasq or resolv.conf:
-# both look "open" on init-firewall.sh's legitimate armed-but-dnsmasq-failed
-# path, and iptables itself needs root. The open side writes the marker rather
-# than the armed side because /tmp is not tmpfs here - a stale "armed" marker
-# would fail silent, whereas a stale open one only cries wolf.
-#
-# Knows what devcontainer.json declared at the last container start, not the
-# live kernel state: a bare `docker restart` skips postStartCommand entirely
-# and leaves the container open with whatever marker was there before.
-if [ -f /tmp/FIREWALL-WINDOW-OPEN ]; then
+# Posture warning banner and prompt tag. Each mode has its own container,
+# built from its own config file (bbcode or bbcode --normie on the host), so
+# outside YOLO mode every shell warns what is loosened, and zsh's prompt
+# carries a tag, so the mode stays in view. posture.sh reads the container
+# itself: the firewall-open marker post-start.sh leaves, the package mounts,
+# and PID 1's seccomp mode (PID 1, since an inner agent sandbox may add a
+# filter to the checking process).
+_sbx_posture=$(bash /sandbox/.devcontainer/posture.sh)
+_sbx_mode=${_sbx_posture%% *}
+if [ "$_sbx_mode" != yolo ]; then
     if [ -t 1 ]; then
-        _fw_hi=$'\033[1;3;38;5;214m'
-        _fw_off=$'\033[0m'
+        _sbx_hi=$'\033[1;3;38;5;214m'
+        _sbx_off=$'\033[0m'
     else
-        _fw_hi=''
-        _fw_off=''
+        _sbx_hi=''
+        _sbx_off=''
     fi
-    printf '%s\n' \
-        "${_fw_hi}Warning: Firewall Open${_fw_off}" \
-        "To close: set firewall = true in /sandbox/SANDBOX.toml, then rebuild container"
-    unset _fw_hi _fw_off
+    if [ "$_sbx_mode" = normie ]; then
+        printf '%s\n' \
+            "${_sbx_hi}Warning: Normie Mode${_sbx_off}" \
+            'Firewall open, package volumes writable, seccomp unconfined'
+    else
+        printf '%s\n' \
+            "${_sbx_hi}Warning: Custom Posture${_sbx_off}" \
+            "${_sbx_posture#* }; to fix, on the host: bbox --rebuild"
+    fi
+    unset _sbx_hi _sbx_off
 fi
-
-# Docker's outer seccomp filter is a separate safety boundary from the
-# firewall. Each interactive shell compares current SANDBOX.toml with PID 1;
-# config edits cannot alter an already-created container. PID 1 is used because
-# an inner agent sandbox may add a filter to the checking process itself.
-case $- in
-    *i*) bash /sandbox/.devcontainer/check-seccomp.sh ;;
-esac
+# The powerlevel10k prompt: no user segment (it only ever says node), and
+# outside YOLO mode a mode segment at the front. This
+# file is sourced before oh-my-zsh, and ~/.zshrc sets the element list after
+# it, so a one-time precmd hook edits the list once it is final.
+if [ -n "${ZSH_VERSION:-}" ]; then
+    typeset -g _SBX_MODE=$_sbx_mode
+    prompt_sandbox_mode() {
+        if [ "$_SBX_MODE" = normie ]; then
+            p10k segment -b 1 -f 15 -t normie
+        else
+            p10k segment -b 3 -f 0 -t custom
+        fi
+    }
+    _sbx_prompt_segment() {
+        POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]:#(user|sandbox_mode)})
+        if [ "$_SBX_MODE" != yolo ]; then
+            POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(sandbox_mode ${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]})
+        fi
+        add-zsh-hook -d precmd _sbx_prompt_segment
+    }
+    autoload -Uz add-zsh-hook
+    add-zsh-hook precmd _sbx_prompt_segment
+fi
+unset _sbx_posture _sbx_mode
 
 # cchat-yolo [claude args...]
 # Start Claude in the container, always under --remote-control so the session is
@@ -94,7 +113,8 @@ esac
 # flag here because the container is the blast radius — host-side launchers
 # that target a container pass the flag themselves. That premise requires both
 # the firewall and Docker's seccomp filter, so every -yolo launcher checks the
-# live container boundaries before bypassing agent permissions.
+# live container boundaries before bypassing agent permissions: in normie mode
+# they refuse.
 _cc_session_name() {
     local base host n=1 running
     # Strip the user-workspace prefix first, then the sandbox root, so both
@@ -132,7 +152,7 @@ alias hostname-local='echo "$LOCAL_HOSTNAME"'
 alias container-folder-local='echo "$LOCAL_CONTAINER_FOLDER"'
 
 # Everyday work is the -yolo launchers. Standard codex is the sandboxed mode,
-# which needs seccomp = "unconfined"; see README.md for the recommended
+# which needs unconfined seccomp (normie mode); see README.md for the recommended
 # approvals_reviewer="auto_review" user preference. Only YOLO needs a wrapper
 # here, to refuse startup unless the container's outer boundaries are active.
 gptchat-yolo() {
@@ -172,10 +192,10 @@ if [ ! -x /usr/local/texlive-bin/pdflatex ]; then
         echo "note: mounted TeX Live 2026 is not active; using $(command -v pdflatex)"
         echo "      Rebuild this container to activate the recent TeX-volume change."
     else
-        echo "note: TeX unavailable - on the host run: bash .setup/packages.sh tex"
+        echo "note: TeX unavailable - in normie mode, in the container: bash .setup/install-base.sh tex"
         echo "      For a nonempty failed install, inspect the volume's install.log first."
     fi
 elif [ ! -f /usr/local/texlive/.sandbox-installed ]; then
-    echo "note: TeX volume has no install marker - on the host run: bash .setup/packages.sh tex"
+    echo "note: TeX volume has no install marker - in normie mode, in the container: bash .setup/install-base.sh tex"
     echo "      If it refuses, an earlier install failed: see .setup/README.md."
 fi

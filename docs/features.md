@@ -5,30 +5,34 @@ economics research, and the daily workflow around all of it is short.
 
 ## 1. Safe YOLO agents
 
-The container provides the outer execution boundary. The checked-in default
-is the YOLO posture: `firewall = true` raises the deny-by-default egress
-firewall, and `seccomp = "builtin"` keeps Docker's outer syscall filter.
+The container provides the outer execution boundary. The default is the YOLO
+posture: the deny-by-default egress firewall is up, the package volumes are
+read-only, and Docker's outer syscall filter (`builtin` seccomp) is on. Each
+mode is its own container, whose config file fixes its posture at creation:
+`bbcode` opens the YOLO one, `bbcode --normie` the normie one.
 Explicit YOLO launchers skip permissions and refuse to start unless the
 firewall is enabled and PID 1 has filtered seccomp. Egress blocking is a hard
 boundary; an LLM reviewer is a soft one.
 
-For internet access, set `firewall = false` and use Claude's
+For internet access, switch to normie mode (`bbcode --normie`: open internet,
+writable package volumes, `unconfined` seccomp) and use Claude's
 `claude --permission-mode auto`. Its two-stage classifier skips in-project
 edits and is cheap per call. Codex's automatic review is a full model call per
 escalation, and with the firewall down every network action escalates, so it
 degrades noticeably; see
 [docs/journal/0919b](journal/0919b,claude-vs-codex-reviewer-speed.md). The
-firewall setting does not configure either agent's approval mode.
+mode does not configure either agent's approval mode.
 
 Codex's sandboxed modes (the `/etc/codex` defaults request workspace-write
 sandboxing and on-request approval; we recommend
 `approvals_reviewer = "auto_review"` in your user config for "Approve for me")
-need `seccomp = "unconfined"`, applied with `bbox --rebuild`. Builtin seccomp
+need `unconfined` seccomp, which normie mode sets. Builtin seccomp
 blocks Bubblewrap setup, and automatic review could not reliably recover
 native editing tools. Unconfined removes Docker's outer syscall filter for
 every process, including Claude and unsandboxed commands, and requires
 validation of ordinary execution, native editing, and sandbox restrictions
-after recreation. The seccomp toggle stays while that mode is under test.
+after recreation. Normie mode is the only way to get it; an open-firewall,
+builtin-seccomp combination is no longer offered (docs/journal/0923b kept one).
 See [sandbox modes and launchers](../.devcontainer/README.md#codex-sandbox-modes-and-launchers)
 for configuration and the distinction between sandbox networking and the firewall.
 
@@ -63,31 +67,36 @@ tooling those changes exist to support is described in
   the stack that matters here is R, Python, TeX Live, and LyX. Image-level tools
   such as Git, Node, delta, R, Pandoc, and LyX are pinned, and layers are
   cache-conscious. The Claude Code and Codex CLIs deliberately live outside the
-  image in a named npm volume: `install-packages.sh cli` installs or updates both
-  to their current releases without a rebuild undoing the update. The image
+  image in a named npm volume: the first start installs them, and
+  `install-base.sh cli` updates both to their current releases without a
+  rebuild undoing the update. The image
   stays disposable, with everything worth keeping in named volumes or on the
   host.
 
 - **Firewall.** Upstream's allowlist covers what a software engineer needs.
   This one runs its own dnsmasq for domain-based allowlisting and adds the
   sources econ research runs on — data providers and paper repositories. R and
-  Python package registries are left out, since those stacks are built on the
-  host. It is also **fail-closed**: any setup failure drops
+  Python package registries are left out, since packages are installed during
+  the image build or with the firewall off. It is also **fail-closed**: any setup failure drops
   all traffic rather than leaving the container open, and blocked hosts are
   REJECTed so they fail fast instead of hanging.
 
 - **Startup scripts.** `postStartCommand` (`post-start.sh`) configures the firewall,
   seeds canonical agent guidance and shared skills, and checks the enforced
-  agent policy. Setting `firewall = false` in `SANDBOX.toml` switches the
-  firewall off at the next container start (stop + reopen, or Rebuild
-  Container); every shell warns while it is off, and anything other than a bare
-  `false` arms. The switch is in the tracked, writable workspace - like the
-  startup scripts themselves - so it is a convenience, not a security boundary
-  against an agent that edits the repo; `git diff` before restarting is the
-  review step. A
+  agent policy. The firewall stays off only in the normie container: its
+  config hard-codes `SANDBOX_INTERNET=open` in the container's environment,
+  fixed at creation, and anything other than `open` arms. Every shell says so
+  while it is off. The configs and the startup scripts are in the tracked,
+  writable workspace, and so is the host launcher, `.host/devcontainer.zsh`,
+  which the host's `~/.zshrc` sources straight from the checkout: an agent
+  that edits them changes what the next creation, start, or host shell
+  runs. They are not a security boundary against an
+  agent that edits the repo; `git diff` before restarting or opening a new
+  host terminal is the review step. A
   fresh container has the system toolchain immediately. The R, Python and TeX
-  stacks come from shared read-only volumes built on the host, and the AI CLIs
-  install once into a per-container volume with `install-packages.sh cli`.
+  stacks come from shared volumes that Docker seeds from the image on the
+  first build, and the AI CLIs install at first start into a per-checkout
+  volume that both modes share.
 
 - **Enforced agent policy.** Root-owned configuration disables Claude's online
   connectors and Codex Apps, Plugins, and remote plugin catalogs. A startup
@@ -101,33 +110,27 @@ WRDS and LLM API keys have to reach a container that a YOLO agent is running
 inside. The design: secrets live in the **host** credential store (macOS
 Keychain / Windows Credential Manager), mapped by `credentials-map.json`.
 `inject-credentials.py` runs on the host before Docker starts, resolves them,
-and writes a mode-`600` file that is bind-mounted **read-only** at
-`/run/secrets/credentials.env`. Nothing is passed with `--env-file`. Scripts
-call `get-credentials.py`, which reads the file on demand and returns the one
-value asked for.
+and writes a mode-`600` env file that Docker passes with `--env-file` when it
+creates the container. Inside, they are ordinary environment variables, which
+is what the agents and most tools expect; `get-credentials.py` and `.R` read
+the environment first and fall back to the host store outside the container.
 
-- **Credentials are not injected into the ambient process environment.** They
-  are not in PID 1's `environ`, so they are not inherited by every shell, agent,
-  and subprocess in the container. An agent that dumps its own environment — or
-  a crash reporter, or a logging library that helpfully serializes `os.environ`
-  — gets nothing unless a caller explicitly supplied a per-command environment
-  override.
+This was a bind-mounted file read on demand until 0927a. The environment was
+chosen knowing what it costs:
 
-- **Credentials never enter Docker metadata.** `--env-file` values become
-  `Config.Env`: `docker inspect` prints them, and they persist in the daemon's
-  `config.v2.json` for the life of the container, surviving stop/start. That is
-  an at-rest copy outside the container, longer-lived than the file itself and
-  readable by anyone who can reach the Docker socket. The bind mount has no such
-  copy.
+- **Every process inherits them.** Every shell, agent and subprocess has them
+  in its environment, so an agent that dumps its environment, a crash
+  reporter, or a logging library that serializes `os.environ` can leak them.
+- **They are in Docker's metadata.** `--env-file` values become `Config.Env`:
+  `docker inspect` prints them, and they persist in the daemon's
+  `config.v2.json` for the life of the container, readable by anyone who can
+  reach the Docker socket.
+- **They are fixed at creation.** Rotating or revoking one means recreating
+  the container.
 
-**What this does not do.** It is not a boundary against the agent. Anything
-running as `node` can read `/run/secrets/credentials.env` — it must, or WRDS
-queries would not work. Nor does it stop the host user, who can always
-`docker exec -u root`. The claim is narrower and worth stating precisely: by
-default, the injected secret exists in one place inside the container, in one
-file, readable on demand — instead of being copied into every process
-environment and into Docker's own metadata, where it outlives the thing it was
-scoped to and spreads to places nobody thinks to check.
+Neither design was a boundary against the agent: anything running as `node`
+could read the old file too, as it had to for WRDS queries to work. Nor does
+either stop the host user, who can always `docker exec -u root`.
 
 ## 2. Economics research
 
@@ -135,16 +138,30 @@ What the container makes reachable and installable: the analysis stacks, and the
 network allowlist that lets research data through. The
 commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
-- **Host-built, read-only package stacks.** The Python venv, the R
-  site-library and a minimal pdfLaTeX TeX Live live in shared Docker volumes.
-  The human builds them on the host with `bash .setup/packages.sh`, which runs
-  `install-packages.sh` in the devcontainer's own image, and every project
-  mounts them read-only. Agents run the stacks but cannot change them. To add a
-  package, edit the list in `install-packages.sh` and rerun the builder: only
-  the new package downloads, and running containers see it at the next R or
-  Python session. The builder uses Docker's default network, so the container
-  firewall never blocks a stack build; it still governs anything fetched from
-  inside the container.
+- **Read-only package stacks.** The Python venv, the R site-library and a
+  minimal pdfLaTeX TeX Live live in shared Docker volumes. The first build
+  fills them with a lean base: the image carries a copy, and Docker seeds each
+  empty volume from it. After that the human changes them with
+  `bash .setup/install-base.sh` from inside the container in normie mode, with
+  the firewall off and the volumes writable, and every project mounts them
+  read-only by default. Agents run the stacks but cannot
+  change them. Packages change only in normie mode, from inside.
+
+- **Two working modes, two containers.** YOLO mode, the default (`bbcode`,
+  `bbe`), is firewalled, read-only and builtin: agents run unsupervised.
+  Normie mode (`bbcode --normie`, `bbe --normie`) is open, writable and
+  unconfined: supervised work that feels like the Mac, with agents in
+  approval modes. There the user installs with the ordinary
+  `install.packages()`, `pip install` and `tlmgr install`, then goes back to
+  the YOLO container. Each mode is its own container from its own config
+  file, so both can run, switching ends nothing, and a rebuild by `bbox` or
+  VS Code keeps the mode. They share logins, the AI CLIs and the package
+  volumes. A normie container runs until stopped (`bbox --stop --normie`),
+  and every YOLO bring-up mentions it. The mode stays in view: a red VS Code
+  window, a `normie` tag in the prompt and Claude's status line, and a
+  banner in every shell. The rest of
+  what we use beyond the base is an
+  optional set that `install-optional.sh` installs in normie mode.
 
 - **Pinned R package state.** R resolves against a dated P3M snapshot rather
   than live CRAN, so an R environment rebuilt months later resolves the same
@@ -162,7 +179,7 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   alongside npm, code hosting, and agent APIs. Google's published first-party
   ranges are also allowed, so Google-hosted services resolve; arbitrary GCP
   customer ranges are not. R and Python package registries are deliberately
-  blocked: the stacks are built on the host, outside the firewall. CDN-fronted
+  blocked: the stacks are installed in normie mode, with the firewall off. CDN-fronted
   documentation hosts are added at DNS resolution time so ordinary address
   rotation does not break them.
 
@@ -183,8 +200,8 @@ workable should each be one step.
 | `.tools/latex/` | `sync-lyx.sh` |
 | `.tools/lit/` | `cited_by.py` |
 | `.devcontainer/agents/` | `seed-agent-guidelines.sh` (runs at container start) |
-| `.devcontainer/` | `install-packages.sh` (`cli`, `--verify`), `test-firewall.sh`, `test-agent-policy.sh` |
-| `.setup/` (host shell) | `packages.sh` |
+| `.devcontainer/` | `test-firewall.sh`, `test-agent-policy.sh` |
+| `.setup/` (container; normie mode except `cli`, `--verify`) | `install-base.sh`, `install-optional.sh` |
 
 Everything in `.tools/` is on `PATH` via `shellrc.sh`, so the filenames are the
 commands.
@@ -203,12 +220,12 @@ commands.
 ### Containers, sessions, and agents
 
 - **One-command project opening (`.host/`).** Source `devcontainer.zsh` in your
-  `~/.zshrc` and use `bbox --code [dir]` to validate `SANDBOX.toml`, bring up
-  the enclosing devcontainer, verify the live seccomp policy, and open that
-  exact subfolder in VS Code. `bbox --shell [dir]` follows the same bring-up
-  path and enters zsh. `bbox --rebuild` applies changed creation-time settings.
-  Direct VS Code creation remains the minimal everyday path and defaults to
-  `builtin`, the YOLO posture.
+  `~/.zshrc` and use `bbcode [dir]` to bring up the enclosing YOLO container
+  (or `bbcode --normie [dir]` for the normie one), verify its posture, and
+  open that exact subfolder in VS Code. `bbe [dir]` follows the same bring-up
+  path and enters zsh; `bbox --status` reports both containers. VS Code's own
+  Reopen in Container remains the minimal everyday path; it offers both
+  configs.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered
@@ -249,5 +266,7 @@ commands.
   zone for human-facing timestamps.
 
 - **Persistent agent auth.** Named volumes keep Claude and Codex login state
-  across rebuilds; VS Code forwards host Git credentials so in-container work
+  across rebuilds, shared by both modes' containers, so one login serves
+  both. Their names are the checkout's folder name alone, so that name must
+  be unique on the Docker daemon, which startup enforces; VS Code forwards host Git credentials so in-container work
   can push branches and open PRs.

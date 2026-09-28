@@ -141,8 +141,8 @@ done < <(echo "$goog_ranges" | jq -r '.prefixes[].ipv4Prefix | select(. != null)
 # install will silently fail inside the container.
 #
 # No R or Python package hosts (docs/journal/0925b). The package stacks are
-# built on the host by .setup/packages.sh, outside this firewall, and mounted
-# read-only, so nothing inside the container needs PyPI
+# installed by .setup/install-base.sh in normie mode, when this firewall is not
+# armed, and are mounted read-only otherwise, so nothing here needs PyPI
 # (pypi.org, files.pythonhosted.org), P3M (packagemanager.posit.co,
 # rspm-sync.rstudio.com), CRAN's archive (cran.r-project.org) or arrow's
 # prebuilt-libarrow host (apache.jfrog.io). Leaving them out also stops scratch

@@ -5,7 +5,7 @@ set -u
 readonly ALLOWED_URL="https://api.github.com/zen"
 readonly BLOCKED_URL="https://example.com"
 # Package registries are deliberately blocked: the R and Python stacks are
-# built on the host (docs/journal/0925b).
+# installed in normie mode, with the firewall off (docs/journal/0925b, 0926e).
 readonly BLOCKED_PACKAGE_URLS=(
     "https://pypi.org/simple/"
     "https://packagemanager.posit.co/"

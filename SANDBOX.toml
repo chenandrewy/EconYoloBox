@@ -1,26 +1,14 @@
 # Big Sandbox settings
+#
+# The security posture is not set here. It is chosen on the host when bbox
+# creates the container: bbcode or bbe for YOLO mode (the default), bbcode
+# --normie or bbe --normie for normie mode. See README.md.
 
-## Security 
-# YOLO launchers require both firewall = true and seccomp = "builtin"
-# Codex auto mode works more smoothly with seccomp = "unconfined"
-
-# `firewall = true` raises the deny-by-default firewall
-# `firewall = false` leaves internet access open
-firewall = true
-
-## Docker's system call filter
-# `seccomp = "builtin"` uses Docker's default protections
-# `seccomp = "unconfined"` allows Codex's bubblewrap sandboxing
-seccomp = "builtin"
-
-## Container paths. 
-# The SANDBOX-AGENTS.md points to these paths
-cellar = "/sandbox/cellar/"
-# Finished and retired projects. Moving a project here means it is no longer
-# active work; workspace/ holds only what is in progress.
-done = "/sandbox/done/"
+## Container paths.
+# The SANDBOX-AGENTS.md
+cellar = "/sandbox/cellar/" # research library
+done = "/sandbox/done/" # completed projects
 screenshot_directory = "/sandbox/workspace/dev/screenshots/"
 
-# IANA zone for TZ and for human-facing timestamps. Comment out to use the
-# host's detected zone.
+# Comment out to use the host's detected zone.
 timezone = "America/New_York"

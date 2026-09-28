@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Run as node in a rebuilt devcontainer: bash .devcontainer/tests/test-packages.sh
-# Inputs: the shared R, Python and TeX volumes, mounted read-only by
-#   devcontainer.json; install-packages.sh (its --verify mode holds the declared
-#   package lists). pip reaches PyPI only to prove an install is refused.
+# Inputs: the shared R, Python and TeX volumes, mounted read-only (YOLO mode,
+#   the default) or writable (bbox --normie); .setup/install-base.sh (its --verify
+#   mode holds the declared base lists). In read-only mode pip reaches PyPI
+#   only to prove an install is refused. Passes on the base alone; the
+#   optional set has its own check, tests/test-optional.sh.
 # Outputs: fixtures and logs in a new /tmp/packages-check.* directory (printed
 #   first); a PASS line and exit 0, or a FAIL line and nonzero exit.
 # shellcheck disable=SC2016 # single-quoted R and sh code expands its own $
@@ -23,18 +25,34 @@ case "$site_library" in
 *) fail "R's first library is $site_library, not the mounted site-library" ;;
 esac
 
-echo '--- read-only mounts'
+mode=$(bash "$here/../package-mode.sh")
+echo "--- package mounts agree: $mode"
+case "$mode" in
+readonly | writable) ;;
+*) fail "package mounts are $mode; on the host run bbox --rebuild (add --normie for writable)" ;;
+esac
 for mount in /opt/venv "$site_library" /usr/local/texlive; do
-    findmnt -n -o OPTIONS -T "$mount" | tr ',' '\n' | grep -qx ro || fail "$mount is not mounted read-only"
-    if touch "$mount/consumer-write-test" 2>/dev/null; then
-        fail "consumer can write to $mount"
+    mountpoint -q "$mount" || fail "$mount is not a mounted volume"
+    if [ "$mode" = readonly ]; then
+        findmnt -n -o OPTIONS -T "$mount" | tr ',' '\n' | grep -qx ro || fail "$mount is not mounted read-only"
+        if touch "$mount/consumer-write-test" 2>/dev/null; then
+            fail "consumer can write to $mount"
+        fi
+    else
+        # The image seeds the volumes node-owned, so node installs without sudo.
+        [ "$(stat -c %U "$mount")" = node ] || fail "$mount is owned by $(stat -c %U "$mount"), not node"
+        touch "$mount/consumer-write-test" || fail "node cannot write to $mount"
+        rm -f "$mount/consumer-write-test"
     fi
 done
-bash "$here/../install-packages.sh" python >refuse-python.log 2>&1 && fail "install-packages.sh python ran in a consumer"
-grep -q 'mounted read-only' refuse-python.log || fail "install-packages.sh python did not explain the refusal"
+if [ "$mode" = readonly ]; then
+    bash "$here/../../.setup/install-base.sh" python >refuse-python.log 2>&1 && fail "install-base.sh python ran in a consumer"
+    grep -q 'mounted read-only' refuse-python.log || fail "install-base.sh python did not explain the refusal"
+    grep -q 'install-base.sh cli' refuse-python.log || fail "install-base.sh python refusal did not point to cli"
+fi
 
-echo '--- declared stacks (install-packages.sh --verify)'
-bash "$here/../install-packages.sh" --verify python r tex >verify.log 2>&1 || {
+echo '--- declared stacks (install-base.sh --verify)'
+bash "$here/../../.setup/install-base.sh" --verify python r tex >verify.log 2>&1 || {
     cat verify.log >&2
     fail "declared stack verification"
 }
@@ -59,25 +77,8 @@ m <- feols(y ~ x | g, d, cluster = ~g)
 stopifnot(abs(coef(m)[["x"]] - 2) < 0.01, se(m)[["x"]] > 0)
 cat("fixest: x =", round(coef(m)[["x"]], 4), "\n")'
 
-echo '--- parquet round trip: pyarrow -> arrow -> pyarrow'
-python3 - <<'PY'
-import pyarrow as pa, pyarrow.parquet as pq
-pq.write_table(pa.table({"id": [1, 2, 3], "value": [0.5, 1.5, 2.5], "name": ["a", "b", "c"]}), "from-python.parquet")
-PY
-Rscript -e '
-suppressMessages(library(arrow))
-d <- as.data.frame(read_parquet("from-python.parquet"))
-stopifnot(identical(d$name, c("a", "b", "c")), all.equal(d$value, c(0.5, 1.5, 2.5)))
-d$doubled <- d$value * 2
-write_parquet(d, "from-r.parquet")'
-python3 - <<'PY'
-import pyarrow.parquet as pq
-t = pq.read_table("from-r.parquet").to_pydict()
-assert t["doubled"] == [1.0, 3.0, 5.0], t
-assert t["name"] == ["a", "b", "c"], t
-print("parquet round trip OK")
-PY
-
+# Read-only mode only. The body is not indented because it holds a heredoc.
+if [ "$mode" = readonly ]; then
 echo '--- installs of absent packages are refused'
 r_absent=$(Rscript -e 'p <- c("praise", "fortunes", "cowsay", "beepr")
 a <- p[!nzchar(vapply(p, function(x) system.file(package = x), ""))]
@@ -108,6 +109,7 @@ fi
 python3 -c "import importlib.metadata as m, sys; m.distribution(sys.argv[1])" "$py_absent" 2>/dev/null &&
     fail "$py_absent became installed after a refused pip install"
 echo "Python: pip install $py_absent refused"
+fi
 
 echo '--- TeX: user trees, binaries'
 for tree in TEXMFVAR TEXMFCONFIG TEXMFHOME; do
@@ -195,5 +197,6 @@ pdftotext lyx-direct.pdf lyx-direct.txt
 grep -q 'Knuth' lyx-direct.txt
 grep -q '1984' lyx-direct.txt
 
-printf 'PASS: %s; read-only R/Python/TeX volumes; declared stacks; %s R packages load; fixest; parquet round trip; installs refused; pdflatex, biber, latexindent, latexmk, LyX\n' \
-    "$(dpkg --print-architecture)" "$(wc -l <r-packages.txt)"
+if [ "$mode" = readonly ]; then refused='; installs refused'; else refused=''; fi
+printf 'PASS: %s; %s R/Python/TeX volumes; declared base stacks; %s R packages load; fixest%s; pdflatex, biber, latexindent, latexmk, LyX\n' \
+    "$(dpkg --print-architecture)" "$mode" "$(wc -l <r-packages.txt)" "$refused"

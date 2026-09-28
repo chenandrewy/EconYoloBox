@@ -1,32 +1,57 @@
 #!/usr/bin/env bash
-# Install the Python, R and TeX stacks, and the AI CLIs.
+# Install the lean base: the Python, R and TeX stacks and the AI CLIs.
 #
-# Run:
-#   On the host, via the builder (python, r, tex):
-#     bash .setup/packages.sh [python] [r] [tex] [all] [--force]
-#   which runs this script as root in this workspace's own devcontainer image,
-#   with the shared package volumes mounted read-write.
-#   Inside the devcontainer, as node:
-#     .devcontainer/install-packages.sh            # AI CLIs (same as `cli`)
-#     .devcontainer/install-packages.sh cli        # AI CLIs, always @latest
-#     .devcontainer/install-packages.sh --verify all cli   # check only
+# Run, inside the devcontainer as node, from anywhere in this checkout:
+#   In normie mode (on the host, `bbcode --normie` or `bbe --normie`):
+#     bash .setup/install-base.sh                # python r tex cli (all)
+#     bash .setup/install-base.sh tex            # TeX Live only
+#     bash .setup/install-base.sh r --force      # reinstall present R packages
+#   In any mode:
+#     bash .setup/install-base.sh cli            # AI CLIs, always @latest
+#     bash .setup/install-base.sh --verify       # check only; writes nothing
+#   In the Dockerfile only (RUN as node, BuildKit bind-mounting this file):
+#     bash install-base.sh --image-build         # python r tex into the image
 #
 # Inputs:  the package lists below; the dated P3M snapshot pinned in the image's
-#          Rprofile.site (Dockerfile ARG CRAN_SNAPSHOT); PyPI; Bioconductor;
-#          the rolling TeX Live tlnet repository; npm.
+#          Rprofile.site (Dockerfile ARG CRAN_SNAPSHOT); PyPI; the rolling
+#          TeX Live tlnet repository; npm.
 # Outputs: python -> /opt/venv; r -> the R site library; tex -> TeX Live in
 #          /usr/local/texlive (with install.log and the .sandbox-installed
 #          marker there); cli -> NPM_CONFIG_PREFIX. Each target ends with an
 #          "... OK" line or exits nonzero.
 #
-# python, r and tex fill shared volumes that the devcontainer mounts read-only.
-# Each refuses unless its install directory is a writable mount: an unmounted
-# directory would install into a disposable image layer, and a read-only one
-# means this is a consumer, where the answer is the host builder. --verify
-# only checks (imports, library loads, the TeX marker) and works anywhere. Adding a package means editing a list
-# here and re-running the builder: python and r are idempotent (present packages
-# are skipped unless --force), and tex adds whatever TEX_COLLECTIONS/TEX_PKGS
-# name that the marked tree lacks. See docs/journal/0921a and 0925b.
+# Packages change only in normie mode, from inside (docs/journal/0926e). The
+# devcontainer's own image is the builder, which matters: R packages link
+# against its shared libraries and install from its Rprofile.site snapshot, so
+# a volume must be built by the image that will consume it. The volumes are
+# node-owned (the Dockerfile seeds them so), and everything here runs as node.
+#
+# python, r and tex refuse unless the container is in normie mode: run as
+# node, their mounts writable and node-owned, and the firewall open (checked
+# like install-optional.sh does, on the mounts and the firewall marker). An
+# unmounted directory would install into a disposable image layer. cli needs
+# only its own mount, the per-checkout npm-global volume, which is writable in
+# every mode. --verify only checks (imports, library loads, the TeX marker, npm
+# ls) and works in any mode. Outside a container everything refuses.
+#
+# --image-build is the Dockerfile's first-setup path (docs/journal/0926f). It
+# installs python, r and tex into the image's own directories, and Docker seeds
+# each empty volume from them the first time it is mounted, so a new checkout
+# gets the base without a normie round trip. It requires the opposite of normie
+# mode: the targets must NOT be mounts, which is true only during a build, so
+# it refuses in any running container. Seeding happens once; a volume that
+# holds anything is never touched again, and base changes still go through
+# normie mode.
+#
+# Adding a package means editing a list here and re-running: python and r are
+# idempotent (present packages are skipped unless --force), and tex adds
+# whatever TEX_COLLECTIONS/TEX_PKGS name that the marked tree lacks. See
+# docs/journal/0921a, 0925b, 0926d and 0926e.
+#
+# The lists are a lean base: what the sandbox's own tools and tests need, plus a
+# small core. Everything else we use is the optional set, installed by the user
+# into the same volumes with install-optional.sh, also in normie mode
+# (docs/journal/0926a). Nothing here may depend on the optional set.
 #
 # Deliberately no user-level layering: one declared stack per language.
 
@@ -34,18 +59,23 @@ set -euo pipefail
 
 usage() {
     cat <<'USAGE'
-Usage: install-packages.sh [python] [r] [tex] [cli] [all] [--force]
+Usage: install-base.sh [python] [r] [tex] [cli] [all] [--force] [--verify]
 
   python    install the Python stack into /opt/venv
   r         install the R stack into the site library
   tex       install minimal TeX Live, or add missing TEX_PKGS to it
-  cli       install/update the Claude Code and Codex CLIs (the default)
-  all       python r tex (the host builder's stacks; not cli)
-  --force   reinstall present python/r packages (not accepted with tex)
+  cli       install/update the Claude Code and Codex CLIs
+  all       python r tex cli (the default)
+  --force   reinstall present python/r packages (not accepted with tex;
+            with no target, python r cli)
   --verify  check the named targets without installing anything
+  --image-build
+            the Dockerfile's path: python r tex into the image, whose
+            directories seed fresh volumes; refuses in a running container
 
-Several targets may be given. python, r and tex are built on the host with
-bash .setup/packages.sh. Re-runs skip what is already installed.
+Several targets may be given. Runs only inside the devcontainer, as node.
+python, r and tex install only in normie mode; cli and --verify work in any
+mode. Re-runs skip what is installed.
 USAGE
 }
 
@@ -55,6 +85,7 @@ DO_TEX=0
 DO_CLI=0
 FORCE=0
 VERIFY=0
+IMAGE_BUILD=0
 for arg in "$@"; do
     case "$arg" in
     python | py) DO_PYTHON=1 ;;
@@ -65,32 +96,64 @@ for arg in "$@"; do
         DO_PYTHON=1
         DO_R=1
         DO_TEX=1
+        DO_CLI=1
         ;;
     --force | -f) FORCE=1 ;;
     --verify) VERIFY=1 ;;
+    --image-build) IMAGE_BUILD=1 ;;
     -h | --help)
         usage
         exit 0
         ;;
     *)
-        echo "install-packages.sh: unknown argument '$arg'" >&2
+        echo "install-base.sh: unknown argument '$arg'" >&2
         usage >&2
         exit 2
         ;;
     esac
 done
+if [ "$IMAGE_BUILD" -eq 1 ]; then
+    # The CLIs stay out of the image (a baked @latest layer freezes; see the
+    # Dockerfile), and a build has nothing to verify against.
+    if [ "$DO_CLI" -eq 1 ] || [ "$VERIFY" -eq 1 ] || [ "$FORCE" -eq 1 ]; then
+        echo "install-base.sh: --image-build takes only python, r and tex." >&2
+        exit 2
+    fi
+    if [ $((DO_PYTHON + DO_R + DO_TEX)) -eq 0 ]; then
+        DO_PYTHON=1
+        DO_R=1
+        DO_TEX=1
+    fi
+fi
+# --force does not apply to TeX, so a bare --force leaves it out.
 if [ $((DO_PYTHON + DO_R + DO_TEX + DO_CLI)) -eq 0 ]; then
+    DO_PYTHON=1
+    DO_R=1
     DO_CLI=1
+    if [ "$FORCE" -eq 0 ]; then DO_TEX=1; fi
 fi
 if [ "$FORCE" -eq 1 ] && [ "$VERIFY" -eq 1 ]; then
-    echo "install-packages.sh: --force and --verify are mutually exclusive." >&2
+    echo "install-base.sh: --force and --verify are mutually exclusive." >&2
     exit 2
 fi
 if [ "$FORCE" -eq 1 ] && [ "$DO_TEX" -eq 1 ]; then
-    echo "install-packages.sh: --force does not apply to tex; rebuilding TeX means a new volume." >&2
+    echo "install-base.sh: --force does not apply to tex; rebuilding TeX means a new volume." >&2
     echo "Run tex without --force, and python/r --force separately." >&2
     exit 2
 fi
+
+# Everything above is plain enough for macOS bash 3.2, so that on the host this
+# refusal is what runs. A BuildKit RUN has neither marker; --image-build makes
+# its own check below.
+if [ "$IMAGE_BUILD" -eq 0 ] && [ ! -f /.dockerenv ] && [ ! -f /run/.containerenv ]; then
+    echo "install-base.sh: runs only inside the devcontainer; nothing was installed." >&2
+    echo "Switch to normie mode (see .setup/README.md), then in the container run:" >&2
+    echo "  bash .setup/install-base.sh $*" >&2
+    exit 1
+fi
+
+CLI_TARGET=/usr/local/share/npm-global
+TEX_PREFIX=/usr/local/texlive
 
 WORK_DIR=""
 cleanup() {
@@ -99,52 +162,120 @@ cleanup() {
 trap cleanup EXIT
 WORK_DIR=$(mktemp -d)
 
-# An unmounted target would install into this container's writable layer and
-# vanish with it, while the volume the devcontainer mounts stays unchanged. A
-# read-only one is a consumer's view of a volume only the host builder writes.
-require_writable_mount() {
-    if ! mountpoint -q "$1"; then
-        echo "install-packages.sh: $1 is not a mounted volume; refusing to install into the image layer." >&2
-        echo "On the host run: bash .setup/packages.sh $2" >&2
-        exit 1
-    fi
-    if findmnt -n -o OPTIONS -T "$1" | tr ',' '\n' | grep -qx ro; then
-        echo "install-packages.sh: $1 is mounted read-only; packages are managed from the host." >&2
-        echo "Add the package to the list in .devcontainer/install-packages.sh, then on the host run:" >&2
-        echo "  bash .setup/packages.sh $2" >&2
+# The same check as install-optional.sh: normie mode is the user's switch, the
+# mounts writable, which only bbox --normie can arrange, at creation. Checked
+# on the container itself. All of it before anything installs, so a refusal
+# writes nothing.
+require_install_mode() {
+    local mount owner problems=()
+    [ "$(id -un)" = node ] || problems+=("run as node, not $(id -un)")
+    for mount in "$@"; do
+        if ! mountpoint -q "$mount"; then
+            problems+=("$mount is not a mounted volume; refusing to install into the image layer")
+        elif findmnt -n -o OPTIONS -T "$mount" | tr ',' '\n' | grep -qx ro; then
+            problems+=("$mount is mounted read-only")
+        else
+            owner=$(stat -c %U "$mount")
+            if [ "$owner" != node ]; then
+                problems+=("$mount is owned by $owner, not node (see .setup/README.md, \"Volume ownership\")")
+            elif [ ! -w "$mount" ]; then
+                problems+=("$mount is not writable by $(id -un)")
+            fi
+        fi
+    done
+    # post-start.sh leaves this marker when it skips the firewall. Armed, the
+    # firewall blocks PyPI, P3M and CTAN, so every install fails.
+    [ -f /tmp/FIREWALL-WINDOW-OPEN ] || problems+=("the firewall is armed; PyPI, P3M and CTAN are blocked")
+    if [ ${#problems[@]} -gt 0 ]; then
+        echo "install-base.sh: not in normie mode:" >&2
+        printf '  - %s\n' "${problems[@]}" >&2
+        echo 'Switch to normie mode: on the host, bbcode --normie (or bbe --normie),' >&2
+        echo "then in the container: bash .setup/install-base.sh $STACK_TARGETS" >&2
+        echo 'Back to YOLO mode afterwards: bbcode or bbe; bbox --stop --normie.' >&2
+        echo 'The AI CLIs update in any mode: bash .setup/install-base.sh cli' >&2
         exit 1
     fi
 }
 
+# The CLI volume is writable in every mode; it only has to be mounted, or npm
+# would install into a disposable image layer.
+require_cli_mount() {
+    if ! mountpoint -q "$CLI_TARGET"; then
+        echo "install-base.sh: $CLI_TARGET is not a mounted volume; refusing to install into the image layer." >&2
+        echo "Run bbox --rebuild on the host, then bash .setup/install-base.sh cli" >&2
+        exit 1
+    fi
+}
+
+# The inverse of require_install_mode: during an image build nothing is
+# mounted, and in a running container every target is, so "no target is a
+# mount" is what tells the two apart. The image's directories are node-owned
+# (the Dockerfile makes them so), which is how the seeded volumes end up
+# node-owned too.
+require_image_build() {
+    local dir problems=()
+    for dir in "$@"; do
+        if [ ! -d "$dir" ]; then
+            problems+=("$dir does not exist; the Dockerfile creates it")
+        elif mountpoint -q "$dir"; then
+            problems+=("$dir is a mounted volume, so this is a running container, not an image build")
+        elif [ ! -w "$dir" ]; then
+            problems+=("$dir is not writable by node")
+        fi
+    done
+    if [ ${#problems[@]} -gt 0 ]; then
+        echo "install-base.sh: --image-build is for the Dockerfile only:" >&2
+        printf '  - %s\n' "${problems[@]}" >&2
+        echo "In a container, install in normie mode: bash .setup/install-base.sh" >&2
+        exit 1
+    fi
+}
+
+# Before anything else runs, so a host or a root build step gets a plain
+# refusal rather than a missing-command error.
+if [ "$IMAGE_BUILD" -eq 1 ] && [ "$(id -un)" != node ]; then
+    echo "install-base.sh: --image-build runs as node in the Dockerfile only; nothing was installed." >&2
+    exit 1
+fi
+
+R_LIB=""
+if [ "$DO_R" -eq 1 ]; then R_LIB=$(Rscript -e 'cat(.libPaths()[1])'); fi
+
+STACK_TARGETS=""
+if [ "$IMAGE_BUILD" -eq 1 ]; then
+    build_dirs=()
+    if [ "$DO_PYTHON" -eq 1 ]; then build_dirs+=(/opt/venv); fi
+    if [ "$DO_R" -eq 1 ]; then build_dirs+=("$R_LIB"); fi
+    if [ "$DO_TEX" -eq 1 ]; then build_dirs+=("$TEX_PREFIX"); fi
+    require_image_build "${build_dirs[@]}"
+elif [ "$VERIFY" -eq 0 ]; then
+    stack_mounts=()
+    if [ "$DO_PYTHON" -eq 1 ]; then stack_mounts+=(/opt/venv) && STACK_TARGETS+=" python"; fi
+    if [ "$DO_R" -eq 1 ]; then stack_mounts+=("$R_LIB") && STACK_TARGETS+=" r"; fi
+    if [ "$DO_TEX" -eq 1 ]; then stack_mounts+=("$TEX_PREFIX") && STACK_TARGETS+=" tex"; fi
+    STACK_TARGETS=${STACK_TARGETS# }
+    if [ ${#stack_mounts[@]} -gt 0 ]; then require_install_mode "${stack_mounts[@]}"; fi
+    if [ "$DO_CLI" -eq 1 ]; then require_cli_mount; fi
+fi
+
 PY_PKGS=(
+    # sandbox tools (.tools/pdf, .tools/lit)
+    requests
+    PyMuPDF
+    pikepdf
+    openai
+    mistralai
+    # core; pyfixest is also the startup sentinel
     numpy
     pandas
     matplotlib
     statsmodels
-    scipy
-    linearmodels
-    scikit-learn
-    openpyxl
-    wrds
-    mistralai
-    polars
-    sas7bdat
-    beautifulsoup4
-    lxml
-    pyarrow
     pyfixest
-    PyMuPDF
-    pikepdf
-    openai
-    openassetpricing
-    requests
-    PyYAML
 )
 
 install_python() {
     echo "==> Python stack (/opt/venv), ${#PY_PKGS[@]} packages"
     if [ "$VERIFY" -eq 0 ]; then
-        require_writable_mount /opt/venv python
         local args=(--no-cache-dir)
         if [ "$FORCE" -eq 1 ]; then
             args+=(--force-reinstall)
@@ -204,9 +335,7 @@ PYEOF
 }
 
 install_r() {
-    local lib
-    lib=$(Rscript -e 'cat(.libPaths()[1])')
-    echo "==> R stack ($lib)"
+    echo "==> R stack ($R_LIB)"
     local r_script="$WORK_DIR/install-r.R"
 
     # Plain Rscript, not --vanilla: the site Rprofile is what pins the repo to
@@ -216,44 +345,20 @@ install_r() {
 mode <- commandArgs(trailingOnly = TRUE)[1]
 reinstall <- identical(Sys.getenv("STACK_FORCE"), "1")
 
-# Econometrics/data stack. Notable entries:
-#   fixest          - the regressions
+# Lean base. Everything else, including pryr (CRAN archive) and pcaMethods
+# (Bioconductor), is in install-optional.sh.
+#   languageserver  - the VS Code R extension
+#   fixest          - the regressions; also the test and startup sentinel
 #   modelsummary    - fixest models -> LaTeX/markdown/Word tables
 #   sandwich+lmtest - robust/clustered SEs for base lm/glm
-#   kableExtra      - LaTeX table styling on top of knitr
-#   arrow           - parquet/feather I/O, interop with Python pyarrow
-#   car             - regression diagnostics / hypothesis tests
-#   marginaleffects - contrasts/marginal effects, pairs with modelsummary
-#   BiocManager     - installs bioc_pkgs below
 cran_pkgs <- c(
-  "DBI", "RPostgres", "dplyr", "data.table", "keyring",
-  "tidyverse", "lubridate", "readxl", "writexl",
-  "lobstr", "Rcpp",
-  "ggrepel", "gridExtra", "xtable",
-  "doParallel", "foreach", "fst",
-  "lme4", "ccaPP", "zoo",
-  "fs", "getPass", "googledrive", "here", "tictoc", "tm",
   "languageserver",
-  "fixest", "OpenSourceAP.DownloadR",
-  "modelsummary", "sandwich", "lmtest", "kableExtra",
-  "arrow", "car", "marginaleffects",
-  "BiocManager", "dotenv", "extrafont", "fuzzyjoin", "huxtable", "janitor",
-  "latex2exp", "lexicon", "quanteda.textstats", "roll", "splitstackshape",
-  "strucchange"
+  "fixest",
+  "data.table", "tidyverse",
+  "modelsummary", "sandwich", "lmtest"
 )
 
-# pryr is archived on CRAN, so its build deps (lobstr, Rcpp) come from the
-# snapshot above and the package itself is pinned from the archive.
-archive_pkgs <- c(
-  pryr = "https://cran.r-project.org/src/contrib/Archive/pryr/pryr_0.1.6.tar.gz"
-)
-
-# Bioconductor release matching R 4.5. update = FALSE matters: the default
-# would upgrade snapshot-pinned CRAN packages past the P3M date.
-bioc_version <- "3.22"
-bioc_pkgs <- c("pcaMethods")
-
-all_pkgs <- c(cran_pkgs, names(archive_pkgs), bioc_pkgs)
+all_pkgs <- cran_pkgs
 
 # Verification runs in a fresh process (mode "verify"): a namespace loaded
 # before a --force reinstall would otherwise pass from memory.
@@ -282,45 +387,12 @@ report_failure <- function(failed, context) {
   cat("It names the host or package that failed; the full log is above.\n")
 }
 
-# Keep going on a failure here so the run still reaches the summary below,
-# instead of halting R on the first error and burying the cause.
-try_install <- function(nm, expr) {
-  tryCatch(expr, error = function(e) {
-    cat("ERROR installing ", nm, ": ", conditionMessage(e), "\n", sep = "")
-  })
-}
-
 todo <- cran_pkgs[vapply(cran_pkgs, wanted, logical(1))]
 if (length(todo)) {
   cat("Installing from P3M snapshot:", paste(todo, collapse = ", "), "\n")
   install.packages(todo)
-
-  # Stop here rather than cascading: pryr and pcaMethods need this batch.
-  # Continuing past a failed batch buries one network error under a pile of
-  # missing-dependency errors.
-  failed <- todo[!vapply(todo, have, logical(1))]
-  if (length(failed)) {
-    report_failure(failed, sprintf("%d of %d from P3M", length(failed), length(todo)))
-    quit(status = 1)
-  }
 } else {
   cat("CRAN packages already present\n")
-}
-
-for (nm in names(archive_pkgs)) {
-  if (wanted(nm)) {
-    cat("Installing archived source:", nm, "\n")
-    try_install(nm, install.packages(archive_pkgs[[nm]], repos = NULL, type = "source"))
-  }
-}
-
-todo <- bioc_pkgs[vapply(bioc_pkgs, wanted, logical(1))]
-if (length(todo)) {
-  cat("Installing from Bioconductor ", bioc_version, ": ",
-      paste(todo, collapse = ", "), "\n", sep = "")
-  try_install("Bioconductor", BiocManager::install(
-    todo, version = bioc_version, ask = FALSE, update = FALSE, force = reinstall
-  ))
 }
 
 # Fail loudly on a partial install rather than leaving a half-built stack.
@@ -332,7 +404,6 @@ if (length(missing)) {
 REOF
 
     if [ "$VERIFY" -eq 0 ]; then
-        require_writable_mount "$lib" r
         STACK_FORCE="$FORCE" Rscript "$r_script" install
     fi
     Rscript "$r_script" verify
@@ -346,7 +417,6 @@ REOF
 # collections, install-tl ignores the scheme's collection list: TEX_COLLECTIONS
 # must therefore spell out all of them (install-tl manual, "Profiles").
 # LuaTeX stays: luatex/luahbtex are in collection-basic, which nothing can drop.
-TEX_PREFIX=/usr/local/texlive
 TEX_MARKER="$TEX_PREFIX/.sandbox-installed"
 TEX_LOG="$TEX_PREFIX/install.log"
 TEX_REPOSITORY=https://mirror.ctan.org/systems/texlive/tlnet
@@ -357,20 +427,21 @@ TEX_COLLECTIONS=(
     collection-latexrecommended
     collection-metapost
     # additions
-    collection-latexextra
-    collection-fontsrecommended
     collection-bibtexextra # biblatex, biber
-    collection-pictures    # tikz
-    collection-mathscience
-    collection-fontsextra # fontawesome5
 )
 TEX_EXCLUDED=(collection-xetex)
 # Single packages on top of the collections. Adding a name here and re-running
-# `packages.sh tex` installs it with tlmgr. latexindent's Perl dependencies are
-# in the Dockerfile; latexmk is LaTeX Workshop's default recipe.
+# `install-base.sh tex` installs it with tlmgr. latexindent's Perl dependencies are
+# in the Dockerfile; latexmk is LaTeX Workshop's default recipe. cm-super is
+# the one package a default LyX export needs beyond the collections: LyX writes
+# \usepackage[T1]{fontenc}, and without cm-super pdflatex falls back to
+# bitmap EC fonts (found by mapping a default export's -recorder inputs to
+# texlive.tlpdb; docs/journal/0926b). The rest of the old TeX stack
+# (latexextra, pictures/TikZ, mathscience, fonts) is in install-optional.sh.
 TEX_PKGS=(
     latexindent
     latexmk
+    cm-super
 )
 
 # Package names recorded in the tree's own database; no network needed.
@@ -432,13 +503,12 @@ tex_smoke() {
 BIB
     cat >smoke.tex <<'TEX'
 \documentclass{article}
+\usepackage[T1]{fontenc}
 \usepackage{amsmath}
-\usepackage{tikz}
 \usepackage[backend=biber,style=authoryear]{biblatex}
 \addbibresource{references.bib}
 \begin{document}
 TeX Live smoke test: $x^2$, see \autocite{knuth1984}.
-\tikz \draw (0,0) -- (1,1);
 \printbibliography
 \end{document}
 TEX
@@ -447,12 +517,17 @@ TEX
     pdflatex -interaction=nonstopmode -halt-on-error smoke.tex >/dev/null
     pdftotext smoke.pdf smoke.txt
     grep -q Knuth smoke.txt
+    # T1 text in bitmap (Type 3) fonts means cm-super is missing.
+    if pdffonts smoke.pdf | grep -q 'Type 3'; then
+        echo "smoke.pdf uses bitmap fonts; is cm-super installed?" >&2
+        return 1
+    fi
     latexindent smoke.tex >/dev/null
     latexmk -v >/dev/null
     echo "pdflatex, biber, latexindent, latexmk OK"
 
-    # LyX run as root here, so it gets a private userdir; configure.py is
-    # what tex-refresh runs for node in the consuming container.
+    # LyX gets a private userdir, so the smoke test leaves node's ~/.lyx
+    # alone; configure.py there is what tex-refresh runs afterwards.
     (cd lyx-userdir && python3 /usr/local/share/lyx/configure.py >../lyx-configure.log 2>&1)
     tex2lyx -userdir "$dir/lyx-userdir" -f smoke.tex smoke.lyx >/dev/null 2>&1
     QT_QPA_PLATFORM=offscreen lyx -userdir "$dir/lyx-userdir" -batch -f all \
@@ -479,10 +554,32 @@ tex_write_marker() {
     mv "$TEX_MARKER.tmp" "$TEX_MARKER"
 }
 
+# mirror.ctan.org redirects each request to a random mirror, and a few serve a
+# certificate wget cannot verify (ctan.math.utah.edu, 2026-09-26). Pick
+# one concrete mirror whose tlpdb downloads, retrying through the redirector,
+# and use it for the whole fresh install; install-tl records it as tlmgr's
+# repository, as it would a mirror it resolved itself. Prints the mirror.
+tex_pick_mirror() {
+    local attempt mirror
+    for attempt in 1 2 3 4 5; do
+        mirror=$(curl -s -o /dev/null -w '%{redirect_url}' "$TEX_REPOSITORY/tlpkg/texlive.tlpdb.xz") || mirror=""
+        mirror=${mirror%/tlpkg/texlive.tlpdb.xz}
+        [ -n "$mirror" ] || mirror=$TEX_REPOSITORY
+        if wget --no-verbose -O texlive.tlpdb.xz "$mirror/tlpkg/texlive.tlpdb.xz" >&2; then
+            echo "$mirror"
+            return 0
+        fi
+        echo "TeX mirror $mirror failed (attempt $attempt of 5)" >&2
+    done
+    echo "No TeX mirror reachable through $TEX_REPOSITORY; nothing was written to the volume." >&2
+    return 1
+}
+
 tex_fresh_install() {
-    local year=$1 platform=$2 repository_year coll
+    local year=$1 platform=$2 repository_year coll mirror
     cd "$WORK_DIR"
-    wget -q -O texlive.tlpdb.xz "$TEX_REPOSITORY/tlpkg/texlive.tlpdb.xz"
+    mirror=$(tex_pick_mirror) || exit 1
+    echo "TeX mirror: $mirror"
     xz -d texlive.tlpdb.xz
     repository_year=$(awk '$1 == "depend" && $2 ~ /^release\/[0-9]+$/ {sub(/^release\//, "", $2); print $2; exit}' texlive.tlpdb)
     if [ "$repository_year" != "$year" ]; then
@@ -490,7 +587,7 @@ tex_fresh_install() {
         echo "Bump TEXLIVE_YEAR in the Dockerfile and the volume name together." >&2
         exit 1
     fi
-    wget -q -O install-tl.tar.gz "$TEX_REPOSITORY/install-tl-unx.tar.gz"
+    wget --no-verbose -O install-tl.tar.gz "$mirror/install-tl-unx.tar.gz"
     tar -xzf install-tl.tar.gz
     {
         echo "selected_scheme scheme-small"
@@ -513,12 +610,12 @@ PROFILE
     } >texlive.profile
 
     # From here on the log lives in the volume, so a failure is inspectable
-    # after the builder container is gone. The preflight above writes nothing
+    # after this run. The preflight above writes nothing
     # there, so a failed download never makes the volume look installed.
     (
         set -o errtrace
         trap 'echo "Installation/check failed. Inspect $TEX_LOG; the tree has been preserved." >&2' ERR
-        perl ./install-tl-*/install-tl -profile "$WORK_DIR/texlive.profile" -repository "$TEX_REPOSITORY"
+        perl ./install-tl-*/install-tl -profile "$WORK_DIR/texlive.profile" -repository "$mirror"
         tex_add_missing "$year"
         fmtutil-sys --all
         updmap-sys
@@ -540,19 +637,18 @@ install_tex() {
 
     if [ "$VERIFY" -eq 1 ]; then
         if [ ! -f "$TEX_MARKER" ]; then
-            echo "MISSING (tex): no $TEX_MARKER; on the host run: bash .setup/packages.sh tex" >&2
+            echo "MISSING (tex): no $TEX_MARKER; in normie mode, in the container: bash .setup/install-base.sh tex" >&2
             return 1
         fi
         local absent=()
         mapfile -t absent < <(tex_missing "$year")
         if [ ${#absent[@]} -gt 0 ]; then
-            echo "MISSING (tex): ${absent[*]}; on the host run: bash .setup/packages.sh tex" >&2
+            echo "MISSING (tex): ${absent[*]}; in normie mode, in the container: bash .setup/install-base.sh tex" >&2
             return 1
         fi
         echo "TeX stack OK (marked; ${#TEX_COLLECTIONS[@]} collections, ${#TEX_PKGS[@]} extra packages present)"
         return 0
     fi
-    require_writable_mount "$TEX_PREFIX" tex
 
     if [ -f "$TEX_MARKER" ]; then
         local missing=()
@@ -627,4 +723,18 @@ if [ "$DO_R" -eq 1 ]; then install_r; fi
 if [ "$DO_TEX" -eq 1 ]; then install_tex; fi
 if [ "$DO_CLI" -eq 1 ]; then install_cli; fi
 
-echo "Done."
+if [ "$IMAGE_BUILD" -eq 1 ]; then
+    # No tex-refresh: it configures node's LyX userdir, which is a runtime
+    # concern; post-start.sh runs it at every start.
+    echo "Done. The image now carries the base; Docker seeds each empty volume from it."
+elif [ "$VERIFY" -eq 0 ] && [ -n "$STACK_TARGETS" ]; then
+    if [ "$DO_TEX" -eq 1 ]; then
+        echo "+ tex-refresh"
+        tex-refresh
+    fi
+    echo "Restart R/Python sessions in every container that mounts these volumes;"
+    echo "after a TeX change run tex-refresh there too and reopen LyX."
+    echo 'Done. Back to YOLO mode: on the host, bbcode or bbe; bbox --stop --normie.'
+else
+    echo "Done."
+fi

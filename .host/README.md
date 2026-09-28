@@ -1,12 +1,15 @@
 # Host-side toolkit
 
 `.host/` is the supported host launcher for this sandbox,
-[`.setup/`](../.setup/README.md) is host machine setup and maintenance, and
-`.devcontainer/` defines the container.
+[`.setup/`](../.setup/README.md) is provisioning you run by hand (package
+volumes and AI CLIs, in the container), and `.devcontainer/` is
+the container itself: its definition, its startup, and the tools baked into
+it.
 
 The functions run on your **Mac**, before Docker creates the container. `bbox`
-reads and validates this repo's `SANDBOX.toml`, passes the selected seccomp
-policy to the Dev Containers CLI, and then optionally opens a shell or editor.
+picks the mode's container (YOLO by default, normie with `--normie`), brings
+it up with the Dev Containers CLI, verifies it, and then optionally opens a
+shell or editor.
 Launching and managing Claude Code sessions remains a separate personal concern.
 
 ## Setup
@@ -38,6 +41,7 @@ rc file or testing, use `bash .host/setup.sh --rc-file PATH`.
 | `setup.sh`         | host prerequisite checks and shell registration             |
 | `devcontainer.zsh` | `bbox`, short wrappers, bring-up, and verification        |
 | `_bbox`            | side-effect-free native zsh completion                     |
+| `_bbcode`          | zsh completion for the VS Code wrapper                     |
 | `dc-resolve.py`    | container-path, CLI-output, and folder-URI helpers          |
 
 Keep these files flat in `.host/`: `devcontainer.zsh` resolves its siblings from
@@ -47,47 +51,80 @@ its own path, so another checkout cannot redirect its helpers.
 
 | Command | What it does |
 |---|---|
-| `bbox [dir]` | Bring up the enclosing sandbox. |
+| `bbox [dir]` | Bring up the enclosing sandbox's YOLO container. |
+| `bbox --normie [dir]` | Bring up its normie container. `--yolo` names the default explicitly. |
 | `bbox --shell [dir]` | Bring it up, verify it, and open a shell at that path. |
 | `bbox --code [dir]` | Bring it up, verify it, and open that path in VS Code. |
-| `bbox --rebuild [dir]` | Recreate the container while retaining Docker's build cache. |
-| `bbox --rebuild-without-cache [dir]` | Recreate it with `--build-no-cache`. |
-
-All modes walk up from `dir` (default: the current directory), resolve the
-sandbox once, call `devcontainer up`, and inspect the exact returned container.
-Reusing an existing container warns if Docker's recorded seccomp policy
-differs from `SANDBOX.toml`; if `up` had to create the container, a mismatch
-is an error instead, exactly as after a rebuild.
-Before either rebuild mode, the launcher refuses if a VS Code window is
-connected to any container for the folder (the Dev Containers extension would
-otherwise race `devcontainer up` and recreate an `unconfined` container), then
-removes every container labeled for the folder so no duplicate survives. The
-check looks for a live connection to the in-container VS Code server, which
-itself lingers after the window closes. After a rebuild, a mismatch or failed
-inspection stops before attachment. `--shell` and `--code` are mutually
-exclusive, as are the rebuild flags; an action can be combined with either
-rebuild mode.
-
-Changes to `seccomp` require `bbox --rebuild`; plain `bbox` may reuse a running
-container. Direct **Dev Containers: Rebuild Container** in VS Code does not
-inherit the launcher's environment and therefore uses the `builtin`
-default. This matches the checked-in YOLO posture. When
-`SANDBOX.toml` selects `unconfined`, use `bbox --rebuild` to apply it.
+| `bbox --stop [dir]` | Stop the mode's container (`--normie` for the normie one). |
+| `bbox --status [dir]` | Report both containers and their modes; change nothing. |
+| `bbox --rebuild [dir]` | Recreate both modes' containers, keeping Docker's build cache, then bring up the chosen mode's. |
+| `bbox --rebuild-without-cache [dir]` | The same with `--build-no-cache`. |
 
 `bbu`, `bbe`, and `bbcode` are short wrappers around `bbox`, `bbox --shell`,
-and `bbox --code`. They contain no separate bring-up logic. The former
-`dcu`, `dce`, and `dccode` names are removed on load.
+and `bbox --code`, and take the same flags: `bbcode --normie`, `bbe --yolo`.
+They contain no separate bring-up logic. The former `dcu`, `dce`, and
+`dccode` names are removed on load.
 
-`devcontainer.zsh` sources `_bbox`. Source it after your zsh completion setup;
-if `compdef` was unavailable at that point, source `.host/_bbox` again after
-`compinit`. Completion reads no configuration and never invokes Docker.
+Each mode is its own container, built from its own config file, which
+hard-codes its posture:
+
+| Mode | Config | Internet | Package volumes | Seccomp |
+|---|---|---|---|---|
+| YOLO (default, `--yolo`) | `.devcontainer/devcontainer.json` | firewalled | read-only | `builtin` |
+| normie (`--normie`) | `.devcontainer/normie/devcontainer.json` | open | writable | `unconfined` |
+
+The Dev Containers tooling keys a container on its folder and config file
+(the `devcontainer.local_folder` and `devcontainer.config_file` labels), so
+the two coexist: the flag only picks which one `bbox` brings up and attaches
+to, and neither ever replaces the other. `bbox` passes `--config` to
+`devcontainer up` and `devcontainer exec`, and the same config goes into the VS
+Code folder URI. A VS Code **Rebuild Container** or **Reopen in Container**
+therefore rebuilds the same mode. Containers for the folder with any other
+config label are not `bbox`'s and are left alone. The two containers share
+one set of per-checkout volumes (logins, the AI CLIs, shell history), which
+is why a checkout's folder name must be unique on the Docker daemon (see the
+[container README](../.devcontainer/README.md#working-modes)).
+
+All modes walk up from `dir` (default: the current directory) and resolve the
+sandbox once. `bbox` then calls `devcontainer up` for the mode's config and
+inspects the exact returned container. If another container of the same mode
+exists, it refuses (a rebuild removes the extra). If the container is not in
+its config's posture, as with containers made before the per-mode configs,
+it stops before attachment and names the rebuild that fixes it. Otherwise it
+prints the mode, and a YOLO bring-up also mentions a running normie
+container, whose firewall is open until something stops it.
+
+A rebuild recreates both modes' containers, since the configs are twins and
+a change that needs one rebuilt needs the other too; a container left on the
+old config fails later, and confusingly. The mode flag only picks the one
+brought up and attached to at the end. The other mode is recreated first, and
+only if it has a container: a rebuild never creates a mode you have not used.
+If that container was not running, it is stopped again afterwards, so a
+rebuild never leaves an idle normie container running with its firewall open.
+Before removing anything, the launcher refuses if a VS Code window is
+connected to a container of either mode. The check looks for a live
+connection to the in-container VS Code server, which itself lingers after the
+window closes. VS Code's own **Rebuild Container** still rebuilds only the
+window's mode.
+`--shell`, `--code`, `--stop` and `--status` are mutually exclusive, as are
+the rebuild flags and the mode flags; `--status` takes no other option, and
+`--stop` only a mode flag.
+
+In the normie container the mode stays visible: `normie:` at the front of the
+VS Code window title, a `normie` tag at the front of the zsh prompt and
+Claude's status line, and a warning banner in every new shell.
+
+`devcontainer.zsh` sources `_bbox` and `_bbcode`. Source it after your zsh
+completion setup; if `compdef` was unavailable at that point, source both
+completion files again after `compinit`. Completion reads no configuration and
+never invokes Docker.
 
 ## Claude Code sessions
 
 To start Claude on a project folder in this repo:
 
 ```zsh
-bbox --shell My-Project    # shell in the container, in that folder
+bbe My-Project             # shell in the container, in that folder
 cchat-yolo                 # Claude, remote-controlled, named for the folder
 ```
 

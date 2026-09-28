@@ -17,24 +17,42 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
 macOS screenshots (`screenshot_directory`). Read it when you need a location;
 do not assume or hard-code these paths.
 
-The same file holds `firewall`, the switch that arms (`true`) or disables
-(`false`) the egress firewall at the next container start. Never change it;
-that is the user's decision (see `USER PERMISSION REQUIRED`).
+The security posture is **not** in that file. Each mode is its own container,
+built from its own config file (`.devcontainer/devcontainer.json` or
+`.devcontainer/normie/devcontainer.json`), and the posture is fixed for the
+container's life. Both containers may be running at once, sharing `/sandbox`,
+the package volumes and `~/.claude`/`~/.codex`. You are in one of them, and
+startup prints which:
 
-### Guidance that depends on `SANDBOX.toml`
+1. **YOLO mode** (`bbcode` or `bbe` on the host; the default): firewall on,
+   R, Python and TeX volumes read-only, Docker's seccomp filter on. Everyday
+   work, with agents free to run unsupervised.
+2. **Normie mode** (`bbcode --normie` or `bbe --normie`): firewall off,
+   volumes writable, seccomp unconfined. Like ordinary work on the Mac, with
+   the user watching and agents in approval modes. This is where the web is
+   open and packages get installed.
+
+Anything else is reported as a custom posture. To see the current mode, run
+`bash /sandbox/.devcontainer/posture.sh` (it prints `yolo`, `normie` or
+`custom`, then the three settings). Switching modes is the user's decision
+(see `USER PERMISSION REQUIRED`), made on the host by opening the other
+container; nothing in this container can switch it. Do not edit either
+config file's posture settings.
+
+### Guidance that depends on the mode
 
 - Shared resources that are not projects include the research library (cellar),
   the finished and retired projects folder (done), and the screenshot drop.
-- **Network access depends on `firewall`.** When `true`, `init-firewall.sh`
+- **Network access depends on the mode.** In YOLO mode, `init-firewall.sh`
   builds a deny-by-default IP allowlist at container start. Blocked hosts are
   REJECTed, so they fail fast rather than hanging — suspect the firewall before
-  the code. When `false`, the container starts without these network
+  the code. In normie mode, the container starts without these network
   restrictions. The allowlist when the firewall is on:
   - **Packages**: npm and the VS Code marketplace (per-publisher
     `*.gallerycdn.vsassets.io` — a new extension publisher needs a new entry
-    or its install silently fails). PyPI, P3M and CRAN are deliberately
-    **not** allowed: the R and Python stacks are built on the host, so a
-    missing package goes to the user.
+    or its install silently fails). PyPI, P3M, CRAN, Bioconductor and CTAN
+    are deliberately **not** allowed: packages are installed in normie
+    mode, so a missing package goes to the user.
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
   - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
@@ -50,12 +68,15 @@ that is the user's decision (see `USER PERMISSION REQUIRED`).
   servers and are not subject to the devcontainer firewall. When the firewall
   is on, this does not make arbitrary URLs available to terminal commands or
   project code.
-- The R, Python and TeX package stacks are **read-only** here; the human
-  builds them on the host. If a package is missing, **ASK THE USER TO ADD IT**
-  (name the package) rather than installing it some other way. They add it to
-  the list in `.devcontainer/install-packages.sh` and run
-  `bash .setup/packages.sh` on the host. New **system** libraries (`apt-get`,
-  `-dev` packages) also need permission — see `USER PERMISSION REQUIRED`.
+- **Package installs depend on the mode.** In YOLO mode, the
+  R, Python and TeX stacks are **read-only**. If a package is missing, **ASK THE
+  USER TO ADD IT** (name the package) rather than installing it some other way.
+  They add it in normie mode, or to a list in `.setup/install-base.sh`
+  (base) or `.setup/install-optional.sh` (optional set). In normie mode the volumes
+  are writable, but install **only what the user asks for**, with the ordinary
+  commands (`install.packages()`, `pip install`, `tlmgr install`), and say when
+  pip replaced a dependency. New **system** libraries (`apt-get`, `-dev`
+  packages) always need permission — see `USER PERMISSION REQUIRED`.
 - If the firewall blocks a resource you need: **ASK THE USER TO ADD IT**
 - For "this screenshot," "the image," or "latest screenshot," look up
   `screenshot_directory` in `/sandbox/SANDBOX.toml`.
@@ -65,32 +86,40 @@ that is the user's decision (see `USER PERMISSION REQUIRED`).
 - **Python: use bare `python3`/`pip`.** They resolve to the venv at `/opt/venv`,
   which is already active via `PATH` (so `VIRTUAL_ENV` is unset — that's
   expected).
-  - Installed: numpy, pandas, polars, pyarrow, scipy, statsmodels, linearmodels,
-    pyfixest, scikit-learn, matplotlib, openpyxl, wrds, PyMuPDF, pikepdf,
-    beautifulsoup4, lxml, requests, openai, mistralai.
-- R 4.5.3 with packages from a dated P3M snapshot (plus `pcaMethods` from
-  Bioconductor).
-- **The R, Python and TeX stacks live in shared read-only volumes**, built on
-  the host by `bash .setup/packages.sh` from the lists in
-  `.devcontainer/install-packages.sh`. Its `python`, `r` and `tex` targets
-  refuse in here; `install-packages.sh --verify python r tex` checks the
-  stacks without changing them. If an import fails, or startup warns that a
-  package volume is not built, notify the user.
-- **The Claude Code and Codex CLIs come from the same script**
-  (`install-packages.sh cli`, its default), into a writable npm-global
+  - Base: numpy, pandas, matplotlib, statsmodels, pyfixest, PyMuPDF, pikepdf,
+    requests, openai, mistralai.
+  - Optional set, if the user installed it: scipy, linearmodels,
+    scikit-learn, polars, pyarrow, openpyxl, sas7bdat, wrds,
+    openassetpricing, beautifulsoup4, lxml, PyYAML.
+- R 4.5.3 with packages from a dated P3M snapshot. Base: fixest, data.table,
+  tidyverse, modelsummary, sandwich, lmtest, languageserver. The optional set
+  adds the rest (arrow, lme4, kableExtra, ..., `pryr` from the CRAN archive,
+  `pcaMethods` from Bioconductor); `install-optional.sh --verify` says whether
+  it is present.
+- **The R, Python and TeX stacks live in shared volumes**, mounted read-only
+  unless the user chose normie mode. The first build seeds the base from the
+  image. The user changes the stacks in normie mode, from inside the
+  container: the base with `bash .setup/install-base.sh`, which holds the base
+  lists, and the optional set with `.setup/install-optional.sh`.
+  `install-base.sh --verify python r tex` checks the base without changing
+  it. If an import fails, or startup warns that a package volume is not built,
+  notify the user.
+- **The Claude Code and Codex CLIs are part of the base**, from the same
+  script (`bash .setup/install-base.sh cli` inside the container, any
+  mode), into a writable npm-global
   *volume* — so an update survives rebuilds rather than being reverted by
-  them. The npm-managed CLIs should not be assumed to self-update; re-run the
+  them. Startup installs them when either is missing. The npm-managed CLIs
+  should not be assumed to self-update; re-run the
   script's `cli` target to update both. A rebuild is unnecessary.
-- TeX Live 2026 is **minimal and pdfLaTeX-only**: scheme-small plus
-  latexextra, fontsrecommended, bibtexextra (biblatex, biber), pictures
-  (TikZ), mathscience and fontsextra, plus latexindent and latexmk. There is
-  no XeLaTeX and no `texdoc` documentation; LuaLaTeX is present only because
-  core TeX Live needs it. Build with pdflatex. It lives in the shared
-  `texlive-2026-small-noble` volume, mounted read-only at
-  `/usr/local/texlive`. A missing LaTeX package goes to the user like any
-  other package (they add it to `TEX_PKGS`). Run `tex-refresh` as node after
-  the host changes TeX; it also runs at container startup. Reopen an
-  already-running LyX afterward.
+- TeX Live 2026 is **minimal and pdfLaTeX-only**. Base: scheme-small plus
+  bibtexextra (biblatex, biber), latexindent, latexmk and cm-super. The
+  optional set adds latexextra, fontsrecommended, pictures (TikZ),
+  mathscience and fontsextra. There is no XeLaTeX and no `texdoc`
+  documentation; LuaLaTeX is present only because core TeX Live needs it.
+  Build with pdflatex. It lives in the shared `texlive-2026-base-noble`
+  volume at `/usr/local/texlive`. A missing LaTeX package goes to the user
+  like any other package. Run `tex-refresh` as node after TeX changes; it also
+  runs at container startup. Reopen an already-running LyX afterward.
 - **Connectors and Codex Apps/Plugins are disabled in this sandbox.** Claude's
   AI connectors are disabled by `/etc/claude-code/managed-settings.json`.
   Codex Apps, Plugins, and remote plugin catalogs are disabled by

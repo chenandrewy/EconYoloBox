@@ -8,18 +8,17 @@ actual research work).
 
 Key features:
 
-1. **YOLO agents by default, with a chaperoned switch**
+1. **YOLO agents by default, with a toggle for "normie" mode**
 
-   - **Everyday work:** run the YOLO launchers (`cchat-yolo`, `gptchat-yolo`)
-     behind the container's deny-by-default firewall and Docker's builtin
-     seccomp filter. These are the container defaults (`firewall = true`,
-     `seccomp = "builtin"`); the launchers refuse to start without both.
-   - **Internet access:** set `firewall = false` in `SANDBOX.toml`, rebuild,
-     and use Claude's auto mode. Its permission classifier is much cheaper than
-     Codex's automatic review, which runs a full model call per escalation.
-   - **Codex sandboxed modes:** also set `seccomp = "unconfined"` and run
-     `bbox --rebuild`, since builtin blocks Bubblewrap setup here. This
-     disables Docker's outer syscall filter for every process.
+   - **YOLO mode:** open the container with `bbcode` (or `bbe` for a
+     terminal); it is the default. Then run Claude Code and Codex in yolo mode
+     using the convenient aliases `cchat-yolo` and `gptchat-yolo`. Cook!
+   - **Normie mode:** open it with `bbcode --normie` (or `bbe --normie`)
+     instead. Then you can work with the sandbox like a normie to do stuff
+     that requires internet access and (probably) babysitting of the agents
+     (e.g. install R packages, test new software, search arbitrary websites).
+     The VS Code window title starts with `normie:`, the prompt says `normie`,
+     and every new shell warns what is loosened, until you switch back.
    - See [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
 
 2. **Ergonomic container and AI access**
@@ -81,17 +80,22 @@ Windows and Linux support is partially wired but has not been tested.
 
 4. **Build and open the container.** In the cloned repository's VS Code window,
    open the Command Palette and select **Dev Containers: Reopen in Container**.
-   Direct VS Code creation uses the default `builtin` seccomp filter.
+   When VS Code asks which configuration, pick the plain one (YOLO mode); the
+   one named `(normie)` is normie mode.
 
-   Wait for the first build to finish. VS Code reloads with `Dev Container`
-   shown in the lower-left corner when it is ready.
+   Wait for the first build to finish. It also installs the base R, Python
+   and TeX Live stacks and, at first start, the Claude Code and Codex CLIs, so
+   expect it to take a while longer than later rebuilds. VS Code reloads with
+   `Dev Container` shown in the lower-left corner when it is ready.
 
-   The container firewall defaults on, allowing only the network allowlist.
-   For open internet access, set `firewall = false` in `SANDBOX.toml` before
-   starting the container; a shell warning then confirms that posture.
-   Codex's sandboxed modes additionally need `seccomp = "unconfined"`, which
-   disables Docker's outer syscall filter for every container process;
-   see [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
+   The container starts in YOLO mode: firewall on, allowing only the network
+   allowlist, with read-only package volumes and builtin seccomp. For open
+   internet access and package installs, use normie mode: the `(normie)`
+   configuration, or `bbcode --normie` with the
+   [host launcher](#optional-host-command-workflow).
+   Normie mode also disables Docker's outer syscall filter for every
+   container process; see
+   [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
 
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
    The sandbox repository is mounted at `/sandbox`; all user content goes
@@ -115,22 +119,7 @@ Windows and Linux support is partially wired but has not been tested.
    git clone https://github.com/your-name/your-project.git My-Project
    ```
 
-6. **Install the AI CLIs.** They are not baked into the image — they live in a
-   persistent volume so that updating them is not undone by the next rebuild.
-   A newly created npm-global volume therefore starts without them:
-
-   ```bash
-   /sandbox/.devcontainer/install-packages.sh cli
-   ```
-
-   This takes a few seconds and installs the current Claude Code and Codex
-   releases. It is needed once when the volume is first created, not per session
-   or ordinary container rebuild; an interactive shell prints a reminder while
-   either CLI is missing. Re-run the same command to update either npm-managed
-   CLI. A new volume is created only when the old one is removed or its
-   distro/Node version token changes in `devcontainer.json`.
-
-7. **Start an AI agent from the project directory.** The first launch may ask
+6. **Start an AI agent from the project directory.** The first launch may ask
    you to authenticate. Start Claude with auto mode selected:
 
    ```bash
@@ -159,21 +148,40 @@ Windows and Linux support is partially wired but has not been tested.
    it. Codex also has its own command network policy, so an open container
    firewall does not guarantee that every sandboxed command can reach the web.
 
-### Switching firewall modes
+### Switching modes
 
-`SANDBOX.toml` controls the container's outbound network allowlist. `false`
-leaves the container network open; `true` enables the research and package
-allowlist. After changing it, stop the container and reopen it through VS Code
-Dev Containers, or use **Dev Containers: Rebuild Container**. Editing the file
-does not change the running firewall, and a bare `docker restart` skips the
-startup hook that reads the setting.
+Each mode is its own container, built from its own configuration:
+`.devcontainer/devcontainer.json` for YOLO mode (firewalled internet,
+read-only package volumes, `builtin` seccomp) and
+`.devcontainer/normie/devcontainer.json` for normie mode (open internet,
+writable package volumes, `unconfined` seccomp), which is for supervised work.
+The launcher's flag picks which one to open:
+
+```zsh
+bbcode             # the YOLO container, in VS Code (bbe: in a terminal)
+bbcode --normie    # the normie container
+bbox --status      # both containers and their modes, changing nothing
+bbox --stop --normie   # stop the normie container
+```
+
+Both can run at once, and neither replaces the other, so switching is instant
+and ends nothing. They share one set of volumes: logins, the AI CLIs, shell
+history and the packages normie mode installs. A normie container keeps
+running, firewall open, until it is stopped (or, possibly, until its last VS
+Code window closes), so every YOLO bring-up mentions a running one.
+
+The mode stays in view: in the normie container the VS Code window title
+starts with `normie:`, the shell prompt and Claude's status line carry a
+`normie` tag, and every new shell prints a warning banner spelling out the
+security posture.
+Startup prints `YOLO mode`, `Normie mode`, or `Custom posture` for a container
+made before the per-mode configurations.
 
 The `cchat-yolo`, `gptchat-yolo`, and `gptmini-yolo` launchers skip permission
 checks and refuse to start unless the firewall is enabled and PID 1 has a
-filtered seccomp mode. Set `firewall = true` and `seccomp = "builtin"`, then use
-`bbox --rebuild` before starting YOLO work. Keep ordinary approval modes for
-tasks that need review; neither a firewall nor automatic review guarantees the
-safety of mounted files or accessible credentials.
+filtered seccomp mode, so they run only in YOLO mode. In normie mode, keep
+agents in ordinary approval modes; neither a firewall nor automatic review
+guarantees the safety of mounted files or accessible credentials.
 
 ## Recommended additions
 
@@ -194,37 +202,45 @@ your checkout root and run:
 
 ```bash
 python3 .credentials/setup.py
-python3 .devcontainer/inject-credentials.py
 ```
 
-Press Enter to skip any service you do not use. The final command refreshes the
-credential file mounted in an already-running container; skip it if you have
-not built the container yet.
+Press Enter to skip any service you do not use. The container receives the
+credentials as environment variables when it is created, so a container that
+already exists needs recreating to see new ones: `bbox --rebuild`, which
+recreates both modes' containers.
 
-### Build the package stacks
+### Update the AI CLIs
 
-R, Python and TeX Live are not in the image. They live in shared volumes that
-you build on the Docker host, and every project mounts them read-only. After
-the container exists (it supplies the builder image), run from the checkout
-root on the host:
+The first start installs the Claude Code and Codex CLIs into a persistent
+volume, so a rebuild does not undo an update. They do not update themselves;
+to update both, in any mode:
 
 ```bash
-bash .setup/packages.sh          # Python and R, a few minutes
-bash .setup/packages.sh tex      # minimal pdfLaTeX TeX Live, about 3GB
-bash .setup/packages.sh all      # all three
+bash /sandbox/.setup/install-base.sh cli
 ```
 
-To add a package later, add it to the list in
-`.devcontainer/install-packages.sh` and rerun the same command. See
-[host setup](.setup/README.md) for the details.
+### Add to the package stacks
+
+R, Python and TeX Live live in shared volumes that every project mounts,
+read-only by default. The first build fills them with a lean base. For the rest
+of the usual stack, or any other package, switch to normie mode with
+`bbcode --normie` on the host. Then, in the container:
+
+```bash
+bash .setup/install-optional.sh      # the rest of the usual stack
+```
+
+or `install.packages()`, `pip install` or `tlmgr install`. Switch back to YOLO
+mode (`bbcode`, then `bbox --stop --normie`) and run
+`bash .devcontainer/tests/test-packages.sh`. See [setup](.setup/README.md) and
+the [devcontainer README](.devcontainer/README.md#working-modes) for the
+details.
 
 ## Optional host command workflow
 
-The general-purpose `bbox` launcher validates `SANDBOX.toml`, brings the
-container up, verifies its seccomp policy, and can open a shell or VS Code.
-It is also the required rebuild path when selecting `unconfined`, because
-direct VS Code creation always uses the `builtin` default. Ensure the VS
-Code `code` CLI is installed if using `--code`. To install the launcher, run the
+The general-purpose `bbox` launcher brings up the requested mode's container,
+verifies it, and can open a shell or VS Code at a project path. Ensure the
+VS Code `code` CLI is installed if using `--code`. To install the launcher, run the
 following from the checkout root in a host zsh terminal:
 
 ```zsh
@@ -234,15 +250,12 @@ exec zsh
 type bbox
 ```
 
-Run `bbox` to bring the container up, `bbox --code My-Project` to open a project
-in VS Code, or `bbox --shell My-Project` to enter it in a terminal. Use
-`bbox --rebuild` after changing `seccomp` in `SANDBOX.toml`.
-
-VS Code's direct **Rebuild Container** command cannot inherit the validated
-setting from this shell launcher. It therefore uses `builtin`, matching the
-checked-in default. If `SANDBOX.toml` selects `unconfined`, a direct VS Code
-rebuild will produce a mismatch warning and Codex's sandboxed modes will fail;
-use `bbox --rebuild --code` to apply that setting.
+Run `bbox` to bring the container up, `bbcode My-Project` (`bbox --code`) to
+open a project in VS Code, or `bbe My-Project` (`bbox --shell`) to enter it in
+a terminal. Each takes `--normie` (or an explicit `--yolo`), and
+`bbox --rebuild` recreates both modes' containers after a Dockerfile or
+config change, then opens the chosen one. VS Code's own **Rebuild Container**
+rebuilds only the window's mode, from its configuration.
 
 Optional: the container picks up the Mac's timezone automatically. To force a
 different one, export it on the host before the container starts.
@@ -253,7 +266,8 @@ export TZ=America/Chicago
 
 ## Devcontainer storage
 
-Budget the container image plus about **5.7GB of volumes** for the first
+Budget the container image (which carries a copy of the base stacks, about
+1.5GB, to seed the volumes) plus about **5.7GB of volumes** for the first
 sandbox checkout: 4.7GB of shared R, Python and TeX volumes, and 1GB of
 per-checkout volumes (AI CLIs and their config). Each additional checkout adds
 about 1GB, since the image and the package volumes are shared.
@@ -263,11 +277,11 @@ hit repeated slow rebuilds, raising it to 35GB gives headroom. See
 [Devcontainer storage needs](docs/storage-needs.md) for the settings and for how
 to confirm that eviction is the actual problem.
 
-## TeX Live host setup
+## TeX Live setup
 
-The devcontainer uses a shared, read-only, pdfLaTeX-only TeX Live volume.
-Before TeX/LyX work, run `bash .setup/packages.sh tex` on the Docker host; see
-[host setup](.setup/README.md) for installation and validation instructions.
+The devcontainer uses a shared, pdfLaTeX-only TeX Live volume, read-only by
+default, which the first build fills. See [setup](.setup/README.md) for adding
+packages and for validation.
 
 ## License
 

@@ -7,29 +7,24 @@
 #     Output:  prints the corresponding path inside the container, derived from
 #              workspaceFolder (or workspaceMount's target= as fallback).
 #
-#   python3 dc-resolve.py folder-uri <devcontainer-dir> <remote-path> <docker-context>
-#     Inputs:  devcontainer root on the host, path inside the container, and
-#              the active docker context name.
+#   python3 dc-resolve.py folder-uri <devcontainer-dir> <config-file> <remote-path> <docker-context>
+#     Inputs:  devcontainer root on the host, the config file (one per mode),
+#              path inside the container, and the active docker context name.
 #     Output:  prints the vscode-remote://dev-container+... folder URI that
-#              opens <remote-path> in VS Code.
+#              opens <remote-path> in VS Code, in that config's container.
 #
 #   python3 dc-resolve.py up-container-id
 #     Input:   `devcontainer up` JSON on stdin.
 #     Output:  its exact containerId.
 #
-#   python3 dc-resolve.py security-policy <docker-security-options-json>
-#     Input:   Docker inspect's HostConfig.SecurityOpt JSON array.
-#     Output:  builtin, unconfined, or an unverified description.
+#   python3 dc-resolve.py posture
+#     Input:   `docker inspect <container>` JSON on stdin.
+#     Output:  the container's security posture, fixed at its creation:
+#              "yolo", "normie" or "custom", then internet=, packages= and
+#              seccomp= words, e.g. "yolo internet=firewalled packages=readonly
+#              seccomp=builtin". Anything not verified reads as custom.
 #
-#   python3 dc-resolve.py package-volumes <devcontainer.json>
-#     Input:   path to a devcontainer.json (JSONC allowed).
-#     Output:  one "<stack> <volume> <target>" line each for python, r and tex:
-#              the shared package volumes .setup/packages.sh builds. A
-#              `// packages.sh: <mount>` comment line stages a volume and
-#              overrides the live mount with the same target.
-#
-# Called by _dc_resolve/bbox in devcontainer.zsh and by .setup/packages.sh;
-# not meant to be run by hand.
+# Called by _dc_resolve/bbox in devcontainer.zsh; not meant to be run by hand.
 
 import json
 import pathlib
@@ -88,8 +83,8 @@ def remote_path(devcontainer_json, relative_dir):
     return workspace_folder if not relative_dir else posixpath.join(workspace_folder, relative_dir)
 
 
-def folder_uri(devcontainer_dir, remote, docker_context):
-    config = str(pathlib.Path(devcontainer_dir, ".devcontainer/devcontainer.json"))
+def folder_uri(devcontainer_dir, config_file, remote, docker_context):
+    config = str(pathlib.Path(config_file))
     authority = {
         "hostPath": devcontainer_dir,
         "localDocker": False,
@@ -119,22 +114,21 @@ def up_container_id(src):
     raise SystemExit("devcontainer up did not return a containerId")
 
 
-def security_policy(src):
-    try:
-        options = json.loads(src)
-    except json.JSONDecodeError:
-        return "unverified (invalid Docker inspection output)"
+# The two presets bbox creates (--yolo, the default, and --normie).
+PRESETS = {
+    "yolo": ("firewalled", "readonly", "builtin"),
+    "normie": ("open", "writable", "unconfined"),
+}
+
+
+def security_policy(options):
     if not isinstance(options, list):
-        return "unverified (no explicit seccomp option)"
+        return "unverified"
     policies = [item[len("seccomp="):] for item in options
                 if isinstance(item, str) and item.startswith("seccomp=")]
-    if policies == ["builtin"]:
-        return "builtin"
-    if policies == ["unconfined"]:
-        return "unconfined"
-    if not policies:
-        return "unverified (no explicit seccomp option)"
-    return "unverified (seccomp=" + ", seccomp=".join(policies) + ")"
+    if policies in (["builtin"], ["unconfined"]):
+        return policies[0]
+    return "unverified"
 
 
 def package_stack(target):
@@ -147,43 +141,57 @@ def package_stack(target):
     return None
 
 
-def parse_mount(spec):
-    return dict(part.split("=", 1) for part in spec.split(",") if "=" in part)
+def package_access(mounts):
+    if not isinstance(mounts, list):
+        return "unverified"
+    access = {}
+    for mount in mounts:
+        if isinstance(mount, dict):
+            stack = package_stack(mount.get("Destination", ""))
+            if stack:
+                access[stack] = "writable" if mount.get("RW") else "readonly"
+    modes = set(access.values())
+    if sorted(access) != ["python", "r", "tex"] or len(modes) != 1:
+        return "unverified"
+    return modes.pop()
 
 
-def package_volumes(devcontainer_json):
-    with open(devcontainer_json, encoding="utf-8") as fh:
-        src = fh.read()
-    live = [m for m in json.loads(strip_jsonc(src)).get("mounts", []) if isinstance(m, str)]
-    staged = re.findall(r"^\s*//\s*packages\.sh:\s*(\S+)\s*$", src, re.MULTILINE)
-    volumes = {}
-    for spec in live + staged:  # staged last, so it wins
-        mount = parse_mount(spec)
-        stack = package_stack(mount.get("target", ""))
-        if stack and mount.get("type") == "volume":
-            volumes[stack] = (mount.get("source", ""), mount["target"])
-    lines = []
-    for stack in ("python", "r", "tex"):
-        if stack not in volumes:
-            raise SystemExit(f"package-volumes: no {stack} volume mount in {devcontainer_json}")
-        source, target = volumes[stack]
-        # A per-devcontainer name is not a shared volume the host should fill.
-        if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", source):
-            raise SystemExit(f"package-volumes: {stack} volume {source!r} is not a literal shared name")
-        lines.append(f"{stack} {source} {target}")
-    return "\n".join(lines)
+def internet_mode(env):
+    """post-start.sh arms the firewall unless SANDBOX_INTERNET is "open"."""
+    if not isinstance(env, list):
+        return "unverified"
+    values = [item.split("=", 1)[1] for item in env
+              if isinstance(item, str) and item.startswith("SANDBOX_INTERNET=")]
+    return "open" if values == ["open"] else "firewalled"
 
 
-command = sys.argv[1]
-if command == "remote-path":
-    print(remote_path(sys.argv[2], sys.argv[3]))
-elif command == "folder-uri":
-    print(folder_uri(sys.argv[2], sys.argv[3], sys.argv[4]))
-elif command == "up-container-id":
-    print(up_container_id(sys.stdin.read()))
-elif command == "security-policy":
-    print(security_policy(sys.argv[2]))
-elif command == "package-volumes":
-    print(package_volumes(sys.argv[2]))
-else:
-    raise SystemExit(f"unknown command: {command}")
+def posture(src):
+    try:
+        inspected = json.loads(src)
+    except json.JSONDecodeError:
+        inspected = None
+    if isinstance(inspected, list) and len(inspected) == 1:
+        inspected = inspected[0]
+    if not isinstance(inspected, dict):
+        return "custom internet=unverified packages=unverified seccomp=unverified"
+    settings = (
+        internet_mode((inspected.get("Config") or {}).get("Env")),
+        package_access(inspected.get("Mounts")),
+        security_policy((inspected.get("HostConfig") or {}).get("SecurityOpt")),
+    )
+    name = next((mode for mode, preset in PRESETS.items() if preset == settings), "custom")
+    return "{} internet={} packages={} seccomp={}".format(name, *settings)
+
+
+if __name__ == "__main__":
+    command = sys.argv[1]
+    if command == "remote-path":
+        print(remote_path(sys.argv[2], sys.argv[3]))
+    elif command == "folder-uri":
+        print(folder_uri(sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]))
+    elif command == "up-container-id":
+        print(up_container_id(sys.stdin.read()))
+    elif command == "posture":
+        print(posture(sys.stdin.read()))
+    else:
+        raise SystemExit(f"unknown command: {command}")

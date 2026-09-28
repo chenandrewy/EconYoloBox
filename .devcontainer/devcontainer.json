@@ -1,7 +1,18 @@
+// YOLO mode. Its twin, normie/devcontainer.json, is the same file with the
+// posture flipped (seccomp, the three package mounts' readonly, and
+// SANDBOX_INTERNET), " (normie)" on the name and "normie:" at the front of
+// window.title; tests/test_config_twins.py
+// fails on any other difference, so edit both. Each mode is its own container,
+// keyed by its config file, so neither replaces the other (docs/journal/0927a).
 {
   "name": "${localWorkspaceFolderBasename}",
   "build": {
     "dockerfile": "Dockerfile",
+    // The repository root, so the image can install the base with
+    // .setup/install-base.sh (docs/journal/0926f). Dockerfile.dockerignore
+    // passes only .devcontainer/ and that script, so workspace/, cellar/ and
+    // done/ never reach the daemon.
+    "context": "..",
     "args": {
       "TZ": "${localEnv:TZ:America/New_York}",
       "GIT_VERSION": "2.49.0",
@@ -19,14 +30,15 @@
   "runArgs": [
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
-    // bbox supplies SANDBOX.toml's strictly validated seccomp value. Direct VS
-    // Code creation cannot read SANDBOX.toml, so it falls back to builtin: the
-    // default YOLO posture (Docker's outer syscall filter on; the -yolo
-    // launchers require it). Codex's sandboxed modes need unconfined for
-    // Bubblewrap, at the cost of that filter for every process: set
-    // seccomp = "unconfined" in SANDBOX.toml and run `bbox --rebuild`.
-    "--security-opt=seccomp=${localEnv:SANDBOX_SECCOMP:builtin}",
-    "--env-file=/tmp/devcontainer-local.env"
+    // Posture: Docker's outer syscall filter. YOLO keeps it (builtin); normie
+    // drops it (unconfined), which lets Codex's sandboxed modes use
+    // Bubblewrap, at the cost of the filter for every process.
+    "--security-opt=seccomp=builtin",
+    "--env-file=/tmp/devcontainer-local.env",
+    // Credentials, as environment variables fixed at creation. Written on the
+    // host by inject-credentials.py (initializeCommand) just before Docker
+    // starts; changing them means recreating the container.
+    "--env-file=/tmp/devcontainer-credentials.env"
   ],
   "customizations": {
     "vscode": {
@@ -89,13 +101,15 @@
   },
   "remoteUser": "node",
   "mounts": [
-    // Shared package volumes: R, Python and TeX, built on the host by
-    // `bash .setup/packages.sh` (docs/journal/0921a, 0925b) and mounted
-    // read-only, so agents in here can run the stacks but never change them.
-    // They are shared across projects on this Docker daemon; only per-project
-    // writable state needs the ${devcontainerId} key used further down.
-    // packages.sh reads these names from here. Adding a package does not
-    // change them: edit the list in install-packages.sh and rerun the builder.
+    // Shared package volumes: R, Python and TeX. Docker seeds each empty one
+    // from the image, which carries the base (docs/journal/0926f); after that
+    // they change in normie mode, by `bash .setup/install-base.sh` in the
+    // container (docs/journal/0921a, 0925b, 0926a, 0926e), and are otherwise
+    // mounted read-only, so agents in here
+    // can run the stacks but never change them. They are shared across
+    // projects on this Docker daemon; only per-project writable state is
+    // named for the checkout, further down. Adding a package does not
+    // change these names: edit the list in .setup/install-base.sh and rerun it.
     //
     // Names carry distro, interpreter version and (for R) the P3M snapshot
     // date, so a bump builds a fresh volume instead of serving stale binaries.
@@ -106,39 +120,41 @@
     // load-bearing: packages compiled against one distro's libraries must never
     // be mounted into another.
     //
-    // To build a new volume before any container mounts it, stage it with a
-    // comment line of the form `// packages.sh: <mount string>`. It overrides
-    // the live mount with the same target for packages.sh only; move it here
-    // once the volume passes its checks.
-    "source=r-site-library-noble-4.5.3-2026-07-15,target=/opt/R/4.5.3/lib/R/site-library,type=volume,readonly",
-    "source=venv-noble-py3.12,target=/opt/venv,type=volume,readonly",
-    // Minimal pdfLaTeX-only TeX Live; the year must match TEXLIVE_YEAR.
-    "source=texlive-2026-small-noble,target=/usr/local/texlive,type=volume,readonly",
-    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
-    // Every project-owned volume below is keyed by ${devcontainerId}, not by folder name
-    // alone. anthropics/claude-code fixed this exact bug in July 2025 ("Fix
-    // devcontainer volume security vulnerability"): two workspaces that share
-    // a basename would otherwise mount the SAME volume, silently sharing the
-    // Claude/Codex auth tokens and - via npm-global - the very executables
-    // both containers run. The readable prefix is kept only so `docker volume
-    // ls` stays scannable; the id is what makes the name unique.
+    // A new volume is tried by renaming it here and running bbox --rebuild:
+    // Docker seeds it, node-owned, from the image's directory, which already
+    // holds the base. Rename back to abandon it.
     //
-    // Cost of the id: it is derived from the host path, so moving or renaming
-    // the project folder orphans these volumes (re-login + install-packages.sh cli).
-    // Orphans are then unidentifiable by name; find them with
+    // Posture: read-only in YOLO mode, writable in normie mode, where the user
+    // installs packages (docs/journal/0926a). Both containers mount the same
+    // volumes, so a running YOLO container sees what normie installs.
+    "source=r-site-library-noble-4.5.3-2026-07-15-base,target=/opt/R/4.5.3/lib/R/site-library,type=volume,readonly=true",
+    "source=venv-noble-py3.12-base,target=/opt/venv,type=volume,readonly=true",
+    // Minimal pdfLaTeX-only TeX Live; the year must match TEXLIVE_YEAR.
+    "source=texlive-2026-base-noble,target=/usr/local/texlive,type=volume,readonly=true",
+    // Per-checkout volumes, shared by the YOLO and normie containers, so one
+    // login and one CLI install serve both modes. They are named for the
+    // checkout's folder name alone, not ${devcontainerId}: that id depends on
+    // the config file, so it would give each mode its own set.
+    //
+    // The price is the bug anthropics/claude-code fixed in July 2025 ("Fix
+    // devcontainer volume security vulnerability"): two checkouts that share
+    // a basename would mount the SAME volumes, silently sharing the
+    // Claude/Codex auth tokens and - via npm-global - the very executables
+    // both containers run. Rule: one checkout per basename per Docker daemon.
+    // post-start.sh enforces it: it records the host folder in ~/.claude on
+    // first start and refuses a different one. Renaming the folder orphans
+    // these volumes (re-login; startup reinstalls the CLIs); find orphans with
     // `docker volume ls -f dangling=true`.
-    "source=${localWorkspaceFolderBasename}-claude-config-${devcontainerId},target=/home/node/.claude,type=volume",
-    "source=${localWorkspaceFolderBasename}-codex-config-${devcontainerId},target=/home/node/.codex,type=volume",
-    // Credentials stay out of Docker's Config.Env and are read on demand.
-    // inject-credentials.py creates this host-side file before Docker starts.
-    "source=/tmp/devcontainer-credentials.env,target=/run/secrets/credentials.env,type=bind,readonly",
+    "source=claude-code-bashhistory-${localWorkspaceFolderBasename},target=/commandhistory,type=volume",
+    "source=${localWorkspaceFolderBasename}-claude-config,target=/home/node/.claude,type=volume",
+    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/node/.codex,type=volume",
     // The AI CLIs live here rather than in an image layer, so that updating
     // Codex in a running container is not undone by the next rebuild (a baked
     // `@latest` layer freezes at first cache; see the Dockerfile note). Codex
     // ships native per-platform binaries, so the name carries the distro AND
     // the node major - bump the token with NODE_MAJOR to start a clean volume
     // rather than serving binaries built against the wrong runtime.
-    "source=${localWorkspaceFolderBasename}-npm-global-noble-node24-${devcontainerId},target=/usr/local/share/npm-global,type=volume"
+    "source=${localWorkspaceFolderBasename}-npm-global-noble-node24,target=/usr/local/share/npm-global,type=volume"
   ],
   "containerEnv": {
     // TZ is intentionally absent: write-local-env.sh writes SANDBOX.toml's
@@ -146,6 +162,9 @@
     // containerEnv becomes `docker run --env`, which
     // outranks --env-file, so setting it here would clobber the detected value.
     // Fallback if detection finds nothing: the Dockerfile's baked-in ARG TZ.
+    // Posture: read by post-start.sh at every start; anything but "open" arms
+    // the firewall. Fixed at creation like the rest of the posture.
+    "SANDBOX_INTERNET": "firewalled",
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "CLAUDE_CONFIG_DIR": "/home/node/.claude",
     "AI_SESH_MACHINE": "${localEnv:AI_SESH_MACHINE}",
@@ -156,7 +175,7 @@
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/sandbox,type=bind,consistency=delegated",
   "workspaceFolder": "/sandbox",
-  // Arms the firewall (unless SANDBOX.toml says firewall = false), seeds
+  // Arms the firewall (unless SANDBOX_INTERNET is "open"), seeds
   // agent guidelines, checks policy, refreshes TeX.
   "postStartCommand": "bash .devcontainer/post-start.sh",
   "waitFor": "postStartCommand"
