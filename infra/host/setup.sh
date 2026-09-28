@@ -23,7 +23,7 @@ toolkit_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 rc_file="${ZDOTDIR:-$HOME}/.zshrc"
 if [ "$#" -gt 0 ]; then
     if [ "$#" -ne 2 ] || [ "$1" != --rc-file ]; then
-        echo 'Usage: bash host/setup.sh [--rc-file PATH]' >&2
+        echo 'Usage: bash infra/host/setup.sh [--rc-file PATH]' >&2
         exit 2
     fi
     rc_file=$2
@@ -42,7 +42,9 @@ import sys
 import tempfile
 
 launcher = Path(sys.argv[1])
-old_launcher = launcher.parent.parent / '.host' / launcher.name
+# Earlier layouts kept the launcher in .host/ or host/ at the checkout root.
+checkout = launcher.parent.parent.parent
+old_launchers = [checkout / d / launcher.name for d in ('.host', 'host')]
 rc = Path(sys.argv[2]).expanduser()
 begin = '# >>> bbox host launcher >>>'
 end = '# <<< bbox host launcher <<<'
@@ -67,7 +69,7 @@ def is_legacy(line):
     if len(words) != 2 or words[0] not in ('source', '.'):
         return False
     path = words[1].replace('${HOME}', str(Path.home())).replace('$HOME', str(Path.home()))
-    return Path(path).expanduser() in (launcher, old_launcher)
+    return Path(path).expanduser() in (launcher, *old_launchers)
 
 kept = []
 for i, line in enumerate(lines):

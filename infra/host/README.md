@@ -1,7 +1,7 @@
 # Host-side toolkit
 
-`host/` is the supported host launcher for this sandbox,
-[`setup/`](../setup/README.md) is provisioning you run by hand (package
+`infra/host/` is the supported host launcher for this sandbox,
+[`infra/setup/`](../setup/README.md) is provisioning you run by hand (package
 volumes and AI CLIs, in the container), and `.devcontainer/` is
 the container itself: its definition, its startup, and the tools baked into
 it.
@@ -17,7 +17,7 @@ Launching and managing Claude Code sessions remains a separate personal concern.
 From the checkout root on the host, run:
 
 ```zsh
-bash host/setup.sh
+bash infra/host/setup.sh
 exec zsh
 bbox --code
 ```
@@ -32,7 +32,7 @@ The block is appended after existing completion setup.
 It checks for Python 3, zsh, Docker, the Dev Containers CLI, and the VS Code
 `code` command, reporting missing prerequisites without installing software or
 starting containers. Python 3 is required to edit the registration. For a custom
-rc file or testing, use `bash host/setup.sh --rc-file PATH`.
+rc file or testing, use `bash infra/host/setup.sh --rc-file PATH`.
 
 ## Layout
 
@@ -44,7 +44,7 @@ rc file or testing, use `bash host/setup.sh --rc-file PATH`.
 | `_bbcode`          | zsh completion for the VS Code wrapper                     |
 | `dc-resolve.py`    | container-path, CLI-output, and folder-URI helpers          |
 
-Keep these files flat in `host/`: `devcontainer.zsh` resolves its siblings from
+Keep these files flat in `infra/host/`: `devcontainer.zsh` resolves its siblings from
 its own path, so another checkout cannot redirect its helpers.
 
 ## Functions

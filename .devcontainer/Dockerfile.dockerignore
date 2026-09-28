@@ -1,10 +1,10 @@
 # The build context is the repository root (devcontainer.json build.context),
-# so that the image can install the base with setup/install-base.sh
+# so that the image can install the base with infra/setup/install-base.sh
 # (docs/journal/0926f). BuildKit reads this file in place of a root
 # .dockerignore because it sits beside the Dockerfile with its name.
 # Everything is excluded except what the Dockerfile uses; workspace/, cellar/
-# and done/ are research data and must never reach the daemon.
+# and done/ are user content and must never reach the daemon.
 *
 !.devcontainer/
-!agents/
-!setup/install-base.sh
+!agents/managed/
+!infra/setup/install-base.sh

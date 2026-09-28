@@ -1,4 +1,4 @@
-# Run:     Rscript credentials/tests/test_get_credentials.R
+# Run:     Rscript infra/credentials/tests/test_get_credentials.R
 # Inputs:  The environment and a stubbed host store
 # Outputs: Test status; no project files are modified
 pdf(NULL)

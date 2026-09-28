@@ -68,7 +68,7 @@ You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
 For container behavior and agent configuration, see
 [the devcontainer documentation](/sandbox/.devcontainer/README.md). For installed
 software, package stacks, and installation procedures, see
-[the setup documentation](/sandbox/setup/README.md). The security design and
+[the setup documentation](/sandbox/infra/setup/README.md). The security design and
 available services are described in [the feature guide](/sandbox/docs/features.md).
 
 ## Sandbox Configuration
@@ -123,8 +123,8 @@ Do not edit either config file's posture settings.
 - **Package installs depend on the mode.** In YOLO mode, the
   R, Python and TeX stacks are **read-only**. If a package is missing, **ASK THE
   USER TO ADD IT** (name the package) rather than installing it some other way.
-  They add it in normie mode, or to a list in `setup/install-base.sh`
-  (base) or `setup/install-optional.sh` (optional set). In normie mode the volumes
+  They add it in normie mode, or to a list in `infra/setup/install-base.sh`
+  (base) or `infra/setup/install-optional.sh` (optional set). In normie mode the volumes
   are writable, but install **only what the user asks for**, with the ordinary
   commands (`install.packages()`, `pip install`, `tlmgr install`), and say when
   pip replaced a dependency. New **system** libraries (`apt-get`, `-dev`

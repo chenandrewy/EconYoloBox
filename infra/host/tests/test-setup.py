@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Run: python3 host/tests/test-setup.py
+# Run: python3 infra/host/tests/test-setup.py
 # Inputs: setup.sh; uses temporary checkouts and rc files, never your real .zshrc.
 # Outputs: unittest results; verifies preservation, quoting, migration, and reruns.
 from pathlib import Path
@@ -14,7 +14,7 @@ class SetupTests(unittest.TestCase):
     def test_registration_and_relocation(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            toolkit = root / "checkout with 'quotes' $dollars" / 'host'
+            toolkit = root / "checkout with 'quotes' $dollars" / 'infra' / 'host'
             toolkit.mkdir(parents=True)
             shutil.copy2(Path(__file__).resolve().parents[1] / 'setup.sh', toolkit)
             launcher = toolkit / 'devcontainer.zsh'
@@ -41,18 +41,19 @@ class SetupTests(unittest.TestCase):
             self.assertEqual(result.stdout.strip(), 'yes')
 
             moved = root / 'renamed-checkout'
-            toolkit.parent.rename(moved)
-            toolkit = moved / 'host'
+            toolkit.parent.parent.rename(moved)
+            toolkit = moved / 'infra' / 'host'
             setup()
             self.assertNotIn(str(launcher), rc.read_text())
             self.assertIn(str(toolkit / 'devcontainer.zsh'), rc.read_text())
             self.assertEqual(rc.read_text().count('source '), 1)
 
-            old_launcher = toolkit.parent / '.host' / 'devcontainer.zsh'
-            rc.write_text(f'source {shlex.quote(str(old_launcher))}\n')
-            setup()
-            self.assertNotIn(str(old_launcher), rc.read_text())
-            self.assertIn(str(toolkit / 'devcontainer.zsh'), rc.read_text())
+            for old_dir in ('.host', 'host'):
+                old_launcher = moved / old_dir / 'devcontainer.zsh'
+                rc.write_text(f'source {shlex.quote(str(old_launcher))}\n')
+                setup()
+                self.assertNotIn(str(old_launcher), rc.read_text())
+                self.assertIn(str(toolkit / 'devcontainer.zsh'), rc.read_text())
 
             malformed = '# >>> bbox host launcher >>>\n'
             rc.write_text(malformed)

@@ -1,14 +1,14 @@
 # ABOUTME: Shared credential retrieval module for R.
 # ABOUTME: Resolves credentials from the environment or the host store.
 #
-# Run:     source("credentials/get-credentials.R")
+# Run:     source("infra/credentials/get-credentials.R")
 # Inputs:  Environment variables (in the container, set at creation from the
 #          host's --env-file), the host credential store, and credentials-map.json
 # Outputs: Credential values returned by get_credential() or get_all_credentials()
 
 .credentials_source_file <- tryCatch(
   normalizePath(sys.frame(1)$ofile, mustWork = TRUE),
-  error = function(e) normalizePath("credentials/get-credentials.R", mustWork = FALSE)
+  error = function(e) normalizePath("infra/credentials/get-credentials.R", mustWork = FALSE)
 )
 .credentials_dir <- dirname(.credentials_source_file)
 .credentials_json <- file.path(.credentials_dir, "credentials-map.json")

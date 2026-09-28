@@ -87,7 +87,7 @@ tooling those changes exist to support is described in
   config hard-codes `SANDBOX_INTERNET=open` in the container's environment,
   fixed at creation, and anything other than `open` arms. Every shell says so
   while it is off. The configs and the startup scripts are in the tracked,
-  writable workspace, and so is the host launcher, `host/devcontainer.zsh`,
+  writable workspace, and so is the host launcher, `infra/host/devcontainer.zsh`,
   which the host's `~/.zshrc` sources straight from the checkout: an agent
   that edits them changes what the next creation, start, or host shell
   runs. They are not a security boundary against an
@@ -142,7 +142,7 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   minimal pdfLaTeX TeX Live live in shared Docker volumes. The first build
   fills them with a lean base: the image carries a copy, and Docker seeds each
   empty volume from it. After that the human changes them with
-  `bash setup/install-base.sh` from inside the container in normie mode, with
+  `bash infra/setup/install-base.sh` from inside the container in normie mode, with
   the firewall off and the volumes writable, and every project mounts them
   read-only by default. Agents run the stacks but cannot
   change them. Packages change only in normie mode, from inside.
@@ -193,7 +193,7 @@ workable should each be one step.
 
 | Location | Commands |
 | --- | --- |
-| `host/devcontainer.zsh` (host shell) | `bbox` (`bbu`, `bbe`, and `bbcode` are short wrappers) |
+| `infra/host/devcontainer.zsh` (host shell) | `bbox` (`bbu`, `bbe`, and `bbcode` are short wrappers) |
 | `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
 | `tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork` |
 | `tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
@@ -201,7 +201,7 @@ workable should each be one step.
 | `tools/lit/` | `cited_by.py` |
 | `agents/` | `seed-agent-guidelines.sh` (runs at container start) |
 | `.devcontainer/` | `test-firewall.sh`, `test-agent-policy.sh` |
-| `setup/` (container; normie mode except `cli`, `--verify`) | `install-base.sh`, `install-optional.sh` |
+| `infra/setup/` (container; normie mode except `cli`, `--verify`) | `install-base.sh`, `install-optional.sh` |
 
 Everything in `tools/` is on `PATH` via `shellrc.sh`, so the filenames are the
 commands.
@@ -219,7 +219,7 @@ commands.
 
 ### Containers, sessions, and agents
 
-- **One-command project opening (`host/`).** Source `devcontainer.zsh` in your
+- **One-command project opening (`infra/host/`).** Source `devcontainer.zsh` in your
   `~/.zshrc` and use `bbcode [dir]` to bring up the enclosing YOLO container
   (or `bbcode --normie [dir]` for the normie one), verify its posture, and
   open that exact subfolder in VS Code. `bbe [dir]` follows the same bring-up
@@ -236,7 +236,7 @@ commands.
   tooling can list sessions across all running containers and terminate them in
   one command. Running many agents at once stays tractable. Note that the
   launchers themselves (`ccsessions`, `cckill`, `cc-remote-*`) are personal
-  machine-level configuration and are **not shipped here** — see `host/README.md`.
+  machine-level configuration and are **not shipped here** — see `infra/host/README.md`.
   What this repo provides is the half that makes them possible: every session
   remote-controlled and deterministically named.
 
@@ -250,15 +250,15 @@ commands.
   [AIChatRender repository](https://github.com/chenandrewy/aichatrender) and is
   installed automatically from the VS Code Marketplace by this devcontainer.
 
-- **Agent config and skills as code.** Root-level `SANDBOX-CLAUDE.md` holds
-  shared Claude/Codex guidance; `agents/` holds shared LyX and
+- **Agent config and skills as code.** `agents/SANDBOX-CLAUDE.md` holds
+  shared Claude/Codex guidance; `agents/` also holds shared LyX and
   PDF-bookmark skills and settings, all re-seeded on every container start.
   Guidance and skills are symlinked so edits apply live; writable settings are
   copied so drift resets to canonical. Separately, root-owned managed policy
-  files enforce the connector and plugin restrictions described above.
+  files, baked from `agents/managed/`, enforce the connector and plugin restrictions described above.
 
 - **Host-aware workspace settings.** Startup captures a stable host name and
-  the host time zone. `SANDBOX-CLAUDE.md` provides agent-visible paths for the
+  the host time zone. `agents/SANDBOX-CLAUDE.md` provides agent-visible paths for the
   research library and macOS screenshots. That lets agents resolve phrases
   such as “this screenshot” without clipboard access and use the right zone
   for human-facing timestamps.

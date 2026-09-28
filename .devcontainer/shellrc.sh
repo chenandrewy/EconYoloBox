@@ -6,7 +6,7 @@
 # Inputs: mounted workspace tools, installed toolchains, and container env.
 # Outputs: shell PATH, aliases/functions, and local setup warnings.
 
-# workspace tools on PATH, organized by topic (see /sandbox/SANDBOX-CLAUDE.md)
+# research tools on PATH, organized by topic (see /sandbox/agents/SANDBOX-CLAUDE.md)
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
 #   lit:     citation lookup (cited_by.py, via OpenAlex)
@@ -35,7 +35,7 @@ if [ ! -f /usr/local/texlive/.sandbox-installed ]; then
     _stacks_missing="${_stacks_missing:+$_stacks_missing }tex"
 fi
 if [ -n "$_stacks_missing" ]; then
-    echo "note: package volume not built ($_stacks_missing) - in normie mode, in the container: bash setup/install-base.sh $_stacks_missing"
+    echo "note: package volume not built ($_stacks_missing) - in normie mode, in the container: bash infra/setup/install-base.sh $_stacks_missing"
 fi
 unset _stacks_missing
 
@@ -47,7 +47,7 @@ unset _stacks_missing
 # whereas asking npm what `latest` is would put a network round-trip in front of
 # every shell. Codex announces its own updates at launch; that is enough.
 if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; then
-    echo "note: AI CLIs not installed - run setup/install-base.sh cli"
+    echo "note: AI CLIs not installed - run infra/setup/install-base.sh cli"
 fi
 
 # Posture warning banner and prompt tag. Each mode has its own container,
@@ -192,10 +192,10 @@ if [ ! -x /usr/local/texlive-bin/pdflatex ]; then
         echo "note: mounted TeX Live 2026 is not active; using $(command -v pdflatex)"
         echo "      Rebuild this container to activate the recent TeX-volume change."
     else
-        echo "note: TeX unavailable - in normie mode, in the container: bash setup/install-base.sh tex"
+        echo "note: TeX unavailable - in normie mode, in the container: bash infra/setup/install-base.sh tex"
         echo "      For a nonempty failed install, inspect the volume's install.log first."
     fi
 elif [ ! -f /usr/local/texlive/.sandbox-installed ]; then
-    echo "note: TeX volume has no install marker - in normie mode, in the container: bash setup/install-base.sh tex"
-    echo "      If it refuses, an earlier install failed: see setup/README.md."
+    echo "note: TeX volume has no install marker - in normie mode, in the container: bash infra/setup/install-base.sh tex"
+    echo "      If it refuses, an earlier install failed: see infra/setup/README.md."
 fi

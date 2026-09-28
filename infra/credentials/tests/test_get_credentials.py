@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Run:     python3 credentials/tests/test_get_credentials.py
+# Run:     python3 infra/credentials/tests/test_get_credentials.py
 # Inputs:  Mocked environment and host store
 # Outputs: unittest results; no project files are modified
 

@@ -1,10 +1,10 @@
 # Dev Container & Credentials
 
-Both `.devcontainer/` and `credentials/` are designed to be copied across projects.
+Both `.devcontainer/` and `infra/credentials/` are designed to be copied across projects.
 
 This file documents how the pieces work.
 
-## Credentials (`credentials/`)
+## Credentials (`infra/credentials/`)
 
 Credentials are resolved in two ways, in order:
 
@@ -50,13 +50,13 @@ recreating them; emptying the file no longer does it.
 ## Dev Container (`.devcontainer/`)
 
 `.devcontainer/` is the container itself: its definition, its startup, and the
-tools baked into it. `host/` is the launcher (`bbox`), and
-[`setup/`](../setup/README.md) is provisioning you run by hand, in the
+tools baked into it. `infra/host/` is the launcher (`bbox`), and
+[`infra/setup/`](../infra/setup/README.md) is provisioning you run by hand, in the
 container: the package volumes and the AI CLIs.
 
 ### TeX Live and LyX
 
-TeX Live 2026 is installed with `bash setup/install-base.sh tex` in the
+TeX Live 2026 is installed with `bash infra/setup/install-base.sh tex` in the
 container, **in normie mode**, using upstream `install-tl`. It is minimal and pdfLaTeX-only. The base is
 `scheme-small` without XeTeX, plus bibtexextra (biblatex, biber), latexindent,
 latexmk and cm-super; `install-optional.sh` adds latexextra, fontsrecommended,
@@ -96,7 +96,6 @@ this helper. See the host setup README for installation and failure handling.
   `custom`) from the container itself; `package-mode.sh` reports how the
   package volumes are mounted.
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
-- `agents/` — agent settings, shared skills, and guidance seeding (see "Agent Config" below).
 - `home/` — user-level dotfiles that must survive a rebuild. The container's
   home directory is not a persisted volume, so a file placed at `~` would be
   wiped; these live in the tracked repo instead and are pointed at by
@@ -164,7 +163,7 @@ Use standard `codex` for everyday work. Select a model with `/model` or
 `codex --model <model>`; separate chat and mini wrappers are unnecessary.
 
 A bare `codex` defaults to requesting sandboxing: `/etc/codex/config.toml` (from
-`agents/SANDBOX-codex-config.toml`) sets `approval_policy`/`sandbox_mode` to the
+`agents/managed/SANDBOX-codex-config.toml`) sets `approval_policy`/`sandbox_mode` to the
 on-request/workspace-write defaults. User configuration can override them.
 These two settings alone do not select automatic review.
 
@@ -260,24 +259,24 @@ it:
 
 ### Agent Config
 
-The root-level `SANDBOX-CLAUDE.md` is the editable source for shared Claude
-and Codex guidance. Root-level `SANDBOX-AGENTS.md` is a symlink to it, kept
-separate so Codex-specific guidance can diverge later. `agents/`
-holds the remaining agent config and managed policy:
+All agent configuration lives in `agents/` at the repository root:
 
+- `SANDBOX-CLAUDE.md` — the editable source for shared Claude and Codex guidance
+- `SANDBOX-AGENTS.md` — a symlink to it, kept separate so Codex-specific guidance can diverge later
 - `SANDBOX-claude-settings.json` — canonical user-level Claude Code settings
 - `SANDBOX-claude-statusline.sh` — status line script referenced by the settings
-- `SANDBOX-claude-managed-settings.json` — system-enforced Claude Code policy, baked to `/etc/claude-code/managed-settings.json`
-- `SANDBOX-codex-config.toml` — stable Codex defaults, baked to `/etc/codex/config.toml`
-- `SANDBOX-codex-requirements.toml` — system-enforced Codex Apps and Plugins policy, baked to `/etc/codex/requirements.toml`
 - `skills/` — canonical shared Agent Skills, linked into both Claude Code and Codex user-level skill directories
 - `seed-agent-guidelines.sh` — applies the user-level guidance and Claude settings on every container start (`postStartCommand`)
+- `managed/` — files baked into the image:
+  - `SANDBOX-claude-managed-settings.json` — system-enforced Claude Code policy, baked to `/etc/claude-code/managed-settings.json`
+  - `SANDBOX-codex-config.toml` — stable Codex defaults, baked to `/etc/codex/config.toml`
+  - `SANDBOX-codex-requirements.toml` — system-enforced Codex Apps and Plugins policy, baked to `/etc/codex/requirements.toml`
 
-The three baked system files are **not** handled by the seed script. They are
+The three `managed/` files are **not** handled by the seed script. They are
 `COPY`ed into the image as root-owned `0444`, so changing one requires a
 rebuild. The Codex system config provides stable, user-overridable defaults;
 the two policy files enforce settings that user config cannot override.
-`../.devcontainer/test-agent-policy.sh` verifies that the default is installed
+`.devcontainer/test-agent-policy.sh` verifies that the default is installed
 and that the policies are actually in force.
 
 The seed script handles guidance and settings differently:
@@ -292,7 +291,7 @@ The seed script handles guidance and settings differently:
   belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
 
 Agent-visible paths for the research library, finished and retired projects,
-and screenshots live under **Key Paths** in the root-level `SANDBOX-CLAUDE.md`.
+and screenshots live under **Key Paths** in `agents/SANDBOX-CLAUDE.md`.
 Guidance is symlinked, so path edits require no container restart. The host
 time zone is detected separately when the container is created (see
 [Timezone](#timezone)).
@@ -350,20 +349,20 @@ In normie mode, install as `node` with the ordinary commands:
 The image seeds the volumes `node`-owned, so no sudo is needed. pip
 resolves against current PyPI and can replace dependencies, one reason the mode
 is supervised. Agents install in normie mode only when the user asks.
-`setup/install-base.sh` installs the base this way, and
-`setup/install-optional.sh` the optional set;
+`infra/setup/install-base.sh` installs the base this way, and
+`infra/setup/install-optional.sh` the optional set;
 `install-optional.sh --verify` and `tests/test-optional.sh` check it in any
 mode.
 
-### Package stacks and AI CLIs (`setup/install-base.sh`)
+### Package stacks and AI CLIs (`infra/setup/install-base.sh`)
 
 The R, Python and TeX stacks live in three shared Docker volumes. The image
 carries a copy of the lean base only to seed them: its build runs
 `install-base.sh --image-build`, and Docker copies the image's directory into
 each volume the first time an empty one is mounted (docs/journal/0926f). After
 that the human changes the base in normie mode with
-`bash setup/install-base.sh` (see the [setup README](../setup/README.md)),
-and optionally adds the rest with `setup/install-optional.sh`.
+`bash infra/setup/install-base.sh` (see the [setup README](../infra/setup/README.md)),
+and optionally adds the rest with `infra/setup/install-optional.sh`.
 The YOLO container mounts them read-only and the normie container writable:
 
 | Volume | Mount |
@@ -392,7 +391,7 @@ System dependencies that need root (`gfortran`, `libcurl4-openssl-dev`,
 the volume a new name, rebuild the container in normie mode, then fill it.
 
 The Claude Code and Codex CLIs are part of the base, installed into a writable
-per-container volume by the same script, `bash setup/install-base.sh cli`,
+per-container volume by the same script, `bash infra/setup/install-base.sh cli`,
 which works in any mode. `post-start.sh` runs it at startup while either CLI
 is missing, so a fresh volume fills itself. They were a Dockerfile layer pinned to
 `@latest`, which turned out to mean "whatever was current the day the layer

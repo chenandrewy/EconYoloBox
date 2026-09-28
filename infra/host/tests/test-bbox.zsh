@@ -1,10 +1,10 @@
 #!/usr/bin/env zsh
-# Run:     zsh host/tests/test-bbox.zsh
+# Run:     zsh infra/host/tests/test-bbox.zsh
 # Inputs:  host bbox implementation; mocks Docker, Dev Containers, and VS Code.
 # Outputs: TAP-like pass/fail lines and a nonzero status on failure.
 setopt errexit nounset pipefail
 
-root=${0:A:h:h:h}
+root=${0:A:h:h:h:h}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 log=$tmp/calls
@@ -31,7 +31,7 @@ field() { local -a f; f=(${=$(<$store/$1)}); print -r -- ${f[$2]}; }
 
 alias dcu='devcontainer up --workspace-folder .'
 dccode() { :; }
-source "$root/host/devcontainer.zsh"
+source "$root/infra/host/devcontainer.zsh"
 
 devcontainer() {
   print -r -- "devcontainer|$*" >>$log
@@ -120,7 +120,7 @@ pass 'reload removes legacy dcu/dce/dccode names and defines bbu/bbe/bbcode'
 out=$(run --code "$root") || fail 'bbcode'
 grep -qF "devcontainer|up --workspace-folder $root --config $yolo_config" $log || fail 'no flag must use the YOLO config'
 [[ "$out" == *'YOLO mode container yolo-new-1'* ]] || fail 'YOLO report'
-expected_uri=$(python3 "$root/host/dc-resolve.py" folder-uri "$root" "$yolo_config" /sandbox desktop-linux)
+expected_uri=$(python3 "$root/infra/host/dc-resolve.py" folder-uri "$root" "$yolo_config" /sandbox desktop-linux)
 grep -qF "code|--new-window --folder-uri $expected_uri" $log || fail 'VS Code must open the YOLO config'
 pass 'no flag brings up the YOLO config and opens it in VS Code'
 out=$(run --code --normie "$root") || fail 'bbcode --normie'
@@ -128,7 +128,7 @@ grep -qF "devcontainer|up --workspace-folder $root --config $normie_config" $log
 grep -q -- '--remove-existing-container' $log && fail 'a second mode must not recreate anything'
 grep -q 'docker|rm' $log && fail 'a second mode must not remove anything'
 (( $(count yolo-new) == 1 && $(count normie-new) == 1 )) || fail 'both containers must exist'
-expected_uri=$(python3 "$root/host/dc-resolve.py" folder-uri "$root" "$normie_config" /sandbox desktop-linux)
+expected_uri=$(python3 "$root/infra/host/dc-resolve.py" folder-uri "$root" "$normie_config" /sandbox desktop-linux)
 grep -qF "code|--new-window --folder-uri $expected_uri" $log || fail 'VS Code must open the normie config'
 [[ "$out" == *'normie mode container normie-new-2'* ]] || fail 'normie report'
 pass '--normie brings up a second container beside the YOLO one'
@@ -177,7 +177,7 @@ grep -qF -- "--config $normie_config --remove-existing-container" $log || fail '
 yolo_new=($store/yolo-new-*(N:t))
 (( $#yolo_new == 1 )) && [[ "$(field $yolo_new[1] 5)" == running ]] || fail 'a running YOLO container stays running'
 grep -q 'docker|stop' $log && fail 'nothing that was running is stopped'
-expected_uri=$(python3 "$root/host/dc-resolve.py" folder-uri "$root" "$normie_config" /sandbox desktop-linux)
+expected_uri=$(python3 "$root/infra/host/dc-resolve.py" folder-uri "$root" "$normie_config" /sandbox desktop-linux)
 grep -qF "code|--new-window --folder-uri $expected_uri" $log || fail 'the rebuild opens the chosen mode'
 [[ "$(grep -c '^code|' $log)" == 1 ]] || fail 'only the chosen mode is opened'
 [[ "$out" == *'recreating the YOLO mode container'*'recreating the normie mode container'* ]] || fail 'the chosen mode comes last'
@@ -268,8 +268,8 @@ for args in '--rebuild --rebuild-without-cache' '--shell --code' '--yolo --normi
 done
 pass 'conflicting options and a second directory are rejected'
 
-grep -q "'(\-\-rebuild-without-cache --status --stop)--rebuild" "$root/host/_bbox" || fail 'completion rebuild exclusion'
-grep -q "'(\-\-normie --status)--yolo" "$root/host/_bbox" || fail 'completion mode exclusion'
-grep -q "'(\-\-shell --code --status --rebuild --rebuild-without-cache)--stop" "$root/host/_bbox" || fail 'completion stop exclusion'
+grep -q "'(\-\-rebuild-without-cache --status --stop)--rebuild" "$root/infra/host/_bbox" || fail 'completion rebuild exclusion'
+grep -q "'(\-\-normie --status)--yolo" "$root/infra/host/_bbox" || fail 'completion mode exclusion'
+grep -q "'(\-\-shell --code --status --rebuild --rebuild-without-cache)--stop" "$root/infra/host/_bbox" || fail 'completion stop exclusion'
 pass 'completion encodes the mutual exclusions'
 print -r -- "1..$tests"

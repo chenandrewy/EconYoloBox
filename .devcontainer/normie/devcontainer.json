@@ -9,9 +9,9 @@
   "build": {
     "dockerfile": "../Dockerfile",
     // The repository root, so the image can install the base with
-    // setup/install-base.sh (docs/journal/0926f). Dockerfile.dockerignore
-    // passes only .devcontainer/ and that script, so workspace/, cellar/ and
-    // done/ never reach the daemon.
+    // infra/setup/install-base.sh (docs/journal/0926f). Dockerfile.dockerignore
+    // passes only .devcontainer/, agents/managed/ and that script, so
+    // workspace/, cellar/ and done/ never reach the daemon.
     "context": "../..",
     "args": {
       "TZ": "${localEnv:TZ:America/New_York}",
@@ -103,13 +103,13 @@
   "mounts": [
     // Shared package volumes: R, Python and TeX. Docker seeds each empty one
     // from the image, which carries the base (docs/journal/0926f); after that
-    // they change in normie mode, by `bash setup/install-base.sh` in the
+    // they change in normie mode, by `bash infra/setup/install-base.sh` in the
     // container (docs/journal/0921a, 0925b, 0926a, 0926e), and are otherwise
     // mounted read-only, so agents in here
     // can run the stacks but never change them. They are shared across
     // projects on this Docker daemon; only per-project writable state is
     // named for the checkout, further down. Adding a package does not
-    // change these names: edit the list in setup/install-base.sh and rerun it.
+    // change these names: edit the list in infra/setup/install-base.sh and rerun it.
     //
     // Names carry distro, interpreter version and (for R) the P3M snapshot
     // date, so a bump builds a fresh volume instead of serving stale binaries.

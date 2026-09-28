@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # ABOUTME: Lists which mapped credentials exist in the host OS credential store.
 #
-# Run:     python credentials/list-saved.py
+# Run:     python infra/credentials/list-saved.py
 # Inputs:  credentials-map.json
 # Outputs: saved/missing status for each credential target, without printing values
 

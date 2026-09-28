@@ -1,19 +1,18 @@
 #!/bin/bash
-# ABOUTME: Applies the root guidance and agents/ config to the
+# ABOUTME: Applies the agents/ guidance, settings and skills to the
 # ABOUTME: container's user-level Claude and Codex config on every start.
 # Run:     bash agents/seed-agent-guidelines.sh (in container)
-# Inputs:  root SANDBOX-CLAUDE.md/SANDBOX-AGENTS.md and agent config and skills.
+# Inputs:  agents/SANDBOX-CLAUDE.md, SANDBOX-AGENTS.md, settings and skills.
 # Outputs: user-level guidance and skill symlinks; Claude settings copy.
 set -euo pipefail
 
 AGENTS_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-SANDBOX_DIR=$(cd "$AGENTS_DIR/.." && pwd)
 
 mkdir -p "$HOME/.claude/skills" "$HOME/.codex" "$HOME/.agents/skills"
 
 # Guidance: symlinked, so edits apply live without a container restart.
-ln -sfn "$SANDBOX_DIR/SANDBOX-CLAUDE.md" "$HOME/.claude/CLAUDE.md"
-ln -sfn "$SANDBOX_DIR/SANDBOX-AGENTS.md" "$HOME/.codex/AGENTS.md"
+ln -sfn "$AGENTS_DIR/SANDBOX-CLAUDE.md" "$HOME/.claude/CLAUDE.md"
+ln -sfn "$AGENTS_DIR/SANDBOX-AGENTS.md" "$HOME/.codex/AGENTS.md"
 
 # Shared skills: each canonical skill is linked into both agents' user-level
 # discovery directory. Only links this seeder owns — those already pointing into

@@ -1,5 +1,5 @@
 #compdef bbcode ybcode
-# Run:     source host/_bbcode after zsh completion initialization.
+# Run:     source infra/host/_bbcode after zsh completion initialization.
 # Inputs:  the current bbcode command line only.
 # Outputs: the _bbcode completion function and, when available, its compdef binding.
 

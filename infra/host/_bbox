@@ -1,5 +1,5 @@
 #compdef bbox
-# Run:     source host/_bbox after zsh completion initialization.
+# Run:     source infra/host/_bbox after zsh completion initialization.
 # Inputs:  the current command line only; completion does not read configuration.
 # Outputs: the _bbox completion function and, when available, its compdef binding.
 

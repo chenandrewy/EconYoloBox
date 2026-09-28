@@ -1,7 +1,7 @@
 # ABOUTME: Shared credential retrieval module.
 # ABOUTME: Resolves credentials from the environment or the host store.
 #
-# Usage:  from importlib.machinery import SourceFileLoader; mod = SourceFileLoader("gc", "credentials/get-credentials.py").load_module()
+# Usage:  from importlib.machinery import SourceFileLoader; mod = SourceFileLoader("gc", "infra/credentials/get-credentials.py").load_module()
 # Inputs: Environment variables (in the container, set at creation from the
 #         host's --env-file), the host credential store, credentials-map.json
 # Outputs: Credential values as strings
