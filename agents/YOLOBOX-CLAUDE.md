@@ -24,8 +24,8 @@ Codex specific instructions: When working with git and sandbox protections, requ
 ## Key Paths
 
 - Research library (cellar): `/yolobox/cellar/`
-- Finished and retired projects (done): `/yolobox/done/`
-- macOS screenshots: `/yolobox/workspace/dev/screenshots/`
+- Finished and retired projects (hangar): `/yolobox/hangar/`
+- macOS screenshots: `/yolobox/workshop/dev/screenshots/`
 
 ### Custom Tools
 
@@ -59,10 +59,10 @@ Custom tools live in `/yolobox/tools/`, organized by topic. Check these folders 
 ## The Environment
 
 - The yolobox repo is bind-mounted at `/yolobox`, so edits are live on the
-  host. User projects live under `/yolobox/workspace/`, which is gitignored
+  host. User projects live under `/yolobox/workshop/`, which is gitignored
   by the yolobox repo. Terms: **yolobox** = the infrastructure repo at
-  `/yolobox`; **workspace** = user content under `/yolobox/workspace/`;
-  **project** = one working tree inside the workspace.
+  `/yolobox`; **workshop** = user content under `/yolobox/workshop/`;
+  **project** = one working tree inside the workshop.
 
 You are running inside a devcontainer, defined in `/yolobox/.devcontainer/`.
 For container behavior and agent configuration, see

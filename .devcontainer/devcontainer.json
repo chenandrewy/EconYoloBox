@@ -11,7 +11,7 @@
     // The repository root, so the image can install the base with
     // infra/setup/install-base.sh (docs/journal/0926f). Dockerfile.dockerignore
     // passes only .devcontainer/, agents/managed/ and that script, so
-    // workspace/, cellar/ and done/ never reach the daemon.
+    // workshop/, cellar/ and hangar/ never reach the daemon.
     "context": "..",
     "args": {
       "TZ": "${localEnv:TZ:America/New_York}",

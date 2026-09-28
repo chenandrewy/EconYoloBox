@@ -50,7 +50,7 @@ container. The yolobox itself is these tracked folders:
 - `tools/`: custom research tooling
 
 Everything else at the root is your content, gitignored by the yolobox:
-`workspace/` (projects), `done/` (finished projects), and `cellar/` (research
+`workshop/` (projects), `hangar/` (finished projects), and `cellar/` (research
 library).
 
 See [Yolobox Features](docs/features.md) for a detailed tour.
@@ -108,23 +108,23 @@ Windows and Linux support is partially wired but has not been tested.
 
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
    The yolobox repository is mounted at `/yolobox`; all user content goes
-   under `/yolobox/workspace/`, which `.gitignore` excludes wholesale, so the
+   under `/yolobox/workshop/`, which `.gitignore` excludes wholesale, so the
    outer EconYoloBox repository never sees your projects whatever they are
    named. Each project must therefore be its own Git repository. Projects that
-   are finished or retired move to `/yolobox/done/`, which is ignored the same
-   way; `workspace/` holds only active work.
+   are finished or retired move to `/yolobox/hangar/`, which is ignored the same
+   way; `workshop/` holds only active work.
 
    For a new project:
 
    ```bash
-   mkdir -p /yolobox/workspace/My-Project
-   git -C /yolobox/workspace/My-Project init
+   mkdir -p /yolobox/workshop/My-Project
+   git -C /yolobox/workshop/My-Project init
    ```
 
    For an existing project, clone its repository instead:
 
    ```bash
-   cd /yolobox/workspace
+   cd /yolobox/workshop
    git clone https://github.com/your-name/your-project.git My-Project
    ```
 
@@ -132,7 +132,7 @@ Windows and Linux support is partially wired but has not been tested.
    you to authenticate. Start Claude with auto mode selected:
 
    ```bash
-   cd /yolobox/workspace/My-Project
+   cd /yolobox/workshop/My-Project
    claude --permission-mode auto
    ```
 
@@ -143,7 +143,7 @@ Windows and Linux support is partially wired but has not been tested.
    Or start Codex with:
 
    ```bash
-   cd /yolobox/workspace/My-Project
+   cd /yolobox/workshop/My-Project
    codex
    ```
 

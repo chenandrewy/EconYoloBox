@@ -19,7 +19,7 @@ Set this before any other step; every block below assumes it. This is the one
 place the path appears, so moving the checkout is a one-line change here.
 
 ```bash
-release_dir="/yolobox/workspace/Live_AIWorkFlow/EconYoloBox"
+release_dir="/yolobox/workshop/Live_AIWorkFlow/EconYoloBox"
 ```
 
 ## 1. Export
@@ -94,7 +94,7 @@ git -C "$release_dir" grep --cached -n -i -F \
   -e '--cluster' -- .
 
 private_names="$(
-  ls -d1 /yolobox/workspace/*/ \
+  ls -d1 /yolobox/workshop/*/ \
     | sed 's#^.*/##; s#/$##' \
     | grep -v -x -e DONE -e Other -e dev \
     | sed -n 'p; s#^[A-Za-z]*[,_]##p' \
@@ -114,7 +114,7 @@ git -C "$release_dir" diff --cached
 
 Private names are derived rather than listed here, so the audit stays correct
 as projects come and go. They come from listing the user workspace
-(`/yolobox/workspace/*/`, minus the generic `DONE`, `Other`, and `dev`), once with the `Live,`/`Ref,`-style prefix and once without. The bare
+(`/yolobox/workshop/*/`, minus the generic `DONE`, `Other`, and `dev`), once with the `Live,`/`Ref,`-style prefix and once without. The bare
 form matters because a name is revealing without its prefix — a document that
 says "GoogleScholar" and never says "Live," would otherwise pass. Confirm the printed list is non-empty and looks right before trusting a
 quiet result. Judge each hit on context —
