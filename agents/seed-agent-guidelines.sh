@@ -97,6 +97,15 @@ if [[ $HOME != "$old_home" ]]; then
     done
 fi
 
+# Codex's app-server-control.sock is a symlink into /tmp/codex-daemon-<uid>/,
+# named by the sha256 of the socket path. /tmp does not survive a rebuild, and
+# after the home move the name no longer matches, so Codex's symlink() fails
+# with EEXIST ("app server did not become ready"). A dangling one is stale.
+control_sock=$HOME/.codex/app-server-control/app-server-control.sock
+if [[ -L $control_sock && ! -e $control_sock ]]; then
+    rm -f "$control_sock"
+fi
+
 # Settings: copied, not symlinked. Claude Code writes to its settings file
 # (/config, /model, permission grants), and those writes belong in the volume,
 # not the repo. Each container start re-applies the canonical settings.
