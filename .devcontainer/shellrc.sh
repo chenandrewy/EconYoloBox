@@ -79,7 +79,7 @@ if [ "$_ybx_mode" != yolo ]; then
     fi
     unset _ybx_hi _ybx_off
 fi
-# The powerlevel10k prompt: no user segment (it only ever says node), and
+# The powerlevel10k prompt: no user segment (it only ever says ubuntu), and
 # outside YOLO mode a mode segment at the front. This
 # file is sourced before oh-my-zsh, and ~/.zshrc sets the element list after
 # it, so a one-time precmd hook edits the list once it is final.

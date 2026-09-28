@@ -75,7 +75,7 @@ in the writable home directory. Packages are added with `tlmgr install` in
 normie mode, or by listing them in `TEX_PKGS` and rerunning the builder;
 existing packages are never updated in place.
 
-`tex-refresh` runs LyX converter detection as `node` in `~/.lyx` at startup,
+`tex-refresh` runs LyX converter detection as `ubuntu` in `~/.lyx` at startup,
 after the firewall configuration step. A missing installation warns without
 preventing other container use. If TeX is installed after startup, run
 `tex-refresh` manually in each consumer and reopen any already-running LyX.
@@ -204,7 +204,7 @@ absolute path through an escalated shell worked in one session. The native
 editing tool still failed. These tool-specific recovery paths are not a reliable
 substitute for a working sandbox; this prompted the switch to unconfined.
 
-**Validation after recreation.** Run these harmless probes as `node`:
+**Validation after recreation.** Run these harmless probes as `ubuntu`:
 
 ```bash
 bwrap --unshare-user --ro-bind / / /bin/true
@@ -218,7 +218,7 @@ Then start a normal Codex workspace-write session and verify:
   inside the workspace without an escalated shell fallback.
 - A workspace write succeeds, while a write to a disposable, user-owned test
   location outside all writable roots is denied without escalation. Verify the
-  location is writable by `node` outside the sandbox so the check tests sandbox
+  location is writable by `ubuntu` outside the sandbox so the check tests sandbox
   enforcement rather than ordinary Unix permissions.
 - Command networking matches the chosen policy: default workspace-write stays
   offline; explicitly enabled networking can reach an intended public endpoint,
@@ -245,8 +245,8 @@ documentation.
 
 The template mounts persistent volumes for:
 
-- `/home/node/.claude` — Claude auth and config
-- `/home/node/.codex` — Codex auth and config
+- `/home/ubuntu/.claude` — Claude auth and config
+- `/home/ubuntu/.codex` — Codex auth and config
 
 This keeps interactive login state across container rebuilds and restarts.
 Both modes' containers mount the same volumes, so one login serves both.
@@ -294,7 +294,7 @@ The seed script handles guidance and settings differently:
   `~/.agents/skills/`. This keeps one portable source while preserving unrelated
   personal skills in either directory.
 - Settings are **copied** to `~/.claude/settings.json`, not symlinked, because Claude Code writes to its settings file (`/config`, `/model`, permission grants). Those writes land in the volume copy and are overwritten by the canonical file on the next container start. To keep a setting permanently, put it in `YOLOBOX-claude-settings.json`.
-- Codex's `~/.codex/config.toml` remains node-owned and volatile because it
+- Codex's `~/.codex/config.toml` remains ubuntu-owned and volatile because it
   mixes model choices, project trust, and other runtime state. Stable defaults
   belong in `YOLOBOX-codex-config.toml`; user config has higher precedence.
 
@@ -351,10 +351,10 @@ spelling out the loosened boundaries, the zsh prompt and Claude's status line
 lead with a `normie` (or `custom`) tag, and the VS Code window title starts
 with `normie:`, set by `window.title` in `normie/devcontainer.json`.
 
-In normie mode, install as `node` with the ordinary commands:
+In normie mode, install as `ubuntu` with the ordinary commands:
 `install.packages()` writes to the shared site library, `pip install` to
 `/opt/venv`, and `tlmgr install` to the TeX tree (then run `tex-refresh`).
-The image seeds the volumes `node`-owned, so no sudo is needed. pip
+The image seeds the volumes `ubuntu`-owned, so no sudo is needed. pip
 resolves against current PyPI and can replace dependencies, one reason the mode
 is supervised. Agents install in normie mode only when the user asks.
 `infra/setup/install-base.sh` installs the base this way, and
@@ -413,7 +413,7 @@ while either CLI is missing. The npm-managed CLIs should not be assumed to
 self-update; re-run `install-base.sh cli` to update both to their current
 releases.
 
-`tests/test-packages.sh`, run as `node` in a rebuilt container, is the
+`tests/test-packages.sh`, run as `ubuntu` in a rebuilt container, is the
 acceptance check for the base. It covers mounts that match `packages`, the
 declared base stacks, every installed R package loading, a `fixest`
 regression, refused installs of absent packages (read-only mode), and pdflatex,

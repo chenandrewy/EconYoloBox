@@ -99,7 +99,7 @@
       }
     }
   },
-  "remoteUser": "node",
+  "remoteUser": "ubuntu",
   "mounts": [
     // Shared package volumes: R, Python and TeX. Docker seeds each empty one
     // from the image, which carries the base (docs/journal/0926f); after that
@@ -121,7 +121,7 @@
     // be mounted into another.
     //
     // A new volume is tried by renaming it here and running bbox --rebuild:
-    // Docker seeds it, node-owned, from the image's directory, which already
+    // Docker seeds it, ubuntu-owned, from the image's directory, which already
     // holds the base. Rename back to abandon it.
     //
     // Posture: read-only in YOLO mode, writable in normie mode, where the user
@@ -146,8 +146,8 @@
     // these volumes (re-login; startup reinstalls the CLIs); find orphans with
     // `docker volume ls -f dangling=true`.
     "source=claude-code-bashhistory-${localWorkspaceFolderBasename},target=/commandhistory,type=volume",
-    "source=${localWorkspaceFolderBasename}-claude-config,target=/home/node/.claude,type=volume",
-    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/node/.codex,type=volume",
+    "source=${localWorkspaceFolderBasename}-claude-config,target=/home/ubuntu/.claude,type=volume",
+    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/ubuntu/.codex,type=volume",
     // The AI CLIs live here rather than in an image layer, so that updating
     // Codex in a running container is not undone by the next rebuild (a baked
     // `@latest` layer freezes at first cache; see the Dockerfile note). Codex
@@ -166,9 +166,9 @@
     // the firewall. Fixed at creation like the rest of the posture.
     "YOLOBOX_INTERNET": "firewalled",
     "NODE_OPTIONS": "--max-old-space-size=4096",
-    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    "CLAUDE_CONFIG_DIR": "/home/ubuntu/.claude",
     "AI_SESH_MACHINE": "${localEnv:AI_SESH_MACHINE}",
-    "CODEX_HOME": "/home/node/.codex",
+    "CODEX_HOME": "/home/ubuntu/.codex",
     "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
     "LC_ALL": "C.UTF-8",
     "LANG": "C.UTF-8"

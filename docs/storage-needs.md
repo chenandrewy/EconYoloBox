@@ -96,8 +96,8 @@ state are about 115MB:
 | Volume | Mount | Size | Binaries | Config and state |
 |---|---|---|---|---|
 | `<folder>-npm-global-noble-node24` | `/usr/local/share/npm-global` | 559MB | 559MB | — |
-| `<folder>-codex-config` | `/home/node/.codex` | 746MB | 658MB | 88MB |
-| `<folder>-claude-config` | `/home/node/.claude` | 25MB | — | 25MB |
+| `<folder>-codex-config` | `/home/ubuntu/.codex` | 746MB | 658MB | 88MB |
+| `<folder>-claude-config` | `/home/ubuntu/.claude` | 25MB | — | 25MB |
 | `claude-code-bashhistory-<folder>` | `/commandhistory` | 48KB | — | 48KB |
 
 The npm-global volume holds the CLIs themselves: Codex (329MB) and Claude

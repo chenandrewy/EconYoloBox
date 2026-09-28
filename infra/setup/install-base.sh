@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install the lean base: the Python, R and TeX stacks and the AI CLIs.
 #
-# Run, inside the devcontainer as node, from anywhere in this checkout:
+# Run, inside the devcontainer as ubuntu, from anywhere in this checkout:
 #   In normie mode (on the host, `bbcode --normie` or `bbe --normie`):
 #     bash infra/setup/install-base.sh                # python r tex cli (all)
 #     bash infra/setup/install-base.sh tex            # TeX Live only
@@ -9,7 +9,7 @@
 #   In any mode:
 #     bash infra/setup/install-base.sh cli            # AI CLIs, always @latest
 #     bash infra/setup/install-base.sh --verify       # check only; writes nothing
-#   In the Dockerfile only (RUN as node, BuildKit bind-mounting this file):
+#   In the Dockerfile only (RUN as ubuntu, BuildKit bind-mounting this file):
 #     bash install-base.sh --image-build         # python r tex into the image
 #
 # Inputs:  the package lists below; the dated P3M snapshot pinned in the image's
@@ -24,10 +24,10 @@
 # devcontainer's own image is the builder, which matters: R packages link
 # against its shared libraries and install from its Rprofile.site snapshot, so
 # a volume must be built by the image that will consume it. The volumes are
-# node-owned (the Dockerfile seeds them so), and everything here runs as node.
+# ubuntu-owned (the Dockerfile seeds them so), and everything here runs as ubuntu.
 #
 # python, r and tex refuse unless the container is in normie mode: run as
-# node, their mounts writable and node-owned, and the firewall open (checked
+# ubuntu, their mounts writable and ubuntu-owned, and the firewall open (checked
 # like install-optional.sh does, on the mounts and the firewall marker). An
 # unmounted directory would install into a disposable image layer. cli needs
 # only its own mount, the per-checkout npm-global volume, which is writable in
@@ -73,7 +73,7 @@ Usage: install-base.sh [python] [r] [tex] [cli] [all] [--force] [--verify]
             the Dockerfile's path: python r tex into the image, whose
             directories seed fresh volumes; refuses in a running container
 
-Several targets may be given. Runs only inside the devcontainer, as node.
+Several targets may be given. Runs only inside the devcontainer, as ubuntu.
 python, r and tex install only in normie mode; cli and --verify work in any
 mode. Re-runs skip what is installed.
 USAGE
@@ -168,7 +168,7 @@ WORK_DIR=$(mktemp -d)
 # writes nothing.
 require_install_mode() {
     local mount owner problems=()
-    [ "$(id -un)" = node ] || problems+=("run as node, not $(id -un)")
+    [ "$(id -un)" = ubuntu ] || problems+=("run as ubuntu, not $(id -un)")
     for mount in "$@"; do
         if ! mountpoint -q "$mount"; then
             problems+=("$mount is not a mounted volume; refusing to install into the image layer")
@@ -176,8 +176,8 @@ require_install_mode() {
             problems+=("$mount is mounted read-only")
         else
             owner=$(stat -c %U "$mount")
-            if [ "$owner" != node ]; then
-                problems+=("$mount is owned by $owner, not node (see infra/setup/README.md, \"Volume ownership\")")
+            if [ "$owner" != ubuntu ]; then
+                problems+=("$mount is owned by $owner, not ubuntu (see infra/setup/README.md, \"Volume ownership\")")
             elif [ ! -w "$mount" ]; then
                 problems+=("$mount is not writable by $(id -un)")
             fi
@@ -209,9 +209,9 @@ require_cli_mount() {
 
 # The inverse of require_install_mode: during an image build nothing is
 # mounted, and in a running container every target is, so "no target is a
-# mount" is what tells the two apart. The image's directories are node-owned
+# mount" is what tells the two apart. The image's directories are ubuntu-owned
 # (the Dockerfile makes them so), which is how the seeded volumes end up
-# node-owned too.
+# ubuntu-owned too.
 require_image_build() {
     local dir problems=()
     for dir in "$@"; do
@@ -220,7 +220,7 @@ require_image_build() {
         elif mountpoint -q "$dir"; then
             problems+=("$dir is a mounted volume, so this is a running container, not an image build")
         elif [ ! -w "$dir" ]; then
-            problems+=("$dir is not writable by node")
+            problems+=("$dir is not writable by ubuntu")
         fi
     done
     if [ ${#problems[@]} -gt 0 ]; then
@@ -233,8 +233,8 @@ require_image_build() {
 
 # Before anything else runs, so a host or a root build step gets a plain
 # refusal rather than a missing-command error.
-if [ "$IMAGE_BUILD" -eq 1 ] && [ "$(id -un)" != node ]; then
-    echo "install-base.sh: --image-build runs as node in the Dockerfile only; nothing was installed." >&2
+if [ "$IMAGE_BUILD" -eq 1 ] && [ "$(id -un)" != ubuntu ]; then
+    echo "install-base.sh: --image-build runs as ubuntu in the Dockerfile only; nothing was installed." >&2
     exit 1
 fi
 
@@ -528,7 +528,7 @@ TEX
     latexmk -v >/dev/null
     echo "pdflatex, biber, latexindent, latexmk OK"
 
-    # LyX gets a private userdir, so the smoke test leaves node's ~/.lyx
+    # LyX gets a private userdir, so the smoke test leaves ubuntu's ~/.lyx
     # alone; configure.py there is what tex-refresh runs afterwards.
     (cd lyx-userdir && python3 /usr/local/share/lyx/configure.py >../lyx-configure.log 2>&1)
     tex2lyx -userdir "$dir/lyx-userdir" -f smoke.tex smoke.lyx >/dev/null 2>&1
@@ -736,7 +736,7 @@ if [ "$DO_TEX" -eq 1 ]; then install_tex; fi
 if [ "$DO_CLI" -eq 1 ]; then install_cli; fi
 
 if [ "$IMAGE_BUILD" -eq 1 ]; then
-    # No tex-refresh: it configures node's LyX userdir, which is a runtime
+    # No tex-refresh: it configures ubuntu's LyX userdir, which is a runtime
     # concern; post-start.sh runs it at every start.
     echo "Done. The image now carries the base; Docker seeds each empty volume from it."
 elif [ "$VERIFY" -eq 0 ] && [ -n "$STACK_TARGETS" ]; then

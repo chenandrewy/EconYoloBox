@@ -80,6 +80,23 @@ done
 # every step should be repo-to-$HOME file plumbing that works on a bare
 # container, with no dependency on anything installed at runtime.
 
+# The container user was `node` until 2026-09-28, and the ~/.claude and
+# ~/.codex volumes still hold absolute paths under the old home: symlinks
+# (Codex's packages/app-server-daemon/current and its tmp/arg0 launchers) and
+# Claude's plugin records. Point them at this home. Transcripts, paste cache and
+# file history also mention /home/node, but as a record; they stay as written.
+old_home=/home/node
+if [[ $HOME != "$old_home" ]]; then
+    while IFS= read -r -d '' old_link; do
+        old_target=$(readlink "$old_link")
+        ln -sfn "$HOME/${old_target#"$old_home"/}" "$old_link"
+    done < <(find "$HOME/.claude" "$HOME/.codex" -type l -lname "$old_home/*" -print0 2>/dev/null)
+    for plugin_record in "$HOME"/.claude/plugins/*.json; do
+        [[ -f $plugin_record ]] && grep -q "$old_home/" "$plugin_record" || continue
+        sed -i "s#$old_home/#$HOME/#g" "$plugin_record"
+    done
+fi
+
 # Settings: copied, not symlinked. Claude Code writes to its settings file
 # (/config, /model, permission grants), and those writes belong in the volume,
 # not the repo. Each container start re-applies the canonical settings.

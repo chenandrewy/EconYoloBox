@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run as node in a rebuilt devcontainer: bash .devcontainer/tests/test-packages.sh
+# Run as ubuntu in a rebuilt devcontainer: bash .devcontainer/tests/test-packages.sh
 # Inputs: the shared R, Python and TeX volumes, mounted read-only (YOLO mode,
 #   the default) or writable (bbox --normie); infra/setup/install-base.sh (its --verify
 #   mode holds the declared base lists). In read-only mode pip reaches PyPI
@@ -14,7 +14,7 @@ fail() {
     echo "FAIL: $*" >&2
     exit 1
 }
-test "$(id -un)" = node || fail "run as node"
+test "$(id -un)" = ubuntu || fail "run as ubuntu"
 dir=$(mktemp -d /tmp/packages-check.XXXXXX)
 echo "Logs and fixtures: $dir"
 cd "$dir"
@@ -39,9 +39,9 @@ for mount in /opt/venv "$site_library" /usr/local/texlive; do
             fail "consumer can write to $mount"
         fi
     else
-        # The image seeds the volumes node-owned, so node installs without sudo.
-        [ "$(stat -c %U "$mount")" = node ] || fail "$mount is owned by $(stat -c %U "$mount"), not node"
-        touch "$mount/consumer-write-test" || fail "node cannot write to $mount"
+        # The image seeds the volumes ubuntu-owned, so ubuntu installs without sudo.
+        [ "$(stat -c %U "$mount")" = ubuntu ] || fail "$mount is owned by $(stat -c %U "$mount"), not ubuntu"
+        touch "$mount/consumer-write-test" || fail "ubuntu cannot write to $mount"
         rm -f "$mount/consumer-write-test"
     fi
 done

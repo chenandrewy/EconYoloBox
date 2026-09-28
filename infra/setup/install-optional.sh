@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install the optional package set into the shared R, Python and TeX volumes.
 #
-# Run, inside the devcontainer as node, in normie mode (on the host,
+# Run, inside the devcontainer as ubuntu, in normie mode (on the host,
 # `bbcode --normie` or `bbe --normie`):
 #   bash infra/setup/install-optional.sh              # python r tex
 #   bash infra/setup/install-optional.sh r            # one stack
@@ -124,7 +124,7 @@ run() {
 # bbox --normie can arrange, at creation. Checked on the container itself.
 require_install_mode() {
     local mount problems=()
-    [ "$(id -un)" = node ] || problems+=("run as node, not $(id -un)")
+    [ "$(id -un)" = ubuntu ] || problems+=("run as ubuntu, not $(id -un)")
     for mount in "$@"; do
         if ! mountpoint -q "$mount"; then
             problems+=("$mount is not a mounted volume")

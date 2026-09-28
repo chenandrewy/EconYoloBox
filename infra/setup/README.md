@@ -12,7 +12,7 @@ tools baked into it (docs/journal/0926d).
 | `install-optional.sh` | the optional set | in the container, normie mode; `--verify` in any mode |
 
 Packages change only in normie mode, from inside (docs/journal/0926e). Run
-both as `node`; `install-base.sh` refuses on the host.
+both as `ubuntu`; `install-base.sh` refuses on the host.
 
 ## Package volumes: R, Python and TeX Live
 
@@ -75,8 +75,8 @@ bash infra/setup/install-base.sh --verify   # check the base; writes nothing; an
 ```
 
 `python`, `r` and `tex` check for normie mode before installing anything, the
-same way `install-optional.sh` does: running as `node`, their mounts writable
-and `node`-owned, and the firewall open (`post-start.sh`'s marker). They check
+same way `install-optional.sh` does: running as `ubuntu`, their mounts writable
+and `ubuntu`-owned, and the firewall open (`post-start.sh`'s marker). They check
 the container itself, not a file. In YOLO mode they refuse and say how to switch.
 
 The devcontainer's own image is the builder, which is the point: R packages
@@ -94,27 +94,27 @@ new volume, rename it there and `bbox --rebuild`; Docker seeds it from the
 image, which already carries the base. Rename back to abandon it, and remove
 the unused volume with `docker volume rm`.
 
-After a rebuild, `bash .devcontainer/tests/test-packages.sh` (as `node`, in the
+After a rebuild, `bash .devcontainer/tests/test-packages.sh` (as `ubuntu`, in the
 container) is the acceptance check for the base in either mode;
 `bash .devcontainer/tests/test-optional.sh` checks the optional set.
 
 Stop R, Python and TeX work in every other container that mounts the volumes
 before an install. An unpinned pip addition can replace existing dependencies,
 not only add. Once it finishes, restart R and Python sessions. After a TeX
-change, run `tex-refresh` as `node` and reopen LyX (`install-base.sh tex` runs
+change, run `tex-refresh` as `ubuntu` and reopen LyX (`install-base.sh tex` runs
 `tex-refresh` in the container it installs from).
 
 ### Volume ownership
 
-The volumes are `node`-owned. Docker seeds a new volume from the image
+The volumes are `ubuntu`-owned. Docker seeds a new volume from the image
 directory it is mounted over, ownership included, and the Dockerfile creates
-`/opt/venv`, the R site library and `/usr/local/texlive` owned by `node`.
+`/opt/venv`, the R site library and `/usr/local/texlive` owned by `ubuntu`.
 Ownership is not the protection: in YOLO mode the mount is read-only, which
-the kernel enforces whatever the owner, and `node` cannot remount
+the kernel enforces whatever the owner, and `ubuntu` cannot remount
 (docs/journal/0926e).
 
-A volume that is not `node`-owned was created by an older image, before 0926e.
-`node` cannot fix that from inside. Either give the volume a new name and fill
+A volume that is not `ubuntu`-owned was created by an older image, before 0926e.
+`ubuntu` cannot fix that from inside. Either give the volume a new name and fill
 it again, or, on the host, chown it once:
 
 ```sh
@@ -124,7 +124,7 @@ docker run --rm --mount type=volume,source=<volume>,target=/v ubuntu:24.04 chown
 ### Adding a package
 
 Usually in normie mode: `install.packages("x")`, `pip install x` or
-`tlmgr install x` in the container, as `node`. If the package is generally
+`tlmgr install x` in the container, as `ubuntu`. If the package is generally
 useful, also add it to a list in `infra/setup/install-optional.sh` so the
 next rebuild of the volume brings it back; an ad hoc install that is not added
 is lost then. `install-optional.sh` prints each command it runs, so it doubles

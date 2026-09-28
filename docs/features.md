@@ -45,9 +45,8 @@ granted so startup can install a default-deny egress firewall, and an agent
 running without permission prompts inside that boundary.
 
 The current configuration and the files and credentials exposed inside the
-container determine its protection. Traces of the lineage remain — the
-container user is `node`, and the shell-history volume is still named
-`claude-code-bashhistory-*`.
+container determine its protection. A trace of the lineage remains: the
+shell-history volume is still named `claude-code-bashhistory-*`.
 
 The consequence is worth stating plainly: ordinary agent preferences are not
 the boundary. The container isolates the process and the firewall bounds its
@@ -128,7 +127,7 @@ chosen knowing what it costs:
 - **They are fixed at creation.** Rotating or revoking one means recreating
   the container.
 
-Neither design was a boundary against the agent: anything running as `node`
+Neither design was a boundary against the agent: anything running as `ubuntu`
 could read the old file too, as it had to for WRDS queries to work. Nor does
 either stop the host user, who can always `docker exec -u root`.
 

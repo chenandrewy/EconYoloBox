@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run as node in the devcontainer, any mode: bash .devcontainer/tests/test-optional.sh
+# Run as ubuntu in the devcontainer, any mode: bash .devcontainer/tests/test-optional.sh
 # Inputs: the shared R, Python and TeX volumes after install-optional.sh has
 #   filled them; infra/setup/install-optional.sh (its --verify mode holds the lists).
 # Outputs: fixtures and logs in a new /tmp/optional-check.* directory (printed
@@ -13,7 +13,7 @@ fail() {
     echo "FAIL: $*" >&2
     exit 1
 }
-test "$(id -un)" = node || fail "run as node"
+test "$(id -un)" = ubuntu || fail "run as ubuntu"
 dir=$(mktemp -d /tmp/optional-check.XXXXXX)
 echo "Logs and fixtures: $dir"
 cd "$dir"
