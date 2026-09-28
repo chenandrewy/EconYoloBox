@@ -36,6 +36,13 @@ Custom tools live in `/yolobox/tools/`, organized by topic. Check these folders 
 - `tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork`); see its README
 - `tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README
 
+## Git Worktrees
+
+- Put worktrees at `.wt/<branch-name>` in the repository root, e.g.
+  `git worktree add -b fix/foo .wt/fix/foo main`. A branch name with a slash
+  gives nested folders, which is fine. `.wt/` is gitignored.
+- Remove a worktree when its branch is merged: `git worktree remove .wt/<branch-name>`.
+
 ## Coding and Writing Guidelines
 
 - Python: Use bare `python3`/`pip`. They resolve to the venv at `/opt/venv`,
