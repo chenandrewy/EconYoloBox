@@ -6,7 +6,7 @@
 # Inputs: mounted workspace tools, installed toolchains, and container env.
 # Outputs: shell PATH, aliases/functions, and local setup warnings.
 
-# research tools on PATH, organized by topic (see /yolobox/agents/SANDBOX-CLAUDE.md)
+# research tools on PATH, organized by topic (see /yolobox/agents/YOLOBOX-CLAUDE.md)
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
 #   lit:     citation lookup (cited_by.py, via OpenAlex)

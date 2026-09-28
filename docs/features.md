@@ -250,7 +250,7 @@ commands.
   [AIChatRender repository](https://github.com/chenandrewy/aichatrender) and is
   installed automatically from the VS Code Marketplace by this devcontainer.
 
-- **Agent config and skills as code.** `agents/SANDBOX-CLAUDE.md` holds
+- **Agent config and skills as code.** `agents/YOLOBOX-CLAUDE.md` holds
   shared Claude/Codex guidance; `agents/` also holds shared LyX and
   PDF-bookmark skills and settings, all re-seeded on every container start.
   Guidance and skills are symlinked so edits apply live; writable settings are
@@ -258,7 +258,7 @@ commands.
   files, baked from `agents/managed/`, enforce the connector and plugin restrictions described above.
 
 - **Host-aware workspace settings.** Startup captures a stable host name and
-  the host time zone. `agents/SANDBOX-CLAUDE.md` provides agent-visible paths for the
+  the host time zone. `agents/YOLOBOX-CLAUDE.md` provides agent-visible paths for the
   research library and macOS screenshots. That lets agents resolve phrases
   such as “this screenshot” without clipboard access and use the right zone
   for human-facing timestamps.

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# SANDBOX-claude-statusline.sh
-# How to run: bash agents/SANDBOX-claude-statusline.sh
+# YOLOBOX-claude-statusline.sh
+# How to run: bash agents/YOLOBOX-claude-statusline.sh
 # Input:  JSON from Claude Code via stdin
 # Output: single-line status string for the Claude Code status bar
 

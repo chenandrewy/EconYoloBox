@@ -24,7 +24,7 @@ Key features:
 2. **Ergonomic container and AI access**
 
    - Enter the container at a project-specific path with one command.
-   - Edit agent guidance in [agents/SANDBOX-CLAUDE.md](agents/SANDBOX-CLAUDE.md) and keep
+   - Edit agent guidance in [agents/YOLOBOX-CLAUDE.md](agents/YOLOBOX-CLAUDE.md) and keep
      settings as code, with optional Dropbox synchronization.
    - Synchronize AI chat sessions across machines via Dropbox.
 

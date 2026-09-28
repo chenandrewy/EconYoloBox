@@ -171,7 +171,7 @@ Use standard `codex` for everyday work. Select a model with `/model` or
 `codex --model <model>`; separate chat and mini wrappers are unnecessary.
 
 A bare `codex` defaults to requesting sandboxing: `/etc/codex/config.toml` (from
-`agents/managed/SANDBOX-codex-config.toml`) sets `approval_policy`/`sandbox_mode` to the
+`agents/managed/YOLOBOX-codex-config.toml`) sets `approval_policy`/`sandbox_mode` to the
 on-request/workspace-write defaults. User configuration can override them.
 These two settings alone do not select automatic review.
 
@@ -269,16 +269,16 @@ it:
 
 All agent configuration lives in `agents/` at the repository root:
 
-- `SANDBOX-CLAUDE.md` — the editable source for shared Claude and Codex guidance
-- `SANDBOX-AGENTS.md` — a symlink to it, kept separate so Codex-specific guidance can diverge later
-- `SANDBOX-claude-settings.json` — canonical user-level Claude Code settings
-- `SANDBOX-claude-statusline.sh` — status line script referenced by the settings
+- `YOLOBOX-CLAUDE.md` — the editable source for shared Claude and Codex guidance
+- `YOLOBOX-AGENTS.md` — a symlink to it, kept separate so Codex-specific guidance can diverge later
+- `YOLOBOX-claude-settings.json` — canonical user-level Claude Code settings
+- `YOLOBOX-claude-statusline.sh` — status line script referenced by the settings
 - `skills/` — canonical shared Agent Skills, linked into both Claude Code and Codex user-level skill directories
 - `seed-agent-guidelines.sh` — applies the user-level guidance and Claude settings on every container start (`postStartCommand`)
 - `managed/` — files baked into the image:
-  - `SANDBOX-claude-managed-settings.json` — system-enforced Claude Code policy, baked to `/etc/claude-code/managed-settings.json`
-  - `SANDBOX-codex-config.toml` — stable Codex defaults, baked to `/etc/codex/config.toml`
-  - `SANDBOX-codex-requirements.toml` — system-enforced Codex Apps and Plugins policy, baked to `/etc/codex/requirements.toml`
+  - `YOLOBOX-claude-managed-settings.json` — system-enforced Claude Code policy, baked to `/etc/claude-code/managed-settings.json`
+  - `YOLOBOX-codex-config.toml` — stable Codex defaults, baked to `/etc/codex/config.toml`
+  - `YOLOBOX-codex-requirements.toml` — system-enforced Codex Apps and Plugins policy, baked to `/etc/codex/requirements.toml`
 
 The three `managed/` files are **not** handled by the seed script. They are
 `COPY`ed into the image as root-owned `0444`, so changing one requires a
@@ -293,13 +293,13 @@ The seed script handles guidance and settings differently:
 - Shared skills are **symlinked individually** into `~/.claude/skills/` and
   `~/.agents/skills/`. This keeps one portable source while preserving unrelated
   personal skills in either directory.
-- Settings are **copied** to `~/.claude/settings.json`, not symlinked, because Claude Code writes to its settings file (`/config`, `/model`, permission grants). Those writes land in the volume copy and are overwritten by the canonical file on the next container start. To keep a setting permanently, put it in `SANDBOX-claude-settings.json`.
+- Settings are **copied** to `~/.claude/settings.json`, not symlinked, because Claude Code writes to its settings file (`/config`, `/model`, permission grants). Those writes land in the volume copy and are overwritten by the canonical file on the next container start. To keep a setting permanently, put it in `YOLOBOX-claude-settings.json`.
 - Codex's `~/.codex/config.toml` remains node-owned and volatile because it
   mixes model choices, project trust, and other runtime state. Stable defaults
-  belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
+  belong in `YOLOBOX-codex-config.toml`; user config has higher precedence.
 
 Agent-visible paths for the research library, finished and retired projects,
-and screenshots live under **Key Paths** in `agents/SANDBOX-CLAUDE.md`.
+and screenshots live under **Key Paths** in `agents/YOLOBOX-CLAUDE.md`.
 Guidance is symlinked, so path edits require no container restart. The host
 time zone is detected separately when the container is created (see
 [Timezone](#timezone)).

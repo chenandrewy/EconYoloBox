@@ -394,15 +394,15 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
 # Claude Code policy. `disableClaudeAiConnectors` has any-source-true semantics,
 # so user- and project-level settings cannot override this file. The companion
 # denylist covers the gap it leaves: connectors passed via `--mcp-config`.
-COPY agents/managed/SANDBOX-claude-managed-settings.json /etc/claude-code/managed-settings.json
+COPY agents/managed/YOLOBOX-claude-managed-settings.json /etc/claude-code/managed-settings.json
 
 # Codex system config supplies stable defaults without touching the volatile,
 # node-owned ~/.codex/config.toml where Codex persists user preferences.
-COPY agents/managed/SANDBOX-codex-config.toml /etc/codex/config.toml
+COPY agents/managed/YOLOBOX-codex-config.toml /etc/codex/config.toml
 
 # Codex requirements are admin-enforced and outrank user config, profiles, and
 # CLI --config / --enable overrides.
-COPY agents/managed/SANDBOX-codex-requirements.toml /etc/codex/requirements.toml
+COPY agents/managed/YOLOBOX-codex-requirements.toml /etc/codex/requirements.toml
 
 # COPY already lands these root-owned, since this stage runs as root; the chmod
 # is what makes them read-only to `node`.
