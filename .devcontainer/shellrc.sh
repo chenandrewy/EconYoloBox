@@ -78,10 +78,11 @@ if [ "$_sbx_mode" != yolo ]; then
     fi
     unset _sbx_hi _sbx_off
 fi
-# A powerlevel10k segment at the front of the prompt. This file is sourced
-# before oh-my-zsh, and ~/.zshrc sets the element list after it, so a
-# one-time precmd hook adds the segment once that list is final.
-if [ -n "${ZSH_VERSION:-}" ] && [ "$_sbx_mode" != yolo ]; then
+# The powerlevel10k prompt: no user segment (it only ever says node), and
+# outside YOLO mode a mode segment at the front. This
+# file is sourced before oh-my-zsh, and ~/.zshrc sets the element list after
+# it, so a one-time precmd hook edits the list once it is final.
+if [ -n "${ZSH_VERSION:-}" ]; then
     typeset -g _SBX_MODE=$_sbx_mode
     prompt_sandbox_mode() {
         if [ "$_SBX_MODE" = normie ]; then
@@ -91,7 +92,10 @@ if [ -n "${ZSH_VERSION:-}" ] && [ "$_sbx_mode" != yolo ]; then
         fi
     }
     _sbx_prompt_segment() {
-        POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(sandbox_mode ${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]:#sandbox_mode})
+        POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]:#(user|sandbox_mode)})
+        if [ "$_SBX_MODE" != yolo ]; then
+            POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(sandbox_mode ${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]})
+        fi
         add-zsh-hook -d precmd _sbx_prompt_segment
     }
     autoload -Uz add-zsh-hook
