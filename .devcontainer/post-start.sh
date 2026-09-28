@@ -6,7 +6,7 @@
 #
 # Run by devcontainer.json on every container start (not on a bare
 # `docker restart`, which skips postStartCommand entirely).
-# Inputs:  SANDBOX_INTERNET (from the config file, fixed at creation);
+# Inputs:  YOLOBOX_INTERNET (from the config file, fixed at creation);
 #          LOCAL_CONTAINER_FOLDER (check-checkout.sh); the
 #          package mounts; PID 1's seccomp mode; the workspace setup scripts.
 # Outputs: firewall state, the firewall-open marker, the checkout marker (or a
@@ -14,7 +14,7 @@
 #          missing, a warning for each unbuilt package volume, the posture line
 #          (YOLO mode, normie mode, or custom), TeX refresh.
 #
-# The switch is SANDBOX_INTERNET in the container's environment, which each
+# The switch is YOLOBOX_INTERNET in the container's environment, which each
 # mode's config file hard-codes: "open" in normie/devcontainer.json,
 # "firewalled" in devcontainer.json. Anything but "open" arms - the failure
 # direction is closed. Like the package mounts and seccomp, it is fixed at
@@ -26,18 +26,20 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
 # The open side writes the marker and the armed side removes it; posture.sh,
-# and through it shellrc.sh and the -yolo launchers, read it.
-case "${SANDBOX_INTERNET:-firewalled}" in
+# and through it shellrc.sh and the -yolo launchers, read it. SANDBOX_INTERNET
+# is the pre-rename name, still set in containers created before it.
+internet=${YOLOBOX_INTERNET:-${SANDBOX_INTERNET:-firewalled}}
+case "$internet" in
     open)
         touch /tmp/FIREWALL-WINDOW-OPEN
-        echo 'SANDBOX_INTERNET=open (the normie container) - skipping init-firewall.sh, no network restrictions' >&2
+        echo 'YOLOBOX_INTERNET=open (the normie container) - skipping init-firewall.sh, no network restrictions' >&2
         ;;
     firewalled)
         rm -f /tmp/FIREWALL-WINDOW-OPEN
         sudo /usr/local/bin/init-firewall.sh
         ;;
     *)
-        echo "post-start.sh: unexpected SANDBOX_INTERNET '$SANDBOX_INTERNET' - arming" >&2
+        echo "post-start.sh: unexpected YOLOBOX_INTERNET '$internet' - arming" >&2
         rm -f /tmp/FIREWALL-WINDOW-OPEN
         sudo /usr/local/bin/init-firewall.sh
         ;;
@@ -73,7 +75,8 @@ fi
 missing=()
 python3 -c 'import pyfixest' >/dev/null 2>&1 || missing+=(python)
 Rscript -e 'quit(status = !requireNamespace("fixest", quietly = TRUE))' >/dev/null 2>&1 || missing+=(r)
-[ -f /usr/local/texlive/.sandbox-installed ] || missing+=(tex)
+# .sandbox-installed is the marker's pre-rename name (install-base.sh).
+[ -f /usr/local/texlive/.yolobox-installed ] || [ -f /usr/local/texlive/.sandbox-installed ] || missing+=(tex)
 if [ ${#missing[@]} -gt 0 ]; then
     echo "post-start.sh: package volume not built or not loadable: ${missing[*]}" >&2
     echo "  in normie mode, in the container: bash infra/setup/install-base.sh ${missing[*]}" >&2

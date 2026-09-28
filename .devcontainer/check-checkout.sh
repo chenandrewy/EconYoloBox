@@ -3,7 +3,7 @@
 # ABOUTME: per-checkout volumes both modes share. Called by post-start.sh.
 #
 # Run:     bash .devcontainer/check-checkout.sh [MARKER] [FOLDER]
-# Inputs:  MARKER, default /home/node/.claude/.sandbox-checkout (in the shared
+# Inputs:  MARKER, default /home/node/.claude/.yolobox-checkout (in the shared
 #          ~/.claude volume); FOLDER, default $LOCAL_CONTAINER_FOLDER (the host
 #          folder, from write-local-env.sh).
 # Outputs: on first use, MARKER holding FOLDER. Exit 0 when MARKER matches or
@@ -16,7 +16,12 @@
 # elsewhere would silently share the Claude and Codex tokens and the CLIs
 # themselves; this makes it announce itself instead.
 
-marker=${1:-/home/node/.claude/.sandbox-checkout}
+marker=${1:-/home/node/.claude/.yolobox-checkout}
+# The default marker's pre-rename name, still in volumes from before it.
+old_marker=/home/node/.claude/.sandbox-checkout
+if [ -z "${1:-}" ] && [ ! -e "$marker" ] && [ -f "$old_marker" ]; then
+    mv "$old_marker" "$marker"
+fi
 folder=${2:-${LOCAL_CONTAINER_FOLDER:-}}
 
 if [ -z "$folder" ]; then

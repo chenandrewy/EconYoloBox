@@ -61,14 +61,14 @@ guard_calls=$(grep -c 'check-yolo-boundaries.sh' "$root/.devcontainer/shellrc.sh
 pass 'all supplied yolo launchers use the boundary guard'
 
 # One checkout per basename: the first folder is recorded, a second refused.
-bash "$checkout" "$tmp/checkout" /Users/me/1-SANDBOX 2>"$tmp/checkout.err" || fail 'first checkout should be recorded'
-[ "$(cat "$tmp/checkout")" = /Users/me/1-SANDBOX ] || fail 'checkout marker content'
-bash "$checkout" "$tmp/checkout" /Users/me/1-SANDBOX 2>"$tmp/checkout.err" || fail 'same checkout should pass'
+bash "$checkout" "$tmp/checkout" /Users/me/1-YOLOBOX 2>"$tmp/checkout.err" || fail 'first checkout should be recorded'
+[ "$(cat "$tmp/checkout")" = /Users/me/1-YOLOBOX ] || fail 'checkout marker content'
+bash "$checkout" "$tmp/checkout" /Users/me/1-YOLOBOX 2>"$tmp/checkout.err" || fail 'same checkout should pass'
 [ ! -s "$tmp/checkout.err" ] || fail 'same checkout should be silent'
 pass 'the first checkout is recorded and then accepted'
-if bash "$checkout" "$tmp/checkout" /Users/me/test/1-SANDBOX 2>"$tmp/checkout.err"; then fail 'another checkout should be refused'; fi
+if bash "$checkout" "$tmp/checkout" /Users/me/test/1-YOLOBOX 2>"$tmp/checkout.err"; then fail 'another checkout should be refused'; fi
 grep -q 'REFUSING' "$tmp/checkout.err" && grep -q "rm $tmp/checkout" "$tmp/checkout.err" || fail 'refusal message'
-[ "$(cat "$tmp/checkout")" = /Users/me/1-SANDBOX ] || fail 'refusal must not rewrite the marker'
+[ "$(cat "$tmp/checkout")" = /Users/me/1-YOLOBOX ] || fail 'refusal must not rewrite the marker'
 pass 'a same-basename checkout elsewhere is refused, with the way to accept a move'
 bash "$checkout" "$tmp/checkout" '' 2>"$tmp/checkout.err" || fail 'unknown folder should not refuse'
 grep -q 'not checked' "$tmp/checkout.err" || fail 'unknown folder warning'

@@ -52,7 +52,7 @@ def posture(config):
     return {
         "seccomp": seccomp[0] if len(seccomp) == 1 else seccomp,
         "readonly": readonly.pop() if len(readonly) == 1 and len(package_mounts) == 3 else readonly,
-        "internet": config["containerEnv"].get("SANDBOX_INTERNET"),
+        "internet": config["containerEnv"].get("YOLOBOX_INTERNET"),
     }
 
 
@@ -69,7 +69,7 @@ def neutralize(config):
         mount.rsplit("readonly=", 1)[0] if any(f"target={t}" in mount for t in PACKAGE_TARGETS) else mount
         for mount in config["mounts"]
     ]
-    config["containerEnv"]["SANDBOX_INTERNET"] = None
+    config["containerEnv"]["YOLOBOX_INTERNET"] = None
     return config
 
 
@@ -84,7 +84,9 @@ class ConfigTwinTests(unittest.TestCase):
 
     def test_no_posture_comes_from_the_host_environment(self):
         for path in (YOLO, NORMIE):
-            self.assertNotIn("localEnv:SANDBOX_", path.read_text(encoding="utf-8"), path)
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("localEnv:YOLOBOX_", text, path)
+            self.assertNotIn("localEnv:SANDBOX_", text, path)
 
     def test_names_tell_the_modes_apart(self):
         self.assertEqual(self.normie["name"], self.yolo["name"] + " (normie)")

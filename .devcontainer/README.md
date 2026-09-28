@@ -321,7 +321,7 @@ two presets; `post-start.sh` reports any other combination (a container made
 before the per-mode configs, say) as a custom posture.
 
 The config sets seccomp in `runArgs`, `readonly` on the three package mounts,
-and `SANDBOX_INTERNET` in `containerEnv` (read by `post-start.sh` at every
+and `YOLOBOX_INTERNET` in `containerEnv` (read by `post-start.sh` at every
 start; anything but `open` arms the firewall). All three are fixed at
 creation. The Dev Containers tooling keys a container on its folder and config
 file, so the two containers coexist, and whatever recreates one, `bbox` or VS

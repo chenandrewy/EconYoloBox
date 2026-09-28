@@ -84,7 +84,7 @@ tooling those changes exist to support is described in
 - **Startup scripts.** `postStartCommand` (`post-start.sh`) configures the firewall,
   seeds canonical agent guidance and shared skills, and checks the enforced
   agent policy. The firewall stays off only in the normie container: its
-  config hard-codes `SANDBOX_INTERNET=open` in the container's environment,
+  config hard-codes `YOLOBOX_INTERNET=open` in the container's environment,
   fixed at creation, and anything other than `open` arms. Every shell says so
   while it is off. The configs and the startup scripts are in the tracked,
   writable workspace, and so is the host launcher, `infra/host/devcontainer.zsh`,

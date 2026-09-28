@@ -157,12 +157,18 @@ def package_access(mounts):
 
 
 def internet_mode(env):
-    """post-start.sh arms the firewall unless SANDBOX_INTERNET is "open"."""
+    """post-start.sh arms the firewall unless YOLOBOX_INTERNET is "open".
+
+    A container created before the rename carries SANDBOX_INTERNET instead,
+    which post-start.sh reads when YOLOBOX_INTERNET is absent."""
     if not isinstance(env, list):
         return "unverified"
-    values = [item.split("=", 1)[1] for item in env
-              if isinstance(item, str) and item.startswith("SANDBOX_INTERNET=")]
-    return "open" if values == ["open"] else "firewalled"
+    for name in ("YOLOBOX_INTERNET", "SANDBOX_INTERNET"):
+        values = [item.split("=", 1)[1] for item in env
+                  if isinstance(item, str) and item.startswith(name + "=")]
+        if values:
+            return "open" if values == ["open"] else "firewalled"
+    return "firewalled"
 
 
 def posture(src):

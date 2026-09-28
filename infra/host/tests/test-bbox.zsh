@@ -91,7 +91,7 @@ docker() {
       fi
       id=$2
       [[ -f $store/$id ]] || return 1
-      print -r -- "[{\"Config\":{\"Env\":[\"SANDBOX_INTERNET=$(field $id 2)\"]},\"HostConfig\":{\"SecurityOpt\":[\"seccomp=$(field $id 4)\"]},\"Mounts\":[{\"Destination\":\"/opt/venv\",\"RW\":$(field $id 3)},{\"Destination\":\"/opt/R/4.5.3/lib/R/site-library\",\"RW\":$(field $id 3)},{\"Destination\":\"/usr/local/texlive\",\"RW\":$(field $id 3)}]}]"
+      print -r -- "[{\"Config\":{\"Env\":[\"YOLOBOX_INTERNET=$(field $id 2)\"]},\"HostConfig\":{\"SecurityOpt\":[\"seccomp=$(field $id 4)\"]},\"Mounts\":[{\"Destination\":\"/opt/venv\",\"RW\":$(field $id 3)},{\"Destination\":\"/opt/R/4.5.3/lib/R/site-library\",\"RW\":$(field $id 3)},{\"Destination\":\"/usr/local/texlive\",\"RW\":$(field $id 3)}]}]"
       ;;
     rm) rm -f $store/$3 ;;
     stop)

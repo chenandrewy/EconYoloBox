@@ -16,7 +16,7 @@
 #          Rprofile.site (Dockerfile ARG CRAN_SNAPSHOT); PyPI; the rolling
 #          TeX Live tlnet repository; npm.
 # Outputs: python -> /opt/venv; r -> the R site library; tex -> TeX Live in
-#          /usr/local/texlive (with install.log and the .sandbox-installed
+#          /usr/local/texlive (with install.log and the .yolobox-installed
 #          marker there); cli -> NPM_CONFIG_PREFIX. Each target ends with an
 #          "... OK" line or exits nonzero.
 #
@@ -417,7 +417,9 @@ REOF
 # collections, install-tl ignores the scheme's collection list: TEX_COLLECTIONS
 # must therefore spell out all of them (install-tl manual, "Profiles").
 # LuaTeX stays: luatex/luahbtex are in collection-basic, which nothing can drop.
-TEX_MARKER="$TEX_PREFIX/.sandbox-installed"
+TEX_MARKER="$TEX_PREFIX/.yolobox-installed"
+# The marker's pre-rename name, still in volumes built before it.
+TEX_OLD_MARKER="$TEX_PREFIX/.sandbox-installed"
 TEX_LOG="$TEX_PREFIX/install.log"
 TEX_REPOSITORY=https://mirror.ctan.org/systems/texlive/tlnet
 TEX_COLLECTIONS=(
@@ -634,6 +636,16 @@ install_tex() {
     year=${bindir#"$TEX_PREFIX"/}
     year=${year%%/*}
     echo "==> TeX Live $year ($TEX_PREFIX, $platform)"
+
+    # A volume marked under the old name: verify reads it where it is (the
+    # volume may be read-only); an install renames it.
+    if [ ! -f "$TEX_MARKER" ] && [ -f "$TEX_OLD_MARKER" ]; then
+        if [ "$VERIFY" -eq 1 ]; then
+            TEX_MARKER=$TEX_OLD_MARKER
+        else
+            mv "$TEX_OLD_MARKER" "$TEX_MARKER"
+        fi
+    fi
 
     if [ "$VERIFY" -eq 1 ]; then
         if [ ! -f "$TEX_MARKER" ]; then

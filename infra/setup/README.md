@@ -161,7 +161,9 @@ LuaTeX remains because it is part of `collection-basic`. The year and platform
 come from the image's `/usr/local/texlive-bin` symlink (Dockerfile
 `TEXLIVE_YEAR`), and the repository must still serve that year.
 
-The installer decides by the `.sandbox-installed` marker in the volume:
+The installer decides by the `.yolobox-installed` marker in the volume (a
+volume built before the rename has `.sandbox-installed`, which an install
+renames):
 
 - **Empty volume:** picks one CTAN mirror through `mirror.ctan.org`, retrying
   past any that fails (some serve a certificate wget rejects), and installs

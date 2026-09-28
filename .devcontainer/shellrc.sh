@@ -31,7 +31,8 @@ fi
 if [ -z "$(find /opt/R -maxdepth 5 -type d -path '*/site-library/fixest' -print -quit 2>/dev/null)" ]; then
     _stacks_missing="${_stacks_missing:+$_stacks_missing }r"
 fi
-if [ ! -f /usr/local/texlive/.sandbox-installed ]; then
+# .sandbox-installed is the TeX marker's pre-rename name (install-base.sh).
+if [ ! -f /usr/local/texlive/.yolobox-installed ] && [ ! -f /usr/local/texlive/.sandbox-installed ]; then
     _stacks_missing="${_stacks_missing:+$_stacks_missing }tex"
 fi
 if [ -n "$_stacks_missing" ]; then
@@ -57,51 +58,51 @@ fi
 # itself: the firewall-open marker post-start.sh leaves, the package mounts,
 # and PID 1's seccomp mode (PID 1, since an inner agent sandbox may add a
 # filter to the checking process).
-_sbx_posture=$(bash /yolobox/.devcontainer/posture.sh)
-_sbx_mode=${_sbx_posture%% *}
-if [ "$_sbx_mode" != yolo ]; then
+_ybx_posture=$(bash /yolobox/.devcontainer/posture.sh)
+_ybx_mode=${_ybx_posture%% *}
+if [ "$_ybx_mode" != yolo ]; then
     if [ -t 1 ]; then
-        _sbx_hi=$'\033[1;3;38;5;214m'
-        _sbx_off=$'\033[0m'
+        _ybx_hi=$'\033[1;3;38;5;214m'
+        _ybx_off=$'\033[0m'
     else
-        _sbx_hi=''
-        _sbx_off=''
+        _ybx_hi=''
+        _ybx_off=''
     fi
-    if [ "$_sbx_mode" = normie ]; then
+    if [ "$_ybx_mode" = normie ]; then
         printf '%s\n' \
-            "${_sbx_hi}Warning: Normie Mode${_sbx_off}" \
+            "${_ybx_hi}Warning: Normie Mode${_ybx_off}" \
             'Firewall open, package volumes writable, seccomp unconfined'
     else
         printf '%s\n' \
-            "${_sbx_hi}Warning: Custom Posture${_sbx_off}" \
-            "${_sbx_posture#* }; to fix, on the host: bbox --rebuild"
+            "${_ybx_hi}Warning: Custom Posture${_ybx_off}" \
+            "${_ybx_posture#* }; to fix, on the host: bbox --rebuild"
     fi
-    unset _sbx_hi _sbx_off
+    unset _ybx_hi _ybx_off
 fi
 # The powerlevel10k prompt: no user segment (it only ever says node), and
 # outside YOLO mode a mode segment at the front. This
 # file is sourced before oh-my-zsh, and ~/.zshrc sets the element list after
 # it, so a one-time precmd hook edits the list once it is final.
 if [ -n "${ZSH_VERSION:-}" ]; then
-    typeset -g _SBX_MODE=$_sbx_mode
-    prompt_sandbox_mode() {
-        if [ "$_SBX_MODE" = normie ]; then
+    typeset -g _YBX_MODE=$_ybx_mode
+    prompt_yolobox_mode() {
+        if [ "$_YBX_MODE" = normie ]; then
             p10k segment -b 1 -f 15 -t normie
         else
             p10k segment -b 3 -f 0 -t custom
         fi
     }
-    _sbx_prompt_segment() {
-        POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]:#(user|sandbox_mode)})
-        if [ "$_SBX_MODE" != yolo ]; then
-            POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(sandbox_mode ${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]})
+    _ybx_prompt_segment() {
+        POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]:#(user|yolobox_mode)})
+        if [ "$_YBX_MODE" != yolo ]; then
+            POWERLEVEL9K_LEFT_PROMPT_ELEMENTS=(yolobox_mode ${POWERLEVEL9K_LEFT_PROMPT_ELEMENTS[@]})
         fi
-        add-zsh-hook -d precmd _sbx_prompt_segment
+        add-zsh-hook -d precmd _ybx_prompt_segment
     }
     autoload -Uz add-zsh-hook
-    add-zsh-hook precmd _sbx_prompt_segment
+    add-zsh-hook precmd _ybx_prompt_segment
 fi
-unset _sbx_posture _sbx_mode
+unset _ybx_posture _ybx_mode
 
 # cchat-yolo [claude args...]
 # Start Claude in the container, always under --remote-control so the session is
@@ -195,7 +196,7 @@ if [ ! -x /usr/local/texlive-bin/pdflatex ]; then
         echo "note: TeX unavailable - in normie mode, in the container: bash infra/setup/install-base.sh tex"
         echo "      For a nonempty failed install, inspect the volume's install.log first."
     fi
-elif [ ! -f /usr/local/texlive/.sandbox-installed ]; then
+elif [ ! -f /usr/local/texlive/.yolobox-installed ] && [ ! -f /usr/local/texlive/.sandbox-installed ]; then
     echo "note: TeX volume has no install marker - in normie mode, in the container: bash infra/setup/install-base.sh tex"
     echo "      If it refuses, an earlier install failed: see infra/setup/README.md."
 fi
