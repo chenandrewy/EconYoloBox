@@ -9,6 +9,11 @@
   **project** = one working tree inside the workspace.
 
 You are running inside a devcontainer, defined in `/sandbox/.devcontainer/`.
+For container behavior and agent configuration, see
+[the devcontainer documentation](/sandbox/.devcontainer/README.md). For installed
+software, package stacks, and installation procedures, see
+[the setup documentation](/sandbox/.setup/README.md). The security design and
+available services are described in [the feature guide](/sandbox/docs/features.md).
 
 ## Sandbox Configuration
 
@@ -32,17 +37,13 @@ startup prints which:
    the user watching and agents in approval modes. This is where the web is
    open and packages get installed.
 
-Anything else is reported as a custom posture. To see the current mode, run
-`bash /sandbox/.devcontainer/posture.sh` (it prints `yolo`, `normie` or
-`custom`, then the three settings). Switching modes is the user's decision
-(see `USER PERMISSION REQUIRED`), made on the host by opening the other
-container; nothing in this container can switch it. Do not edit either
-config file's posture settings.
+To see the current mode, run `bash /sandbox/.devcontainer/posture.sh`.
+Switching modes is the user's decision (see `USER PERMISSION REQUIRED`), made on
+the host by opening the other container; nothing in this container can switch it.
+Do not edit either config file's posture settings.
 
 ### Guidance that depends on the mode
 
-- Shared resources that are not projects include the research library (cellar),
-  the finished and retired projects folder (done), and the screenshot drop.
 - **Network access depends on the mode.** In YOLO mode, `init-firewall.sh`
   builds a deny-by-default IP allowlist at container start. Blocked hosts are
   REJECTed, so they fail fast rather than hanging — suspect the firewall before
@@ -81,74 +82,23 @@ config file's posture settings.
 - For "this screenshot," "the image," or "latest screenshot," look up
   `screenshot_directory` in `/sandbox/SANDBOX.toml`.
 
-## Software and Services
-
-- **Python: use bare `python3`/`pip`.** They resolve to the venv at `/opt/venv`,
-  which is already active via `PATH` (so `VIRTUAL_ENV` is unset — that's
-  expected).
-  - Base: numpy, pandas, matplotlib, statsmodels, pyfixest, PyMuPDF, pikepdf,
-    requests, openai, mistralai.
-  - Optional set, if the user installed it: scipy, linearmodels,
-    scikit-learn, polars, pyarrow, openpyxl, sas7bdat, wrds,
-    openassetpricing, beautifulsoup4, lxml, PyYAML.
-- R 4.5.3 with packages from a dated P3M snapshot. Base: fixest, data.table,
-  tidyverse, modelsummary, sandwich, lmtest, languageserver. The optional set
-  adds the rest (arrow, lme4, kableExtra, ..., `pryr` from the CRAN archive,
-  `pcaMethods` from Bioconductor); `install-optional.sh --verify` says whether
-  it is present.
-- **The R, Python and TeX stacks live in shared volumes**, mounted read-only
-  unless the user chose normie mode. The first build seeds the base from the
-  image. The user changes the stacks in normie mode, from inside the
-  container: the base with `bash .setup/install-base.sh`, which holds the base
-  lists, and the optional set with `.setup/install-optional.sh`.
-  `install-base.sh --verify python r tex` checks the base without changing
-  it. If an import fails, or startup warns that a package volume is not built,
-  notify the user.
-- **The Claude Code and Codex CLIs are part of the base**, from the same
-  script (`bash .setup/install-base.sh cli` inside the container, any
-  mode), into a writable npm-global
-  *volume* — so an update survives rebuilds rather than being reverted by
-  them. Startup installs them when either is missing. The npm-managed CLIs
-  should not be assumed to self-update; re-run the
-  script's `cli` target to update both. A rebuild is unnecessary.
-- TeX Live 2026 is **minimal and pdfLaTeX-only**. Base: scheme-small plus
-  bibtexextra (biblatex, biber), latexindent, latexmk and cm-super. The
-  optional set adds latexextra, fontsrecommended, pictures (TikZ),
-  mathscience and fontsextra. There is no XeLaTeX and no `texdoc`
-  documentation; LuaLaTeX is present only because core TeX Live needs it.
-  Build with pdflatex. It lives in the shared `texlive-2026-base-noble`
-  volume at `/usr/local/texlive`. A missing LaTeX package goes to the user
-  like any other package. Run `tex-refresh` as node after TeX changes; it also
-  runs at container startup. Reopen an already-running LyX afterward.
-- **Connectors and Codex Apps/Plugins are disabled in this sandbox.** Claude's
-  AI connectors are disabled by `/etc/claude-code/managed-settings.json`.
-  Codex Apps, Plugins, and remote plugin catalogs are disabled by
-  `/etc/codex/requirements.toml`. Do not try to bypass or re-enable them; ask
-  the user for the unavailable mail, calendar, or other private data instead.
-  These are client controls rather than a complete OS security boundary; see
-  `docs/features.md` under `Safe YOLO agents` for the threat model.
-- **Dropbox online-only files cannot be read in here.** `/sandbox` is a
-  VirtioFS mount of a Dropbox folder, and files Dropbox has evicted still stat
-  and open normally — only reads fail, with **EDEADLK (errno 35)**, or **SIGBUS**
-  under `mmap` (exit code 135). Retrying never works: the refusal does not queue
-  a fetch, and no syscall available in here can request one. `.git` is not
-  exempt — a dataless index or loose object breaks ordinary git commands.
-  - **Ask the user to run `dbhydrate -f <path>` on the host**, then retry. It
-    reports before it downloads, so `dbhydrate <path>` alone is a safe check.
-  - Do not route around it by regenerating or re-downloading the data; that is a
-    workaround under `USER PERMISSION REQUIRED`. Ask first.
-
 ## Coding and Writing Guidelines
 
+- Python: Use bare `python3`/`pip`. They resolve to the venv at `/opt/venv`,
+  which is already active via `PATH`; an unset `VIRTUAL_ENV` is expected.
 - Latex: Build using pdflatex and biber
 - Note taking: Use LyX if math is involved. We often do math and the human finds this much easier to work with.
-
-### R Guidelines
-- When running R scripts non-interactively (`Rscript`), add `pdf(NULL)` near the top to suppress the stray `Rplots.pdf` that R creates whenever a transient graphics device is opened (e.g. by `ggsave()` on a `gridExtra::arrangeGrob` output).
+- Dropbox: Online-only files cannot be read inside the container. They may
+  stat and open normally, but reads fail with `EDEADLK` (errno 35), or `mmap`
+  fails with `SIGBUS` (exit code 135). This can also break git when an index or
+  object is online-only. Ask the user to run `dbhydrate -f <path>` on the host,
+  then retry. `dbhydrate <path>` alone checks without downloading. Do not
+  regenerate or re-download the data as a workaround without permission.
+- R: When running R scripts non-interactively (`Rscript`), add `pdf(NULL)` near the top to suppress the stray `Rplots.pdf` that R creates whenever a transient graphics device is opened (e.g. by `ggsave()` on a `gridExtra::arrangeGrob` output).
 
 ## Documentation
 
-## Script headers
+### Script headers
 
 - At the top of every script, document how to run it, its inputs, and its outputs.
 
@@ -170,7 +120,7 @@ current conversation. If one seems necessary, STOP work, describe the problem,
 and ask. The default fix is for the user to update the environment.
 
 - Get permission before installing packages or other software into the running environment.
-- Get permission before authenticating to GitHub or pushing/publishing anything. 
+- Get permission before authenticating to GitHub or pushing/publishing anything.
 - Get permission before connecting to WRDS or testing WRDS credentials. Permission
   allows one connection attempt only. If authentication, 2FA, or connection setup
   fails, stop and ask the user; do not retry, use another client, or delegate the
