@@ -107,9 +107,9 @@ Do not edit either config file's posture settings.
     mode, so a missing package goes to the user.
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
-  - **Research**: arXiv, SSRN, OpenAlex, and Google's own published ranges
-    (`goog.json`), which cover Google's first-party fleet. GCP customer ranges
-    (`cloud.json`) are deliberately **not** allowed.
+  - **Research**: arXiv, SSRN, OpenAlex. Google's ranges are deliberately
+    **not** allowed: its servers also host Docs, Drive and Forms, which an
+    IP allowlist cannot separate from the rest of Google.
   - **Data**: WRDS, FRED, Ken French's data library
     (`mba.tuck.dartmouth.edu`).
   - With the firewall on, there is no general web access — assume a fetch of

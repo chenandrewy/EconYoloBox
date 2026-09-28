@@ -175,9 +175,8 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
 - **Research-tuned network allowlist.** When enabled, the firewall is deny-by-default and
   allows FRED, OpenAlex, arXiv, SSRN, WRDS and the Ken French data library
-  alongside npm, code hosting, and agent APIs. Google's published first-party
-  ranges are also allowed, so Google-hosted services resolve; arbitrary GCP
-  customer ranges are not. R and Python package registries are deliberately
+  alongside npm, code hosting, and agent APIs. Google's ranges are not allowed,
+  since they would also open Docs, Drive and Forms. R and Python package registries are deliberately
   blocked: the stacks are installed in normie mode, with the firewall off. CDN-fronted
   documentation hosts are added at DNS resolution time so ordinary address
   rotation does not break them.
