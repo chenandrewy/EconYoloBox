@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
-# Run:     zsh infra/host/tests/test-bbox.zsh
-# Inputs:  host bbox implementation; mocks Docker, Dev Containers, and VS Code.
+# Run:     zsh infra/host/tests/test-ybox.zsh
+# Inputs:  host ybox implementation; mocks Docker, Dev Containers, and VS Code.
 # Outputs: TAP-like pass/fail lines and a nonzero status on failure.
 setopt errexit nounset pipefail
 
@@ -10,7 +10,7 @@ trap 'rm -rf "$tmp"' EXIT
 log=$tmp/calls
 yolo_config=$root/.devcontainer/devcontainer.json
 normie_config=$root/.devcontainer/normie/devcontainer.json
-# The mock daemon keeps one file per container, because bbox calls docker and
+# The mock daemon keeps one file per container, because ybox calls docker and
 # devcontainer inside command substitutions, where variables do not survive:
 #   $tmp/containers/<id>: "<config> <internet> <packages-rw> <seccomp> <state>"
 store=$tmp/containers
@@ -31,6 +31,19 @@ field() { local -a f; f=(${=$(<$store/$1)}); print -r -- ${f[$2]}; }
 
 alias dcu='devcontainer up --workspace-folder .'
 dccode() { :; }
+bbox() { :; }
+bbcode() { :; }
+_bbox() { :; }
+_bbcode() { :; }
+autoload -Uz compinit
+compinit -D -i
+compdef _bbox bbox
+compdef _bbcode bbcode
+alias bbox='false'
+alias bbcode='false'
+alias ybox='false'
+alias ybcode='false'
+source "$root/infra/host/devcontainer.zsh"
 source "$root/infra/host/devcontainer.zsh"
 
 devcontainer() {
@@ -108,22 +121,29 @@ code() { print -r -- "code|$*" >>$log; }
 fail() { print -r -- "not ok - $1"; exit 1; }
 typeset -gi tests=0
 pass() { (( ++tests )); print -r -- "ok $tests - $1"; }
-run() { : >$log; bbox "$@" </dev/null; }
+run() { : >$log; ybox "$@" </dev/null; }
 count() { ls $store | grep -c -- "$1" || true; }
 
 (( ! $+aliases[dcu] )) || fail 'legacy dcu alias survived reload'
 (( ! $+functions[dccode] )) || fail 'legacy dccode function survived reload'
-(( $+functions[bbu] && $+functions[bbe] && $+functions[bbcode] )) || fail 'short wrappers missing after reload'
-pass 'reload removes legacy dcu/dce/dccode names and defines bbu/bbe/bbcode'
+(( $+functions[bbu] && $+functions[bbe] && $+functions[ybcode] )) || fail 'short wrappers missing after reload'
+(( $+functions[ybox] )) || fail 'ybox missing after reload'
+for name in bbox bbcode _bbox _bbcode; do
+  (( ! $+functions[$name] && ! $+aliases[$name] )) || fail "legacy $name survived reload"
+done
+(( ! $+_comps[bbox] && ! $+_comps[bbcode] )) || fail 'legacy completion bindings survived reload'
+[[ $_comps[ybox] == _ybox && $_comps[ybcode] == _ybcode ]] || fail 'renamed completion bindings missing'
+pass 'reload removes legacy names and binds the renamed functions and completions'
 
 # Each mode brings up its own config's container.
-out=$(run --code "$root") || fail 'bbcode'
+out=$(ybcode "$root" </dev/null) || fail 'ybcode'
 grep -qF "devcontainer|up --workspace-folder $root --config $yolo_config" $log || fail 'no flag must use the YOLO config'
 [[ "$out" == *'YOLO mode container yolo-new-1'* ]] || fail 'YOLO report'
 expected_uri=$(python3 "$root/infra/host/dc-resolve.py" folder-uri "$root" "$yolo_config" /yolobox desktop-linux)
 grep -qF "code|--new-window --folder-uri $expected_uri" $log || fail 'VS Code must open the YOLO config'
 pass 'no flag brings up the YOLO config and opens it in VS Code'
-out=$(run --code --normie "$root") || fail 'bbcode --normie'
+: >$log
+out=$(ybcode --normie "$root" </dev/null) || fail 'ybcode --normie'
 grep -qF "devcontainer|up --workspace-folder $root --config $normie_config" $log || fail '--normie must use the normie config'
 grep -q -- '--remove-existing-container' $log && fail 'a second mode must not recreate anything'
 grep -q 'docker|rm' $log && fail 'a second mode must not remove anything'
@@ -140,7 +160,7 @@ pass '--status reports both modes and changes nothing'
 
 out=$(run "$root") || fail 'YOLO reuse'
 grep -q -- '--remove-existing-container' $log && fail 'reuse must not recreate'
-[[ "$out" == *'note: normie container normie-new-2 is also running, firewall open; bbox --stop --normie'* ]] || fail 'normie note'
+[[ "$out" == *'note: normie container normie-new-2 is also running, firewall open; ybox --stop --normie'* ]] || fail 'normie note'
 pass 'a YOLO bring-up reuses its container and notes the running normie one'
 out=$(run --normie "$root") || fail 'normie reuse'
 [[ "$out" == *note:* ]] && fail 'a normie bring-up has no note'
@@ -232,17 +252,17 @@ pass 'a stray appearing during a rebuild is removed'
 reset_store
 add_container legacy "$yolo_config" normie
 if err=$(run "$root" 2>&1); then fail 'a mismatched container should be refused'; fi
-[[ "$err" == *'expected YOLO mode'* && "$err" == *"bbox --rebuild $root"* ]] || fail 'mismatch message'
+[[ "$err" == *'expected YOLO mode'* && "$err" == *"ybox --rebuild $root"* ]] || fail 'mismatch message'
 out=$(run --status "$root")
 [[ "$out" == *'WARNING: that is normie mode, not YOLO mode'* ]] || fail 'status flags the mismatch'
 reset_store
 MOCK_UP_POSTURE=yolo
 if err=$(run --normie "$root" 2>&1); then fail 'a wrong posture after up should fail'; fi
-[[ "$err" == *'expected normie mode'* && "$err" == *"bbox --rebuild --normie $root"* ]] || fail 'normie mismatch hint'
+[[ "$err" == *'expected normie mode'* && "$err" == *"ybox --rebuild --normie $root"* ]] || fail 'normie mismatch hint'
 MOCK_UP_POSTURE=''
 pass 'a container not in its config'"'"'s posture is refused with the right rebuild'
 
-# Containers with another config label are not bbox's.
+# Containers with another config label are not ybox's.
 reset_store
 add_container other /elsewhere/devcontainer.json yolo
 run --rebuild "$root" >/dev/null || fail 'rebuild beside a foreign container'
@@ -268,8 +288,8 @@ for args in '--rebuild --rebuild-without-cache' '--shell --code' '--yolo --normi
 done
 pass 'conflicting options and a second directory are rejected'
 
-grep -q "'(\-\-rebuild-without-cache --status --stop)--rebuild" "$root/infra/host/_bbox" || fail 'completion rebuild exclusion'
-grep -q "'(\-\-normie --status)--yolo" "$root/infra/host/_bbox" || fail 'completion mode exclusion'
-grep -q "'(\-\-shell --code --status --rebuild --rebuild-without-cache)--stop" "$root/infra/host/_bbox" || fail 'completion stop exclusion'
+grep -q "'(\-\-rebuild-without-cache --status --stop)--rebuild" "$root/infra/host/_ybox" || fail 'completion rebuild exclusion'
+grep -q "'(\-\-normie --status)--yolo" "$root/infra/host/_ybox" || fail 'completion mode exclusion'
+grep -q "'(\-\-shell --code --status --rebuild --rebuild-without-cache)--stop" "$root/infra/host/_ybox" || fail 'completion stop exclusion'
 pass 'completion encodes the mutual exclusions'
 print -r -- "1..$tests"

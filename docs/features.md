@@ -9,12 +9,12 @@ The container provides the outer execution boundary. The default is the YOLO
 posture: the deny-by-default egress firewall is up, the package volumes are
 read-only, and Docker's outer syscall filter (`builtin` seccomp) is on. Each
 mode is its own container, whose config file fixes its posture at creation:
-`bbcode` opens the YOLO one, `bbcode --normie` the normie one.
+`ybcode` opens the YOLO one, `ybcode --normie` the normie one.
 Explicit YOLO launchers skip permissions and refuse to start unless the
 firewall is enabled and PID 1 has filtered seccomp. Egress blocking is a hard
 boundary; an LLM reviewer is a soft one.
 
-For internet access, switch to normie mode (`bbcode --normie`: open internet,
+For internet access, switch to normie mode (`ybcode --normie`: open internet,
 writable package volumes, `unconfined` seccomp) and use Claude's
 `claude --permission-mode auto`. Its two-stage classifier skips in-project
 edits and is cheap per call. Codex's automatic review is a full model call per
@@ -146,16 +146,16 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   read-only by default. Agents run the stacks but cannot
   change them. Packages change only in normie mode, from inside.
 
-- **Two working modes, two containers.** YOLO mode, the default (`bbcode`,
+- **Two working modes, two containers.** YOLO mode, the default (`ybcode`,
   `bbe`), is firewalled, read-only and builtin: agents run unsupervised.
-  Normie mode (`bbcode --normie`, `bbe --normie`) is open, writable and
+  Normie mode (`ybcode --normie`, `bbe --normie`) is open, writable and
   unconfined: supervised work that feels like the Mac, with agents in
   approval modes. There the user installs with the ordinary
   `install.packages()`, `pip install` and `tlmgr install`, then goes back to
   the YOLO container. Each mode is its own container from its own config
-  file, so both can run, switching ends nothing, and a rebuild by `bbox` or
+  file, so both can run, switching ends nothing, and a rebuild by `ybox` or
   VS Code keeps the mode. They share logins, the AI CLIs and the package
-  volumes. A normie container runs until stopped (`bbox --stop --normie`),
+  volumes. A normie container runs until stopped (`ybox --stop --normie`),
   and every YOLO bring-up mentions it. The mode stays in view: a red VS Code
   window, a `normie` tag in the prompt and Claude's status line, and a
   banner in every shell. The rest of
@@ -192,7 +192,7 @@ workable should each be one step.
 
 | Location | Commands |
 | --- | --- |
-| `infra/host/devcontainer.zsh` (host shell) | `bbox` (`bbu`, `bbe`, and `bbcode` are short wrappers) |
+| `infra/host/devcontainer.zsh` (host shell) | `ybox` (`bbu`, `bbe`, and `ybcode` are short wrappers) |
 | `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
 | `tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork` |
 | `tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
@@ -219,16 +219,16 @@ commands.
 ### Containers, sessions, and agents
 
 - **One-command project opening (`infra/host/`).** Source `devcontainer.zsh` in your
-  `~/.zshrc` and use `bbcode [dir]` to bring up the enclosing YOLO container
-  (or `bbcode --normie [dir]` for the normie one), verify its posture, and
+  `~/.zshrc` and use `ybcode [dir]` to bring up the enclosing YOLO container
+  (or `ybcode --normie [dir]` for the normie one), verify its posture, and
   open that exact subfolder in VS Code. `bbe [dir]` follows the same bring-up
-  path and enters zsh; `bbox --status` reports both containers. VS Code's own
+  path and enters zsh; `ybox --status` reports both containers. VS Code's own
   Reopen in Container remains the minimal everyday path; it offers both
   configs.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered
-  (`My-Project#1`), so `bbox --shell <dir>` then `cchat-yolo` is the whole
+  (`My-Project#1`), so `ybox --shell <dir>` then `cchat-yolo` is the whole
   workflow and every session is identifiable without being named by hand.
 
 - **Fleet control.** Every session starts under `--remote-control`, so host-side

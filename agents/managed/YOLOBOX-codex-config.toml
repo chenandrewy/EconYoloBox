@@ -14,7 +14,7 @@
 # The default posture is YOLO (firewall up, builtin seccomp), under which
 # Bubblewrap cannot set up and these sandboxed defaults fail; use the -yolo
 # wrappers there. Sandboxed Codex needs unconfined seccomp (normie mode:
-# bbcode --normie on the host) and native tool validation; automatic review
+# ybcode --normie on the host) and native tool validation; automatic review
 # alone did not provide reliable recovery from sandbox setup failures.
 # See .devcontainer/README.md and docs/journal/0917c for the decision and limits.
 # YOLO wrappers bypass both sandboxing and approvals explicitly and refuse to

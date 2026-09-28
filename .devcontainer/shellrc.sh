@@ -52,7 +52,7 @@ if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; th
 fi
 
 # Posture warning banner and prompt tag. Each mode has its own container,
-# built from its own config file (bbcode or bbcode --normie on the host), so
+# built from its own config file (ybcode or ybcode --normie on the host), so
 # outside YOLO mode every shell warns what is loosened, and zsh's prompt
 # carries a tag, so the mode stays in view. posture.sh reads the container
 # itself: the firewall-open marker post-start.sh leaves, the package mounts,
@@ -75,7 +75,7 @@ if [ "$_ybx_mode" != yolo ]; then
     else
         printf '%s\n' \
             "${_ybx_hi}Warning: Custom Posture${_ybx_off}" \
-            "${_ybx_posture#* }; to fix, on the host: bbox --rebuild"
+            "${_ybx_posture#* }; to fix, on the host: ybox --rebuild"
     fi
     unset _ybx_hi _ybx_off
 fi

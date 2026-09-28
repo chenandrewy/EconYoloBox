@@ -80,10 +80,10 @@ container's life. Both containers may be running at once, sharing `/yolobox`,
 the package volumes and `~/.claude`/`~/.codex`. You are in one of them, and
 startup prints which:
 
-1. **YOLO mode** (`bbcode` or `bbe` on the host; the default): firewall on,
+1. **YOLO mode** (`ybcode` or `bbe` on the host; the default): firewall on,
    R, Python and TeX volumes read-only, Docker's seccomp filter on. Everyday
    work, with agents free to run unsupervised.
-2. **Normie mode** (`bbcode --normie` or `bbe --normie`): firewall off,
+2. **Normie mode** (`ybcode --normie` or `bbe --normie`): firewall off,
    volumes writable, seccomp unconfined. Like ordinary work on the Mac, with
    the user watching and agents in approval modes. This is where the web is
    open and packages get installed.

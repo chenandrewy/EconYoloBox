@@ -2,7 +2,7 @@
 
 These files are baked into the image, not seeded at container start. The
 Dockerfile `COPY`s each one to a root-owned, read-only system path, so a change
-takes effect only after a rebuild (`bbox --rebuild` on the host).
+takes effect only after a rebuild (`ybox --rebuild` on the host).
 
 | File | Installed as | Role |
 | --- | --- | --- |

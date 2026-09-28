@@ -2,7 +2,7 @@
 
 `infra/setup/` is provisioning run inside the container: the package volumes and
 the AI CLIs. The first build and first start run `install-base.sh` for you
-(docs/journal/0926f); you run it by hand to change the base. `infra/host/` is the launcher (`bbox`), and
+(docs/journal/0926f); you run it by hand to change the base. `infra/host/` is the launcher (`ybox`), and
 `.devcontainer/` is the container itself: its definition, its startup, and the
 tools baked into it (docs/journal/0926d).
 
@@ -37,7 +37,7 @@ copy. So:
 
 - Volumes created before 0926f that were never filled stay empty skeletons.
   Remove them on the host (`docker volume rm <volume>`, after stopping every
-  container that mounts them), then `bbox --rebuild` to seed them.
+  container that mounts them), then `ybox --rebuild` to seed them.
 - A change to the base lists reaches the image at the next rebuild, but not
   existing volumes. Those change as below, or get a new name.
 
@@ -50,13 +50,13 @@ is the retry.
 Installing the optional set, adding to the base in volumes that already exist,
 or repairing one, happens from inside, in normie mode:
 
-1. Open the normie container: on the host, `bbcode --normie` (or
+1. Open the normie container: on the host, `ybcode --normie` (or
    `bbe --normie`).
 2. In the container: `bash infra/setup/install-base.sh` (for a base change or a
    repair; it skips what is present).
 3. Optionally, in the container: `bash infra/setup/install-optional.sh`.
-4. Back to YOLO mode: on the host, `bbcode` (or `bbe`) opens the YOLO
-   container, which already sees the new packages; `bbox --stop --normie`
+4. Back to YOLO mode: on the host, `ybcode` (or `bbe`) opens the YOLO
+   container, which already sees the new packages; `ybox --stop --normie`
    stops the normie one.
 5. In the YOLO container: `bash .devcontainer/tests/test-packages.sh`.
 
@@ -83,14 +83,14 @@ The devcontainer's own image is the builder, which is the point: R packages
 link against the image's libraries and install from its pinned P3M snapshot.
 After a `CRAN_SNAPSHOT`, `R_VERSION` or base image change, the order is: edit
 the Dockerfile, give the volume a new name in `devcontainer.json`, then
-`bbox --rebuild`, which builds the base into the image and seeds the new
+`ybox --rebuild`, which builds the base into the image and seeds the new
 volume. The optional set then goes in with the steps above.
 
 The AI CLIs live in the per-checkout npm-global volume, which is writable in
 every mode, so `bash infra/setup/install-base.sh cli` updates them in YOLO mode too.
 
 Volume names are written once, in `.devcontainer/devcontainer.json`. To try a
-new volume, rename it there and `bbox --rebuild`; Docker seeds it from the
+new volume, rename it there and `ybox --rebuild`; Docker seeds it from the
 image, which already carries the base. Rename back to abandon it, and remove
 the unused volume with `docker volume rm`.
 
@@ -146,7 +146,7 @@ Rerunning the same command is the repair after a partial failure.
 
 A snapshot or interpreter bump is the other path. Change the version in the
 Dockerfile, then give the volume a new name in `devcontainer.json`. The next
-`bbox --rebuild` builds the base into the new image and seeds the new volume
+`ybox --rebuild` builds the base into the new image and seeds the new volume
 from it; prune the old volume later.
 
 ### TeX Live

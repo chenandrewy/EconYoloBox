@@ -1,9 +1,9 @@
-#compdef bbox
-# Run:     source infra/host/_bbox after zsh completion initialization.
+#compdef ybox
+# Run:     source infra/host/_ybox after zsh completion initialization.
 # Inputs:  the current command line only; completion does not read configuration.
-# Outputs: the _bbox completion function and, when available, its compdef binding.
+# Outputs: the _ybox completion function and, when available, its compdef binding.
 
-_bbox() {
+_ybox() {
   _arguments -s \
     '(--normie --status)--yolo[the YOLO container: firewalled, read-only packages, seccomp filter (the default)]' \
     '(--yolo --status)--normie[the normie container: open internet, writable packages, seccomp unconfined]' \
@@ -17,5 +17,5 @@ _bbox() {
 }
 
 if (( $+functions[compdef] )); then
-  compdef _bbox bbox
+  compdef _ybox ybox
 fi

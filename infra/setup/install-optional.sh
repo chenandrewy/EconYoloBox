@@ -2,7 +2,7 @@
 # Install the optional package set into the shared R, Python and TeX volumes.
 #
 # Run, inside the devcontainer as ubuntu, in normie mode (on the host,
-# `bbcode --normie` or `bbe --normie`):
+# `ybcode --normie` or `bbe --normie`):
 #   bash infra/setup/install-optional.sh              # python r tex
 #   bash infra/setup/install-optional.sh r            # one stack
 #   bash infra/setup/install-optional.sh --verify     # check only; any mode
@@ -31,7 +31,7 @@ usage() {
 Usage: install-optional.sh [python] [r] [tex] [--verify]
 
 With no target, all three. --verify only checks, and works in any mode.
-Installing needs normie mode: on the host, bbcode --normie or bbe --normie.
+Installing needs normie mode: on the host, ybcode --normie or bbe --normie.
 USAGE
 }
 
@@ -121,7 +121,7 @@ run() {
 }
 
 # Normie mode is the user's switch: the three mounts writable, which only
-# bbox --normie can arrange, at creation. Checked on the container itself.
+# ybox --normie can arrange, at creation. Checked on the container itself.
 require_install_mode() {
     local mount problems=()
     [ "$(id -un)" = ubuntu ] || problems+=("run as ubuntu, not $(id -un)")
@@ -140,8 +140,8 @@ require_install_mode() {
     if [ ${#problems[@]} -gt 0 ]; then
         echo "install-optional.sh: not in normie mode:" >&2
         printf '  - %s\n' "${problems[@]}" >&2
-        echo 'Switch to normie mode: on the host, bbcode --normie (or bbe --normie),' >&2
-        echo 'and back to YOLO mode afterwards: bbcode or bbe; bbox --stop --normie.' >&2
+        echo 'Switch to normie mode: on the host, ybcode --normie (or bbe --normie),' >&2
+        echo 'and back to YOLO mode afterwards: ybcode or bbe; ybox --stop --normie.' >&2
         exit 1
     fi
 }
@@ -282,7 +282,7 @@ if [ "$status" -ne 0 ]; then
     exit 1
 fi
 if [ "$VERIFY" -eq 0 ]; then
-    echo 'Done. Back to YOLO mode: on the host, bbcode or bbe; bbox --stop --normie.'
+    echo 'Done. Back to YOLO mode: on the host, ybcode or bbe; ybox --stop --normie.'
 else
     echo "Done."
 fi

@@ -80,11 +80,11 @@ Rscript -e 'quit(status = !requireNamespace("fixest", quietly = TRUE))' >/dev/nu
 if [ ${#missing[@]} -gt 0 ]; then
     echo "post-start.sh: package volume not built or not loadable: ${missing[*]}" >&2
     echo "  in normie mode, in the container: bash infra/setup/install-base.sh ${missing[*]}" >&2
-    echo "  or remove the volume on the host and bbox --rebuild to seed it (infra/setup/README.md)" >&2
+    echo "  or remove the volume on the host and ybox --rebuild to seed it (infra/setup/README.md)" >&2
 fi
 
 # The posture, read from the container: internet as armed above, and the
-# package mounts and PID 1's seccomp mode as created. Only bbox's two presets
+# package mounts and PID 1's seccomp mode as created. Only ybox's two presets
 # are named; any other combination is reported as custom.
 posture=$(bash .devcontainer/posture.sh)
 case "${posture%% *}" in
@@ -95,11 +95,11 @@ case "${posture%% *}" in
         echo "Normie mode: ${posture#* }"
         echo "  supervised: install with install.packages(), pip install or tlmgr install,"
         echo "  or bash infra/setup/install-optional.sh. Back to YOLO mode: on the host,"
-        echo "  bbcode or bbe; bbox --stop --normie stops this container."
+        echo "  ybcode or bbe; ybox --stop --normie stops this container."
         ;;
     *)
         echo "Custom posture, neither YOLO nor normie mode: ${posture#* }" >&2
-        echo "  made before the per-mode configs? on the host: bbox --rebuild" >&2
+        echo "  made before the per-mode configs? on the host: ybox --rebuild" >&2
         ;;
 esac
 

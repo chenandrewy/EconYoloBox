@@ -1,9 +1,9 @@
-#compdef bbcode ybcode
-# Run:     source infra/host/_bbcode after zsh completion initialization.
-# Inputs:  the current bbcode command line only.
-# Outputs: the _bbcode completion function and, when available, its compdef binding.
+#compdef ybcode
+# Run:     source infra/host/_ybcode after zsh completion initialization.
+# Inputs:  the current ybcode command line only.
+# Outputs: the _ybcode completion function and, when available, its compdef binding.
 
-_bbcode() {
+_ybcode() {
   _arguments -s \
     '(--normie)--yolo[use the YOLO container (the default)]' \
     '(--yolo)--normie[use the normie container]' \
@@ -13,5 +13,5 @@ _bbcode() {
 }
 
 if (( $+functions[compdef] )); then
-  compdef _bbcode bbcode ybcode
+  compdef _ybcode ybcode
 fi

@@ -10,10 +10,10 @@ Key features:
 
 1. **YOLO agents by default, with a toggle for "normie" mode**
 
-   - **YOLO mode:** open the container with `bbcode` (or `bbe` for a
+   - **YOLO mode:** open the container with `ybcode` (or `bbe` for a
      terminal); it is the default. Then run Claude Code and Codex in yolo mode
      using the convenient aliases `cchat-yolo` and `gptchat-yolo`. Cook!
-   - **Normie mode:** open it with `bbcode --normie` (or `bbe --normie`)
+   - **Normie mode:** open it with `ybcode --normie` (or `bbe --normie`)
      instead. Then you can work with the yolobox like a normie to do stuff
      that requires internet access and (probably) babysitting of the agents
      (e.g. install R packages, test new software, search arbitrary websites).
@@ -100,7 +100,7 @@ Windows and Linux support is partially wired but has not been tested.
    The container starts in YOLO mode: firewall on, allowing only the network
    allowlist, with read-only package volumes and builtin seccomp. For open
    internet access and package installs, use normie mode: the `(normie)`
-   configuration, or `bbcode --normie` with the
+   configuration, or `ybcode --normie` with the
    [host launcher](#optional-host-command-workflow).
    Normie mode also disables Docker's outer syscall filter for every
    container process; see
@@ -167,10 +167,10 @@ writable package volumes, `unconfined` seccomp), which is for supervised work.
 The launcher's flag picks which one to open:
 
 ```zsh
-bbcode             # the YOLO container, in VS Code (bbe: in a terminal)
-bbcode --normie    # the normie container
-bbox --status      # both containers and their modes, changing nothing
-bbox --stop --normie   # stop the normie container
+ybcode             # the YOLO container, in VS Code (bbe: in a terminal)
+ybcode --normie    # the normie container
+ybox --status      # both containers and their modes, changing nothing
+ybox --stop --normie   # stop the normie container
 ```
 
 Both can run at once, and neither replaces the other, so switching is instant
@@ -215,7 +215,7 @@ python3 infra/credentials/setup.py
 
 Press Enter to skip any service you do not use. The container receives the
 credentials as environment variables when it is created, so a container that
-already exists needs recreating to see new ones: `bbox --rebuild`, which
+already exists needs recreating to see new ones: `ybox --rebuild`, which
 recreates both modes' containers.
 
 ### Update the AI CLIs
@@ -233,21 +233,21 @@ bash /yolobox/infra/setup/install-base.sh cli
 R, Python and TeX Live live in shared volumes that every project mounts,
 read-only by default. The first build fills them with a lean base. For the rest
 of the usual stack, or any other package, switch to normie mode with
-`bbcode --normie` on the host. Then, in the container:
+`ybcode --normie` on the host. Then, in the container:
 
 ```bash
 bash infra/setup/install-optional.sh      # the rest of the usual stack
 ```
 
 or `install.packages()`, `pip install` or `tlmgr install`. Switch back to YOLO
-mode (`bbcode`, then `bbox --stop --normie`) and run
+mode (`ybcode`, then `ybox --stop --normie`) and run
 `bash .devcontainer/tests/test-packages.sh`. See [setup](infra/setup/README.md) and
 the [devcontainer README](.devcontainer/README.md#working-modes) for the
 details.
 
 ## Optional host command workflow
 
-The general-purpose `bbox` launcher brings up the requested mode's container,
+The general-purpose `ybox` launcher brings up the requested mode's container,
 verifies it, and can open a shell or VS Code at a project path. Ensure the
 VS Code `code` CLI is installed if using `--code`. To install the launcher, run the
 following from the checkout root in a host zsh terminal:
@@ -256,13 +256,13 @@ following from the checkout root in a host zsh terminal:
 npm install -g @devcontainers/cli
 bash infra/host/setup.sh
 exec zsh
-type bbox
+type ybox
 ```
 
-Run `bbox` to bring the container up, `bbcode My-Project` (`bbox --code`) to
-open a project in VS Code, or `bbe My-Project` (`bbox --shell`) to enter it in
+Run `ybox` to bring the container up, `ybcode My-Project` (`ybox --code`) to
+open a project in VS Code, or `bbe My-Project` (`ybox --shell`) to enter it in
 a terminal. Each takes `--normie` (or an explicit `--yolo`), and
-`bbox --rebuild` recreates both modes' containers after a Dockerfile or
+`ybox --rebuild` recreates both modes' containers after a Dockerfile or
 config change, then opens the chosen one. VS Code's own **Rebuild Container**
 rebuilds only the window's mode, from its configuration.
 

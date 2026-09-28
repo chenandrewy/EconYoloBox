@@ -33,7 +33,7 @@ if [ -d "${cwd}/.git" ] || git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; t
   branch=$(git -C "$cwd" --no-optional-locks symbolic-ref --short HEAD 2>/dev/null)
 fi
 
-# Outside YOLO mode, lead with the posture (bbox --normie, or custom), so an
+# Outside YOLO mode, lead with the posture (ybox --normie, or custom), so an
 # agent session shows it the way the shell prompt does.
 posture=$(bash /yolobox/.devcontainer/posture.sh 2>/dev/null)
 case "${posture%% *}" in

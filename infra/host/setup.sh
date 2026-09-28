@@ -5,6 +5,7 @@
 # Requires Python 3. Installs no software and does not start Docker or a container.
 #
 # The registration is a managed block at the end of the rc file:
+# Keep the legacy bbox markers and backup prefix to recognize existing setups.
 #
 #   # >>> bbox host launcher >>>
 #   source /path/to/checkout/host/devcontainer.zsh
@@ -99,7 +100,7 @@ for prerequisite in zsh docker devcontainer code; do
         printf 'Found: %s\n' "$prerequisite"
     else
         case "$prerequisite" in
-            zsh) echo 'Missing zsh: install zsh to use bbox.' ;;
+            zsh) echo 'Missing zsh: install zsh to use ybox.' ;;
             docker) echo 'Missing docker: install and start Docker Desktop.' ;;
             devcontainer) echo 'Missing devcontainer: install Node.js/npm, then run npm install -g @devcontainers/cli.' ;;
             code) echo "Missing code (needed for --code): in VS Code, run Shell Command: Install 'code' command in PATH." ;;
@@ -107,4 +108,4 @@ for prerequisite in zsh docker devcontainer code; do
     fi
 done
 printf '\n%s\n' 'Open a new host zsh terminal (or run exec zsh).' \
-    'From the checkout root, run bbox --code. Docker Desktop must be running.'
+    'From the checkout root, run ybox --code. Docker Desktop must be running.'
