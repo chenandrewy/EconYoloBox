@@ -15,14 +15,24 @@ software, package stacks, and installation procedures, see
 [the setup documentation](/sandbox/.setup/README.md). The security design and
 available services are described in [the feature guide](/sandbox/docs/features.md).
 
+## Key Paths
+
+- Research library (cellar): `/sandbox/cellar/`
+- Finished and retired projects (done): `/sandbox/done/`
+- macOS screenshots: `/sandbox/workspace/dev/screenshots/`
+
+### Custom Tools
+
+Custom tools live in `/sandbox/.tools/`, organized by topic. Check these folders when the user asks for using '.tools'. All are on `PATH` (set in `.devcontainer/shellrc.sh`), so the filenames are the commands:
+
+- `.tools/pdf/`: `pdf2md.py` (PDF to markdown), `rebookmark.py` (bookmarks PDFs)
+- `.tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
+- `.tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork`); see its README
+- `.tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README
+
 ## Sandbox Configuration
 
-`/sandbox/SANDBOX.toml` is the single source of truth for the research library
-(`cellar`), finished and retired projects (`done`), time zone (`timezone`), and
-macOS screenshots (`screenshot_directory`). Read it when you need a location;
-do not assume or hard-code these paths.
-
-The security posture is **not** in that file. Each mode is its own container,
+Each mode is its own container,
 built from its own config file (`.devcontainer/devcontainer.json` or
 `.devcontainer/normie/devcontainer.json`), and the posture is fixed for the
 container's life. Both containers may be running at once, sharing `/sandbox`,
@@ -80,7 +90,7 @@ Do not edit either config file's posture settings.
   packages) always need permission — see `USER PERMISSION REQUIRED`.
 - If the firewall blocks a resource you need: **ASK THE USER TO ADD IT**
 - For "this screenshot," "the image," or "latest screenshot," look up
-  `screenshot_directory` in `/sandbox/SANDBOX.toml`.
+  the screenshots path under Key Paths.
 
 ## Coding and Writing Guidelines
 
@@ -101,15 +111,6 @@ Do not edit either config file's posture settings.
 ### Script headers
 
 - At the top of every script, document how to run it, its inputs, and its outputs.
-
-## Custom Tools
-
-Custom tools live in `/sandbox/.tools/`, organized by topic. Check these folders when the user asks for using '.tools'. All are on `PATH` (set in `.devcontainer/shellrc.sh`), so the filenames are the commands:
-
-- `.tools/pdf/`: `pdf2md.py` (PDF to markdown), `rebookmark.py` (bookmarks PDFs)
-- `.tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
-- `.tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork`); see its README
-- `.tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README
 
 ## Permission guidelines
 

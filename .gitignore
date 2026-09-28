@@ -13,7 +13,7 @@ __pycache__/
 /done/
 
 # The cellar (research library) is shared reference material, not a project,
-# so it sits beside workspace/ at the sandbox root (SANDBOX.toml `cellar`).
+# so it sits beside workspace/ at the sandbox root.
 /cellar/
 
 # local-only Claude Code permissions (recreated by Claude when working from ./)

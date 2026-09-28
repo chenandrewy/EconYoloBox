@@ -291,18 +291,16 @@ The seed script handles guidance and settings differently:
   mixes model choices, project trust, and other runtime state. Stable defaults
   belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
 
-User-specific settings live in the root-level `SANDBOX.toml`: `timezone`
-(IANA zone; comment out to use the detected host zone), `cellar` (the research
-library), `done` (finished and retired projects), and `screenshot_directory`. Paths are container paths. Agents read path settings
-directly, so path edits take effect immediately.
-`timezone` becomes `TZ` at create time, so it needs a
-rebuild. Settings are read with `sandbox-setting.sh`, a `sed` over flat `key = "value"`
-/ `key = true|false` lines rather than a TOML parser.
+Agent-visible paths for the research library, finished and retired projects,
+and screenshots live under **Key Paths** in `agents/SANDBOX-CLAUDE.md`.
+Guidance is symlinked, so path edits require no container restart. The host
+time zone is detected separately when the container is created (see
+[Timezone](#timezone)).
 
 ### Working modes
 
-The security posture is not in `SANDBOX.toml`. Each mode is its own
-container, built from its own config file, which hard-codes the posture:
+Each mode is its own container, built from its own config file, which
+hard-codes the security posture:
 
 | Mode | Config | Launch | Internet | Package volumes | Seccomp | Use |
 |---|---|---|---|---|---|---|
@@ -427,9 +425,8 @@ In practice, large system installs, source builds, and language package installs
 
 ### Timezone
 
-`SANDBOX.toml`'s `timezone` wins if set. Otherwise the container matches your
-host's timezone: `write-local-env.sh` detects it at `initializeCommand` time —
-`$TZ` if exported, else `timedatectl`,
+The container matches your host's timezone: `write-local-env.sh` detects it at
+`initializeCommand` time — `$TZ` if exported, else `timedatectl`,
 else the target of the `/etc/localtime` symlink (which is how macOS and desktop
 Linux actually record it) — and passes it in via `--env-file`.
 

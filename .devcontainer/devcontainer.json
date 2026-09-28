@@ -157,8 +157,8 @@
     "source=${localWorkspaceFolderBasename}-npm-global-noble-node24,target=/usr/local/share/npm-global,type=volume"
   ],
   "containerEnv": {
-    // TZ is intentionally absent: write-local-env.sh writes SANDBOX.toml's
-    // timezone (or the detected host zone) into /tmp/devcontainer-local.env.
+    // TZ is intentionally absent: write-local-env.sh writes the detected host
+    // zone into /tmp/devcontainer-local.env.
     // containerEnv becomes `docker run --env`, which
     // outranks --env-file, so setting it here would clobber the detected value.
     // Fallback if detection finds nothing: the Dockerfile's baked-in ARG TZ.

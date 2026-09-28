@@ -260,10 +260,10 @@ commands.
   mechanism.
 
 - **Host-aware workspace settings.** Startup captures a stable host name and
-  the host time zone (overridable in `SANDBOX.toml`), and `SANDBOX.toml` also
-  provides agent-visible paths for the research library and macOS screenshots. That lets agents resolve
-  phrases such as “this screenshot” without clipboard access and use the right
-  zone for human-facing timestamps.
+  the host time zone. `SANDBOX-CLAUDE.md` provides agent-visible paths for the
+  research library and macOS screenshots. That lets agents resolve phrases
+  such as “this screenshot” without clipboard access and use the right zone
+  for human-facing timestamps.
 
 - **Persistent agent auth.** Named volumes keep Claude and Codex login state
   across rebuilds, shared by both modes' containers, so one login serves
