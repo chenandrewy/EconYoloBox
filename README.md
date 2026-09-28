@@ -14,7 +14,7 @@ Key features:
      terminal); it is the default. Then run Claude Code and Codex in yolo mode
      using the convenient aliases `cchat-yolo` and `gptchat-yolo`. Cook!
    - **Normie mode:** open it with `bbcode --normie` (or `bbe --normie`)
-     instead. Then you can work with the sandbox like a normie to do stuff
+     instead. Then you can work with the yolobox like a normie to do stuff
      that requires internet access and (probably) babysitting of the agents
      (e.g. install R packages, test new software, search arbitrary websites).
      The VS Code window title starts with `normie:`, the prompt says `normie`,
@@ -38,9 +38,9 @@ Key features:
      OCR (h/t Don Bowen).
 
 More concretely, the whole checkout is bind-mounted at `/yolobox` in the
-container. The sandbox itself is these tracked folders:
+container. The yolobox itself is these tracked folders:
 
-- `.devcontainer/`: sandbox implementation
+- `.devcontainer/`: yolobox implementation
 - `agents/`: agent guidance, settings and skills; `agents/managed/` is the
   policy baked into the image
 - `infra/credentials/`: credential injection mechanism
@@ -49,11 +49,11 @@ container. The sandbox itself is these tracked folders:
 - `docs/`: design notes and the feature tour
 - `tools/`: custom research tooling
 
-Everything else at the root is your content, gitignored by the sandbox:
+Everything else at the root is your content, gitignored by the yolobox:
 `workspace/` (projects), `done/` (finished projects), and `cellar/` (research
 library).
 
-See [Sandbox Features](docs/features.md) for a detailed tour.
+See [Yolobox Features](docs/features.md) for a detailed tour.
 
 ## Minimal setup
 
@@ -107,7 +107,7 @@ Windows and Linux support is partially wired but has not been tested.
    [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
 
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
-   The sandbox repository is mounted at `/yolobox`; all user content goes
+   The yolobox repository is mounted at `/yolobox`; all user content goes
    under `/yolobox/workspace/`, which `.gitignore` excludes wholesale, so the
    outer EconYoloBox repository never sees your projects whatever they are
    named. Each project must therefore be its own Git repository. Projects that
@@ -277,7 +277,7 @@ export TZ=America/Chicago
 
 Budget the container image (which carries a copy of the base stacks, about
 1.5GB, to seed the volumes) plus about **5.7GB of volumes** for the first
-sandbox checkout: 4.7GB of shared R, Python and TeX volumes, and 1GB of
+yolobox checkout: 4.7GB of shared R, Python and TeX volumes, and 1GB of
 per-checkout volumes (AI CLIs and their config). Each additional checkout adds
 about 1GB, since the image and the package volumes are shared.
 

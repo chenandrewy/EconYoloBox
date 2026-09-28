@@ -21,7 +21,7 @@ _DC_HOST_DIR="${0:A:h}"
 _DC_RESOLVE_PY="$_DC_HOST_DIR/dc-resolve.py"
 
 # _dc_resolve [project_dir]
-# Prints the enclosing sandbox root and the project's path relative to it
+# Prints the enclosing yolobox root and the project's path relative to it
 # ("." for the root itself: an empty last line would not survive $(...)).
 _dc_resolve() {
   local project_dir devcontainer_dir
@@ -94,7 +94,7 @@ _bbox_rebuild_hint() {
 }
 
 # _bbox_verify_layout <root> <expected-folder> <container>...
-# A reused container mounts the sandbox wherever its config said when it was
+# A reused container mounts the yolobox wherever its config said when it was
 # created. If workspaceFolder has since moved (for example /sandbox to
 # /yolobox), devcontainer up would start it and then fail postStartCommand
 # with an opaque "chdir to cwd ... no such file or directory". Catch that
@@ -108,7 +108,7 @@ _bbox_verify_layout() {
     [[ -n "$container" ]] || continue
     actual=$(docker inspect --format '{{.Config.WorkingDir}}' "$container" 2>/dev/null) || continue
     [[ "$actual" == "$expected" ]] && continue
-    print -u2 -- "bbox: ERROR: existing container $container mounts the sandbox at $actual, but its config now expects $expected."
+    print -u2 -- "bbox: ERROR: existing container $container mounts the yolobox at $actual, but its config now expects $expected."
     print -u2 -- "bbox: it predates a layout change and cannot start; on the host run: bbox --rebuild ${(q)root}"
     return 1
   done

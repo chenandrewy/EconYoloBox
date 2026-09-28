@@ -1,4 +1,4 @@
-# ABOUTME: System-enforced Codex requirements for the sandbox.
+# ABOUTME: System-enforced Codex requirements for the yolobox.
 # ABOUTME: Baked into /etc/codex/requirements.toml by the Dockerfile.
 #
 # Requirements are the admin-enforced layer. They outrank managed_config.toml,

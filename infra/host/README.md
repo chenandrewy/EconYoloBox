@@ -1,6 +1,6 @@
 # Host-side toolkit
 
-`infra/host/` is the supported host launcher for this sandbox,
+`infra/host/` is the supported host launcher for this yolobox,
 [`infra/setup/`](../setup/README.md) is provisioning you run by hand (package
 volumes and AI CLIs, in the container), and `.devcontainer/` is
 the container itself: its definition, its startup, and the tools baked into
@@ -51,7 +51,7 @@ its own path, so another checkout cannot redirect its helpers.
 
 | Command | What it does |
 |---|---|
-| `bbox [dir]` | Bring up the enclosing sandbox's YOLO container. |
+| `bbox [dir]` | Bring up the enclosing yolobox's YOLO container. |
 | `bbox --normie [dir]` | Bring up its normie container. `--yolo` names the default explicitly. |
 | `bbox --shell [dir]` | Bring it up, verify it, and open a shell at that path. |
 | `bbox --code [dir]` | Bring it up, verify it, and open that path in VS Code. |
@@ -86,7 +86,7 @@ is why a checkout's folder name must be unique on the Docker daemon (see the
 [container README](../.devcontainer/README.md#working-modes)).
 
 All modes walk up from `dir` (default: the current directory) and resolve the
-sandbox once. `bbox` then calls `devcontainer up` for the mode's config and
+yolobox once. `bbox` then calls `devcontainer up` for the mode's config and
 inspects the exact returned container. If another container of the same mode
 exists, it refuses (a rebuild removes the extra). If the container is not in
 its config's posture, as with containers made before the per-mode configs,

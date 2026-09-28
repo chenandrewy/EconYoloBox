@@ -4,16 +4,16 @@ __pycache__/
 *.py[cod]
 
 # User content (projects, dev, ...) lives under workspace/ and is never
-# part of the sandbox repository. One structural rule instead of per-project
+# part of the yolobox repository. One structural rule instead of per-project
 # name globs: anything placed there is ignored, whatever its name.
 /workspace/
 
-# Finished and retired projects move from workspace/ to done/ at the sandbox
+# Finished and retired projects move from workspace/ to done/ at the yolobox
 # root. Same rule: user content, never committed.
 /done/
 
 # The cellar (research library) is shared reference material, not a project,
-# so it sits beside workspace/ at the sandbox root.
+# so it sits beside workspace/ at the yolobox root.
 /cellar/
 
 # local-only Claude Code permissions (recreated by Claude when working from ./)

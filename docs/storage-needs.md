@@ -1,10 +1,10 @@
 # Devcontainer storage needs
 
-What the sandbox costs on disk: the image, the BuildKit build cache, and the
+What the yolobox costs on disk: the image, the BuildKit build cache, and the
 persistent volumes. The shared workspace devcontainer is built locally from
 `.devcontainer/Dockerfile`, starting from the official `ubuntu:24.04` image.
 
-For the intended setup of **one sandbox checkout and one devcontainer**, the
+For the intended setup of **one yolobox checkout and one devcontainer**, the
 persistent volumes use about **2.8GB**: about **1.5GB** for the lean R,
 Python, and TeX base, plus about **1.3GB** for the AI CLIs and agent
 configuration, nearly all of it CLI binaries. Installing the optional set
@@ -114,7 +114,7 @@ mount the same set, so a second mode costs no extra space here
 (docs/journal/0927a). The folder name alone keys them, so a second checkout
 with the same folder name on the same Docker daemon would share them, logins
 and CLIs included; `check-checkout.sh` refuses that at startup. Renaming the
-sandbox folder leaves these volumes behind; moving it does not. Before 0927a
+yolobox folder leaves these volumes behind; moving it does not. Before 0927a
 the names ended in `${devcontainerId}` (a ~52-character id); those volumes,
 and any renamed-away ones, show up in `docker volume ls -f dangling=true`.
 

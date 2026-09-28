@@ -58,9 +58,9 @@ Custom tools live in `/yolobox/tools/`, organized by topic. Check these folders 
 
 ## The Environment
 
-- The sandbox repo is bind-mounted at `/yolobox`, so edits are live on the
+- The yolobox repo is bind-mounted at `/yolobox`, so edits are live on the
   host. User projects live under `/yolobox/workspace/`, which is gitignored
-  by the sandbox repo. Terms: **sandbox** = the infrastructure repo at
+  by the yolobox repo. Terms: **yolobox** = the infrastructure repo at
   `/yolobox`; **workspace** = user content under `/yolobox/workspace/`;
   **project** = one working tree inside the workspace.
 
@@ -71,7 +71,7 @@ software, package stacks, and installation procedures, see
 [the setup documentation](/yolobox/infra/setup/README.md). The security design and
 available services are described in [the feature guide](/yolobox/docs/features.md).
 
-## Sandbox Configuration
+## Yolobox Configuration
 
 Each mode is its own container,
 built from its own config file (`.devcontainer/devcontainer.json` or

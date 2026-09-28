@@ -109,7 +109,7 @@ unset _ybx_posture _ybx_mode
 # visible to `ccsessions` / `cckill` on the host. The name is derived from the
 # working directory rather than asked for, so starting a session is still one
 # word: on host "MacBook.local", /yolobox/workspace/My-Project becomes
-# "MacBook:My-Project#1". The sandbox root itself uses the host folder's
+# "MacBook:My-Project#1". The yolobox root itself uses the host folder's
 # name. Set CC_SESSION_NAME to override the project portion. Yolo needs no
 # flag here because the container is the blast radius — host-side launchers
 # that target a container pass the flag themselves. That premise requires both
@@ -118,7 +118,7 @@ unset _ybx_posture _ybx_mode
 # they refuse.
 _cc_session_name() {
     local base host n=1 running
-    # Strip the user-workspace prefix first, then the sandbox root, so both
+    # Strip the user-workspace prefix first, then the yolobox root, so both
     # /yolobox/workspace/Foo and /yolobox/tools reduce to a short name.
     base="${CC_SESSION_NAME:-${PWD#/yolobox/workspace}}"
     base="${base#/yolobox}"

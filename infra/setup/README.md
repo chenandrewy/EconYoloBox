@@ -17,7 +17,7 @@ both as `node`; `install-base.sh` refuses on the host.
 ## Package volumes: R, Python and TeX Live
 
 The volumes hold a lean **base** and an **optional set** (docs/journal/0926a,
-0926b). The base is what the sandbox's own tools and tests need plus a small
+0926b). The base is what the yolobox's own tools and tests need plus a small
 core, and the AI CLIs; the optional set is everything else we use.
 
 ### First setup: automatic
@@ -130,7 +130,7 @@ next rebuild of the volume brings it back; an ad hoc install that is not added
 is lost then. `install-optional.sh` prints each command it runs, so it doubles
 as the reference for pryr (CRAN archive) and Bioconductor installs.
 
-The base changes only when the sandbox itself needs something:
+The base changes only when the yolobox itself needs something:
 
 1. Edit the list in `infra/setup/install-base.sh`: `PY_PKGS`,
    `cran_pkgs`, or `TEX_PKGS` (TeX package or collection names). Commit it;

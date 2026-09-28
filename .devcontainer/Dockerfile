@@ -232,7 +232,7 @@ EOF
 # Git defaults
 # safe.directory '*': the bind-mounted /yolobox root intermittently reports
 # uid 0 under Docker Desktop's virtiofs, which trips git's ownership check for
-# the sandbox repo and every project repo nested under it.
+# the yolobox repo and every project repo nested under it.
 # worktree.useRelativePaths: the repo is bind-mounted at a different path in the
 # container than on the host, so absolute gitdir links break on one side.
 RUN git config --system pager.branch cat && \

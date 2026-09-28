@@ -1,6 +1,6 @@
 # Public release procedure
 
-Publish the sandbox infrastructure as `EconYoloBox`: a snapshot carrying no
+Publish the yolobox infrastructure as `EconYoloBox`: a snapshot carrying no
 private projects, journal notes, host paths, or private history.
 
 Three rules make the rest routine:

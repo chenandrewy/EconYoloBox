@@ -17,7 +17,7 @@
 # The base stacks come from infra/setup/install-base.sh, in the same mode and with the
 # same check; this is the rest of what we use, installed by the user while
 # watching (docs/journal/0926a, 0926e).
-# The sandbox's own tools and tests never depend on it. Each step is the
+# The yolobox's own tools and tests never depend on it. Each step is the
 # ordinary command - pip install, install.packages(), BiocManager::install(),
 # tlmgr install - printed before it runs, so this script also shows how to add
 # one package by hand. What is present is skipped. A package that proves

@@ -1,4 +1,4 @@
-# Sandbox Features
+# Yolobox Features
 
 Agents run unsupervised but bounded, the container supplies the system layer for
 economics research, and the daily workflow around all of it is short.

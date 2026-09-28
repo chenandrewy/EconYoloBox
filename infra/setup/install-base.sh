@@ -48,7 +48,7 @@
 # whatever TEX_COLLECTIONS/TEX_PKGS name that the marked tree lacks. See
 # docs/journal/0921a, 0925b, 0926d and 0926e.
 #
-# The lists are a lean base: what the sandbox's own tools and tests need, plus a
+# The lists are a lean base: what the yolobox's own tools and tests need, plus a
 # small core. Everything else we use is the optional set, installed by the user
 # into the same volumes with install-optional.sh, also in normie mode
 # (docs/journal/0926a). Nothing here may depend on the optional set.
@@ -259,7 +259,7 @@ elif [ "$VERIFY" -eq 0 ]; then
 fi
 
 PY_PKGS=(
-    # sandbox tools (tools/pdf, tools/lit)
+    # yolobox tools (tools/pdf, tools/lit)
     requests
     PyMuPDF
     pikepdf

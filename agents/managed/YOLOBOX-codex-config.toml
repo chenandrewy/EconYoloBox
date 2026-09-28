@@ -1,4 +1,4 @@
-# ABOUTME: System-level Codex defaults for the sandbox.
+# ABOUTME: System-level Codex defaults for the yolobox.
 # ABOUTME: Baked into /etc/codex/config.toml by the Dockerfile.
 #
 # Keep only stable defaults here. Codex owns ~/.codex/config.toml and uses it

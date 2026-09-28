@@ -256,7 +256,7 @@ reset_store
 add_container yolo-a "$yolo_config" yolo
 MOCK_WORKDIR=/sandbox
 if err=$(run "$root" 2>&1); then fail 'stale mount target should fail'; fi
-[[ "$err" == *'mounts the sandbox at /sandbox'* && "$err" == *'expects /yolobox'* ]] || fail 'stale mount message'
+[[ "$err" == *'mounts the yolobox at /sandbox'* && "$err" == *'expects /yolobox'* ]] || fail 'stale mount message'
 grep -q 'devcontainer|up' $log && fail 'stale mount target must be caught before up'
 run --rebuild "$root" >/dev/null || fail 'rebuild should bypass the layout check'
 MOCK_WORKDIR=/yolobox
