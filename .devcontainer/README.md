@@ -94,8 +94,7 @@ this helper. See the host setup README for installation and failure handling.
 - `init-firewall.sh` — network firewall rules applied by `post-start.sh` when enabled.
 - `posture.sh` — reports the container's posture (`yolo`, `normie` or
   `custom`) from the container itself; `package-mode.sh` reports how the
-  package volumes are mounted. `vscode-posture.sh` (`postAttachCommand`)
-  titles the VS Code window outside YOLO mode.
+  package volumes are mounted.
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
 - `agents/` — canonical agent guidance and settings, applied to the container's user-level config on every start (see "Agent Config" below).
 - `home/` — user-level dotfiles that must survive a rebuild. The container's
@@ -344,9 +343,8 @@ move.
 The mode stays visible: `post-start.sh` prints it at every start; outside YOLO
 mode (in the normie container) every interactive shell prints a warning banner
 spelling out the loosened boundaries, the zsh prompt and Claude's status line
-lead with a `normie` (or `custom`) tag, and `vscode-posture.sh` puts `NORMIE`
-(or `CUSTOM`) at the front of the VS Code window title, in the container's own VS
-Code machine settings, without recoloring the window.
+lead with a `normie` (or `custom`) tag, and the VS Code window title starts
+with `normie:`, set by `window.title` in `normie/devcontainer.json`.
 
 In normie mode, install as `node` with the ordinary commands:
 `install.packages()` writes to the shared site library, `pip install` to

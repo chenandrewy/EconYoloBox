@@ -1,6 +1,6 @@
 #!/bin/bash
 # ABOUTME: Prints this container's security posture, read from the container.
-# ABOUTME: Shared by post-start.sh, shellrc.sh, vscode-posture.sh and the status line.
+# ABOUTME: Shared by post-start.sh, shellrc.sh and the status line.
 #
 # Run:     bash .devcontainer/posture.sh [OPEN_MARKER] [PROC_STATUS] [PACKAGES]
 # Inputs:  the firewall-open marker post-start.sh leaves, PID 1's seccomp mode,

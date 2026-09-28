@@ -1,6 +1,7 @@
 // YOLO mode. Its twin, normie/devcontainer.json, is the same file with the
 // posture flipped (seccomp, the three package mounts' readonly, and
-// SANDBOX_INTERNET) and " (normie)" on the name; tests/test_config_twins.py
+// SANDBOX_INTERNET), " (normie)" on the name and "normie:" at the front of
+// window.title; tests/test_config_twins.py
 // fails on any other difference, so edit both. Each mode is its own container,
 // keyed by its config file, so neither replaces the other (docs/journal/0927a).
 {
@@ -177,8 +178,5 @@
   // Arms the firewall (unless SANDBOX_INTERNET is "open"), seeds
   // agent guidelines, checks policy, refreshes TeX.
   "postStartCommand": "bash .devcontainer/post-start.sh",
-  // Colors and titles the VS Code window outside YOLO mode. On attach, since
-  // the Dev Containers extension writes the machine settings it edits.
-  "postAttachCommand": "bash .devcontainer/vscode-posture.sh",
   "waitFor": "postStartCommand"
 }

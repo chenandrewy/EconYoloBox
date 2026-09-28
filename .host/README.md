@@ -102,7 +102,7 @@ in-container VS Code server, which itself lingers after the window closes.
 the rebuild flags and the mode flags; `--status` takes no other option, and
 `--stop` only a mode flag.
 
-In the normie container the mode stays visible: `NORMIE` at the front of the
+In the normie container the mode stays visible: `normie:` at the front of the
 VS Code window title, a `normie` tag at the front of the zsh prompt and
 Claude's status line, and a warning banner in every new shell.
 

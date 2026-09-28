@@ -1,16 +1,14 @@
 #!/bin/bash
 # Run:     bash .devcontainer/tests/test-posture.sh
-# Inputs:  posture.sh, check-yolo-boundaries.sh, vscode-posture.sh,
-#          check-checkout.sh and post-start.sh; creates temporary fixtures.
+# Inputs:  posture.sh, check-yolo-boundaries.sh, check-checkout.sh and
+#          post-start.sh; creates temporary fixtures.
 #          The two config files have their own test, test_config_twins.py.
 # Outputs: TAP-like pass/fail lines and a nonzero status on failure.
-# shellcheck disable=SC2016 # literal ${...} in VS Code titles
 set -u
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 posture="$root/.devcontainer/posture.sh"
 guard="$root/.devcontainer/check-yolo-boundaries.sh"
-colors="$root/.devcontainer/vscode-posture.sh"
 checkout="$root/.devcontainer/check-checkout.sh"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -77,33 +75,5 @@ grep -q 'not checked' "$tmp/checkout.err" || fail 'unknown folder warning'
 pass 'an unknown host folder warns and is not refused'
 grep -q '^bash .devcontainer/check-checkout.sh$' "$root/.devcontainer/post-start.sh" || fail 'post-start must run the checkout guard'
 pass 'post-start runs the checkout guard'
-
-printf '{"window.title": "<${rootName}>", "workbench.colorCustomizations": {"editor.background": "#000000"}}\n' >"$tmp/settings.json"
-cp "$tmp/settings.json" "$tmp/yolo.json"
-bash "$colors" "$tmp/yolo.json" 'yolo internet=firewalled packages=readonly seccomp=builtin'
-cmp -s "$tmp/settings.json" "$tmp/yolo.json" || fail 'yolo must leave VS Code settings alone'
-pass 'yolo mode leaves the window alone'
-bash "$colors" "$tmp/settings.json" 'normie internet=open packages=writable seccomp=unconfined'
-bash "$colors" "$tmp/settings.json" 'normie internet=open packages=writable seccomp=unconfined'
-[ "$(jq -r '."window.title"' "$tmp/settings.json")" = 'NORMIE:<${rootName}>' ] || fail 'normie title, once'
-[ "$(jq -c '."workbench.colorCustomizations"' "$tmp/settings.json")" = '{"editor.background":"#000000"}' ] || fail 'normie must not color the window'
-pass 'normie mode titles the window once, uncolored, keeping other settings'
-printf '{"window.title": "NORMIE MODE - x", "workbench.colorCustomizations": {"titleBar.activeBackground": "#b91c1c", "statusBar.background": "#123456"}}\n' >"$tmp/old.json"
-bash "$colors" "$tmp/old.json" 'normie internet=open packages=writable seccomp=unconfined'
-[ "$(jq -r '."window.title"' "$tmp/old.json")" = 'NORMIE:x' ] || fail 'old title prefix replaced'
-[ "$(jq -c '."workbench.colorCustomizations"' "$tmp/old.json")" = '{"statusBar.background":"#123456"}' ] || fail 'old colors removed, own colors kept'
-pass 'earlier versions'"'"' title prefix and colors are replaced, the user'"'"'s own colors kept'
-printf '{"window.title": "NORMIE - x"}\n' >"$tmp/dash.json"
-bash "$colors" "$tmp/dash.json" 'normie internet=open packages=writable seccomp=unconfined'
-[ "$(jq -r '."window.title"' "$tmp/dash.json")" = 'NORMIE:x' ] || fail 'dash prefix replaced'
-pass 'the "NORMIE - " prefix becomes "NORMIE:"'
-bash "$colors" "$tmp/new/settings.json" 'custom internet=open packages=readonly seccomp=builtin'
-[ "$(jq -r '."window.title"' "$tmp/new/settings.json")" = 'CUSTOM:${rootName}${separator}${activeEditorShort}' ] || fail 'custom title in a new file'
-pass 'a custom posture is marked too, in a file that did not exist'
-printf '{ // a comment\n}\n' >"$tmp/jsonc.json"
-bash "$colors" "$tmp/jsonc.json" 'normie x' 2>"$tmp/colors.err" || fail 'unparseable settings must not fail'
-grep -q 'could not parse' "$tmp/colors.err" || fail 'unparseable settings warning'
-grep -q '// a comment' "$tmp/jsonc.json" || fail 'unparseable settings left alone'
-pass 'settings jq cannot parse are left alone with a warning'
 
 printf '1..%d\n' "$tests"

@@ -17,7 +17,7 @@ Key features:
      instead. Then you can work with the sandbox like a normie to do stuff
      that requires internet access and (probably) babysitting of the agents
      (e.g. install R packages, test new software, search arbitrary websites).
-     The VS Code window title starts with `NORMIE`, the prompt says `normie`,
+     The VS Code window title starts with `normie:`, the prompt says `normie`,
      and every new shell warns what is loosened, until you switch back.
    - See [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
 
@@ -171,7 +171,7 @@ running, firewall open, until it is stopped (or, possibly, until its last VS
 Code window closes), so every YOLO bring-up mentions a running one.
 
 The mode stays in view: in the normie container the VS Code window title
-starts with `NORMIE`, the shell prompt and Claude's status line carry a
+starts with `normie:`, the shell prompt and Claude's status line carry a
 `normie` tag, and every new shell prints a warning banner spelling out the
 security posture.
 Startup prints `YOLO mode`, `Normie mode`, or `Custom posture` for a container

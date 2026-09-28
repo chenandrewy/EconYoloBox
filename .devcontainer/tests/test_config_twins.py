@@ -4,8 +4,9 @@
 #          .devcontainer/normie/devcontainer.json (normie), parsed as JSONC with
 #          .host/dc-resolve.py's comment stripper.
 # Outputs: unittest results. Fails unless each file carries its mode's posture
-#          and the two differ in nothing else but the name and the paths that
-#          are relative to the file's own folder. Comments are not compared.
+#          and the two differ in nothing else but the name, the normie: window
+#          title prefix and the paths that are relative to the file's own
+#          folder. Comments are not compared.
 
 import copy
 import importlib.machinery
@@ -59,6 +60,8 @@ def neutralize(config):
     """The config with every intended difference blanked out."""
     config = copy.deepcopy(config)
     config["name"] = None
+    settings = config["customizations"]["vscode"]["settings"]
+    settings["window.title"] = settings["window.title"].removeprefix("normie:")
     config["build"]["dockerfile"] = None
     config["build"]["context"] = None
     config["runArgs"] = [None if arg.startswith("--security-opt=seccomp=") else arg for arg in config["runArgs"]]
@@ -85,6 +88,10 @@ class ConfigTwinTests(unittest.TestCase):
 
     def test_names_tell_the_modes_apart(self):
         self.assertEqual(self.normie["name"], self.yolo["name"] + " (normie)")
+
+    def test_normie_window_title_leads_with_the_mode(self):
+        title = self.yolo["customizations"]["vscode"]["settings"]["window.title"]
+        self.assertEqual(self.normie["customizations"]["vscode"]["settings"]["window.title"], "normie:" + title)
 
     def test_build_resolves_to_the_same_dockerfile_and_context(self):
         for path, config in ((YOLO, self.yolo), (NORMIE, self.normie)):
