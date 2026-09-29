@@ -6,11 +6,9 @@
 # and onboarding state. User config has higher precedence than this file, so a
 # deliberate user preference still wins.
 
-# Request workspace-write sandboxing with on-request approval. Network access
-# defaults off but can be configured independently. These settings do not select
-# automatic review: "Approve for me" also uses approvals_reviewer="auto_review".
-# Recommend that reviewer in the user's ~/.codex/config.toml (see README.md);
-# leave it as a user preference rather than setting it here. Launch with codex.
+# Request workspace-write sandboxing with on-request approval and automatic
+# review ("Approve for me"). Network access defaults off but can be configured
+# independently. Launch with codex.
 # The default posture is YOLO (firewall up, builtin seccomp), under which
 # Bubblewrap cannot set up and these sandboxed defaults fail; use the -yolo
 # wrappers there. Sandboxed Codex needs unconfined seccomp (normie mode:
@@ -21,6 +19,7 @@
 # start unless the container firewall and Docker seccomp filter are active.
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
+approvals_reviewer = "auto_review"
 
 [tui]
 status_line = [

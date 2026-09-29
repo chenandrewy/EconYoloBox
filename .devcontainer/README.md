@@ -183,24 +183,12 @@ networking does not necessarily resolve bubblewrap's namespace setup failure.
 Use standard `codex` for everyday work. Select a model with `/model` or
 `codex --model <model>`; separate chat and mini wrappers are unnecessary.
 
-A bare `codex` defaults to requesting sandboxing: `/etc/codex/config.toml` (from
-`agents/managed/YOLOBOX-codex-config.toml`) sets `approval_policy`/`sandbox_mode` to the
-on-request/workspace-write defaults. User configuration can override them.
-These two settings alone do not select automatic review.
-
-We recommend "Approve for me". Set the following at the top level of your
-`~/.codex/config.toml`, before any table headers (update existing keys rather
-than adding duplicates):
-
-```toml
-approval_policy = "on-request"
-sandbox_mode = "workspace-write"
-approvals_reviewer = "auto_review"
-```
-
-Then launch `codex` normally. Automatic review remains a user preference; the
-container does not enforce it or rewrite your user config. For a single session,
-use `codex --approve-for-me` (available in the inspected CLI 0.154.0).
+A bare `codex` requests "Approve for me": `/etc/codex/config.toml` (from
+`agents/managed/YOLOBOX-codex-config.toml`) sets `approval_policy = "on-request"`,
+`sandbox_mode = "workspace-write"`, and `approvals_reviewer = "auto_review"`.
+User configuration can override these defaults. The container does not rewrite
+your user config. For a single session, use `codex --approve-for-me` (available
+in the inspected CLI 0.154.0).
 
 The explicit `gptchat-yolo` / `gptmini-yolo` wrappers remain in `shellrc.sh`.
 They use `--dangerously-bypass-approvals-and-sandbox`. Along with `cchat-yolo`,
