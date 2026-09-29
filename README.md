@@ -48,9 +48,8 @@ container. The yolobox itself is these tracked folders:
 - `docs/`: design notes and the feature tour
 - `tools/`: custom research tooling
 
-Everything else at the root is your content, gitignored by the yolobox:
-`workshop/` (projects), `hangar/` (finished projects), and `cellar/` (research
-library).
+Copy paste (or move) your working folders into the yolobox. I recommend having three folders, one for projects, one for finished projects (for reference), and one for a research library (pdfs). Add these to the .gitignore. 
+
 
 See [Yolobox Features](docs/features.md) for a detailed tour.
 

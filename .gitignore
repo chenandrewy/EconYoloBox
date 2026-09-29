@@ -3,17 +3,9 @@
 __pycache__/
 *.py[cod]
 
-# User content (projects, dev, ...) lives under workshop/ and is never
-# part of the yolobox repository. One structural rule instead of per-project
-# name globs: anything placed there is ignored, whatever its name.
+# == Working folders: selected by user
 /workshop/
-
-# Finished and retired projects move from workshop/ to hangar/ at the yolobox
-# root. Same rule: user content, never committed.
 /hangar/
-
-# The cellar (research library) is shared reference material, not a project,
-# so it sits beside workshop/ at the yolobox root.
 /cellar/
 
 # local-only Claude Code permissions (recreated by Claude when working from ./)
