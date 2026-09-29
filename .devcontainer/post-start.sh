@@ -1,8 +1,9 @@
 #!/bin/bash
 # ABOUTME: The container's postStartCommand. Arms the firewall unless this is
 # ABOUTME: the normie container, checks the checkout marker, seeds agent
-# ABOUTME: guidance, installs missing AI CLIs, checks policy and the package
-# ABOUTME: volumes, prints the posture (YOLO or normie), refreshes TeX.
+# ABOUTME: guidance, installs missing AI CLIs, checks policy, the package
+# ABOUTME: volumes and the VS Code extensions, prints the posture (YOLO or
+# ABOUTME: normie), refreshes TeX.
 #
 # Run by devcontainer.json on every container start (not on a bare
 # `docker restart`, which skips postStartCommand entirely).
@@ -11,7 +12,8 @@
 #          package mounts; PID 1's seccomp mode; the workspace setup scripts.
 # Outputs: firewall state, the firewall-open marker, the checkout marker (or a
 #          refusal), agent setup, the AI CLIs in npm-global when either is
-#          missing, a warning for each unbuilt package volume, the posture line
+#          missing, a warning for each unbuilt package volume and each missing
+#          VS Code extension, the posture line
 #          (YOLO mode, normie mode, or custom), TeX refresh.
 #
 # The switch is YOLOBOX_INTERNET in the container's environment, which each
@@ -81,6 +83,15 @@ if [ ${#missing[@]} -gt 0 ]; then
     echo "post-start.sh: package volume not built or not loadable: ${missing[*]}" >&2
     echo "  in normie mode, in the container: bash .devcontainer/setup/install-base.sh ${missing[*]}" >&2
     echo "  or remove the volume on the host and ybox --rebuild to seed it (.devcontainer/setup/README.md)" >&2
+fi
+
+# The VS Code extensions are installed only from normie, into the shared
+# extension volume (docs/journal/0928e). Name each missing one here; shellrc.sh
+# repeats a one-line note in every shell.
+if ! ext_report=$(bash .devcontainer/setup/install-vscode-extensions.sh --verify 2>&1); then
+    echo "post-start.sh: VS Code extensions missing from the shared volume:" >&2
+    grep -E '^(MISSING|Missing)' <<<"$ext_report" | sed 's/^/  /' >&2 || true
+    echo "  in normie mode, from a VS Code terminal: bash .devcontainer/setup/install-vscode-extensions.sh" >&2
 fi
 
 # The posture, read from the container: internet as armed above, and the
