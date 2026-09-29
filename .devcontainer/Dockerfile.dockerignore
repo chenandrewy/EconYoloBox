@@ -2,8 +2,8 @@
 # so that the image can install the base with .devcontainer/setup/install-base.sh
 # (docs/journal/0926f). BuildKit reads this file in place of a root
 # .dockerignore because it sits beside the Dockerfile with its name.
-# Everything is excluded except what the Dockerfile uses; workshop/, cellar/
-# and hangar/ are user content and must never reach the daemon.
+# Everything is excluded except what the Dockerfile uses; user content
+# must never reach the daemon.
 *
 !.devcontainer/
 .devcontainer/*

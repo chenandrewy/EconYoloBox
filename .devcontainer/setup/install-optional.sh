@@ -106,7 +106,7 @@ TEX_PKGS=(
     collection-pictures # tikz
     collection-mathscience
     collection-fontsextra # fontawesome5
-    # workshop/goners: LuaLaTeX style branch and LyX journal header.
+    # goners project: LuaLaTeX style branch and LyX journal header.
     # undertilde is excluded: CTAN does not include it in TeX Live.
     luacolor
     lua-ul

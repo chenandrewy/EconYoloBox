@@ -11,7 +11,7 @@
     // The repository root, so the image can install the base with
     // .devcontainer/setup/install-base.sh (docs/journal/0926f). Dockerfile.dockerignore
     // passes only the required runtime scripts, managed policy and base installer, so
-    // workshop/, cellar/ and hangar/ never reach the daemon.
+    // user content never reaches the daemon.
     "context": "..",
     "args": {
       "TZ": "${localEnv:TZ:America/New_York}",
