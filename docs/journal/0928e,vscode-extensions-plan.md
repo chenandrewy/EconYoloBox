@@ -158,14 +158,40 @@ These checks use an existing VS Code profile, Docker installation and cached
 images. They do not establish the experience of someone starting without VS
 Code extensions or a prior container volume. Test that separately:
 
-1. Start VS Code with new `--user-data-dir` **and** `--extensions-dir`
-   directories, with Settings Sync off. Use a disposable checkout with a
-   distinct folder basename so `${localWorkspaceFolderBasename}-vscode-extensions-managed`
-   is a new, empty volume. Preserve the ordinary profile and existing volume.
-2. Follow the main README exactly. Install Dev Containers in the isolated host
-   VS Code, and install `tomoki1207.pdf` locally if the PDF viewer is wanted.
-   Open the checkout, choose `(normie)` on first Reopen in Container, and wait
-   for the first build and VS Code Server attach to finish.
+1. Reset this Mac's VS Code data, then open a fresh checkout. Quit **all** VS
+   Code windows with Command-Q first. In Finder, use **Go > Go to Folder** for
+   each of these paths and move the folder to Trash:
+
+   - `~/Library/Application Support/Code` (settings, profiles and state)
+   - `~/.vscode` (locally installed extensions)
+   - `~/.vscode-shared` (other shared VS Code user data, if present)
+
+   This is [VS Code's documented clean-uninstall data set on
+   macOS](https://code.visualstudio.com/docs/setup/uninstall); the app remains
+   installed. Moving to Trash has the same fresh-start effect as
+   deleting the folders but leaves a way to recover settings and extensions.
+   Do not sign into Settings Sync during the test, or it may restore them.
+   The existing Docker extension volume is separate and is **not** reset by
+   deleting VS Code's host data, so the test also needs a checkout with a new
+   folder basename. In a **host macOS Terminal**, `cd` to the root of the
+   committed EconYoloBox checkout, then run:
+
+   ```sh
+   test_checkout="$HOME/EconYoloBox-first-user-$(date +%Y%m%d-%H%M%S)"
+   git clone --no-hardlinks "$PWD" "$test_checkout"
+   printf 'Open this folder in VS Code: %s\n' "$test_checkout"
+   ```
+
+   `git clone` includes committed files only. Open the printed folder through
+   VS Code's **File > Open Folder** and continue with step 2. Its unique
+   basename gives it a new
+   `${localWorkspaceFolderBasename}-vscode-extensions-managed` volume, while
+   leaving the old checkout's volume alone. Docker images and global package
+   volumes still remain shared on this Mac.
+2. Follow the main README exactly. Install Dev Containers in the reset host VS
+   Code, and install `tomoki1207.pdf` locally if the PDF viewer is wanted.
+   Choose `(normie)` on first Reopen in Container, and wait for the first build
+   and VS Code Server attach to finish.
 3. Run `bash .devcontainer/setup/install-vscode-extensions.sh` in the normie
    integrated terminal. Require an exit status of zero and `--verify` to find
    all 12 extensions. Check the server log for installs initiated by the remote
@@ -177,9 +203,9 @@ Code extensions or a prior container volume. Test that separately:
    editor can activate the workspace extensions. Rebuild or recreate YOLO and
    check that extensions remain available without reinstalling.
 5. For a truly cold first-install test, repeat on a clean macOS VM or spare Mac
-   with fresh Docker data. The isolated-profile test still shares the host's
+   with fresh Docker data. The reset-VS-Code test still shares the host's
    Docker images, package volumes and other installed prerequisites.
 
-The isolated-profile and clean-machine tests are proposed; they have not been
-run. They require installing extensions in the disposable profile and, for the
-last step, provisioning a separate machine or VM.
+The reset-VS-Code and clean-machine tests are proposed; they have not been
+run. They require reinstalling host extensions after removing local VS Code
+data and, for the last step, provisioning a separate machine or VM.
