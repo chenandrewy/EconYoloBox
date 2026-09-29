@@ -97,3 +97,89 @@ In a YOLO container rebuilt from the branch:
 [0720e]: archive/0720e,fail-fast-extension-diagnosis.md
 [0922a]: 0922a,vscode-server-reinstall-slow-launch.md
 [0927a]: 0927a,two-container-modes-plan.md
+
+## 2026-09-29 addendum — risks of the normie-only installation path
+
+The design above used separate writable extension volumes and VS Code's host
+relay. A fresh YOLO attach disproved the host-only assumption: VS Code Server
+first requested `marketplace.visualstudio.com` from inside the container, then
+relayed installs after the firewall rejected it. Only 12 of the 13 requested
+extensions landed; `ms-python.python` was missing. The current implementation
+instead gives both modes one extension volume, writable in normie and read-only
+in YOLO, with no automatic extension install list. Installation is an explicit
+`code --install-extension` command run inside normie.
+Validation later showed that `tomoki1207.pdf` is UI-only and already installed
+on the host, so the normie script installs 12 workspace extensions; the PDF
+viewer stays in host VS Code.
+
+- **Manual bootstrap.** Every fresh checkout or new extension volume needs a
+  normie VS Code attach, the install command, and a complete registry check
+  before YOLO can rely on its extensions. The command requires VS Code's remote
+  `code` CLI, so a shell-only normie session is insufficient.
+- **Broader install environment.** Normie has open internet, writable package
+  volumes and unconfined Docker seccomp. The selected extensions are installed
+  there and later execute in YOLO, where they can access the workspace and the
+  container's available credentials and network allowlist.
+- **Shared live code.** Normie can change extension files while YOLO is using
+  them. Stop or detach YOLO before updating extensions, then reopen it; the
+  read-only YOLO mount prevents YOLO writes but does not freeze normie writes.
+- **Read-only attach is unverified.** The mount permissions have been checked,
+  but VS Code has not yet attached to YOLO with a fully populated read-only
+  extension volume. It may try to write registry or metadata even with
+  automatic updates disabled; that needs a real attach test.
+- **Manual updates and version drift.** Automatic updates are disabled. The
+  install script lists IDs, not exact versions, so separate fresh installs may
+  resolve different versions; an existing volume may keep an extension that
+  becomes incompatible after a VS Code update. Run the installer in normie and
+  verify the result after updates.
+- **Single-path behavior still needs a log check.** Neither config requests
+  automatic installs or host relay. Verify during the normie CLI install that
+  extensions are downloaded and installed in the container, with no host relay
+  or second install path, before calling the new pipeline validated.
+
+## 2026-09-29 addendum — validation and first-user test
+
+Tests completed on this host after rebuilding both modes with the new shared
+extension volume:
+
+- Normie mounted the volume writable and YOLO mounted that same volume
+  read-only. The normie `code --install-extension` run installed the workspace
+  extensions, and `install-vscode-extensions.sh --verify` found all 12 in both
+  modes. The YOLO `ubuntu` user could not write the extension directory.
+- `tomoki1207.pdf` refused a container install because it is UI-only. It was
+  removed from the container list; it must be installed in host VS Code.
+- The normie VS Code Server log showed the CLI installs, with no host relay or
+  `downloadExtensionsLocally` activity. The YOLO firewall test passed its
+  marketplace, Open VSX and extension CDN probes. A populated read-only YOLO
+  VS Code window opened successfully in the user's subsequent check.
+- The config twin tests, shell syntax checks and `git diff --check` passed.
+
+These checks use an existing VS Code profile, Docker installation and cached
+images. They do not establish the experience of someone starting without VS
+Code extensions or a prior container volume. Test that separately:
+
+1. Start VS Code with new `--user-data-dir` **and** `--extensions-dir`
+   directories, with Settings Sync off. Use a disposable checkout with a
+   distinct folder basename so `${localWorkspaceFolderBasename}-vscode-extensions-managed`
+   is a new, empty volume. Preserve the ordinary profile and existing volume.
+2. Follow the main README exactly. Install Dev Containers in the isolated host
+   VS Code, and install `tomoki1207.pdf` locally if the PDF viewer is wanted.
+   Open the checkout, choose `(normie)` on first Reopen in Container, and wait
+   for the first build and VS Code Server attach to finish.
+3. Run `bash .devcontainer/setup/install-vscode-extensions.sh` in the normie
+   integrated terminal. Require an exit status of zero and `--verify` to find
+   all 12 extensions. Check the server log for installs initiated by the remote
+   CLI, with no automatic install pass or host relay. Confirm the PDF viewer
+   appears as a local extension, not in the remote volume.
+4. Reopen the plain YOLO configuration. Require `--verify` to pass, the volume
+   to be mounted read-only, and the marketplace firewall probes to pass. Check
+   that the VS Code Server log shows no install/update attempt and that the
+   editor can activate the workspace extensions. Rebuild or recreate YOLO and
+   check that extensions remain available without reinstalling.
+5. For a truly cold first-install test, repeat on a clean macOS VM or spare Mac
+   with fresh Docker data. The isolated-profile test still shares the host's
+   Docker images, package volumes and other installed prerequisites.
+
+The isolated-profile and clean-machine tests are proposed; they have not been
+run. They require installing extensions in the disposable profile and, for the
+last step, provisioning a separate machine or VM.

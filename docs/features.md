@@ -155,7 +155,9 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   the YOLO container. Each mode is its own container from its own config
   file, so both can run, switching ends nothing, and a rebuild by `ybox` or
   VS Code keeps the mode. They share logins, the AI CLIs and the package
-  volumes. A normie container runs until stopped (`ybox --stop --normie`),
+  volumes. Normie installs VS Code extensions into a shared volume that YOLO
+  mounts read-only. A normie
+  container runs until stopped (`ybox --stop --normie`),
   and every YOLO bring-up mentions it. The mode stays in view: a red VS Code
   window, a `normie` tag in the prompt and Claude's status line, and a
   banner in every shell. The rest of
@@ -246,7 +248,7 @@ commands.
 - **AIChatRender VS Code extension.** The transcript panel formerly bundled
   here is now maintained separately in the
   [AIChatRender repository](https://github.com/chenandrewy/aichatrender) and is
-  installed automatically from the VS Code Marketplace by this devcontainer.
+  installed with the other extensions by the normie-mode VS Code CLI command.
 
 - **Agent config and skills as code.** `agents/YOLOBOX-CLAUDE.md` holds
   shared Claude/Codex guidance; `agents/` also holds shared LyX and

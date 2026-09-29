@@ -105,10 +105,8 @@ while read -r cidr; do
 done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
 # Resolve and add other allowed domains.
-# The *.gallerycdn.vsassets.io entries are the per-publisher VS Code extension
-# download CDN: one entry per publisher in devcontainer.json "extensions".
-# Adding an extension from a new publisher requires a new entry here, or its
-# install will silently fail inside the container.
+# Extensions are installed in normie mode into a volume mounted read-only in
+# YOLO. Marketplace/CDN destinations are absent from this allowlist.
 #
 # No R or Python package hosts (docs/journal/0925b). The package stacks are
 # installed by .devcontainer/setup/install-base.sh in normie mode, when this firewall is not
@@ -124,22 +122,6 @@ done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 # answers rotate belongs in VOLATILE_DOMAINS, not here.
 for domain in \
     "registry.npmjs.org" \
-    "marketplace.visualstudio.com" \
-    "open-vsx.org" \
-    "ms-vscode.gallery.vsassets.io" \
-    "anthropic.gallerycdn.vsassets.io" \
-    "github.gallerycdn.vsassets.io" \
-    "dbaeumer.gallerycdn.vsassets.io" \
-    "esbenp.gallerycdn.vsassets.io" \
-    "tamasfe.gallerycdn.vsassets.io" \
-    "tomoki1207.gallerycdn.vsassets.io" \
-    "james-yu.gallerycdn.vsassets.io" \
-    "donjayamanne.gallerycdn.vsassets.io" \
-    "mhutchie.gallerycdn.vsassets.io" \
-    "ms-python.gallerycdn.vsassets.io" \
-    "ikuyadeu.gallerycdn.vsassets.io" \
-    "reditorsupport.gallerycdn.vsassets.io" \
-    "chenandrewy.gallerycdn.vsassets.io" \
     "copilot-proxy.githubusercontent.com" \
     "origin-tracker.githubusercontent.com" \
     "copilot-telemetry.githubusercontent.com" \

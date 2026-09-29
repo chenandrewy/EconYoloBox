@@ -252,6 +252,22 @@ The template mounts persistent volumes for:
 This keeps interactive login state across container rebuilds and restarts.
 Both modes' containers mount the same volumes, so one login serves both.
 
+VS Code extensions live in one per-checkout volume mounted at
+`/home/ubuntu/.vscode-server/extensions`. Normie mounts it writable; YOLO
+mounts it read-only. Neither config asks VS Code to install extensions on
+attach. For a fresh volume, attach to normie first and run
+`bash .devcontainer/setup/install-vscode-extensions.sh` in its integrated
+terminal. This invokes VS Code's container CLI for each of the 12 workspace extensions
+and fails if any are absent from the registry. Run the same command with
+`--verify` in either mode to check without installing. Extension auto-update
+and checks are off in both configs; install or update extensions in normie. The
+UI-only PDF viewer (`tomoki1207.pdf`) is installed in host VS Code separately;
+the remote CLI refuses it because it cannot run in the container. The
+YOLO firewall has no marketplace or extension CDN entries. It filters IPs, so
+an unrelated allowed host that shares an IP can still make one reachable.
+After a VS Code update, its versioned server binary is downloaded on the host
+and transferred again; only the extension directory persists.
+
 GitHub auth is different: nothing is persisted in a volume, but VS Code's Dev
 Containers extension forwards the host's Git credentials on demand (its default,
 written into the root-owned system gitconfig). That forwarding is left on
@@ -333,13 +349,14 @@ to the other one. A normie container runs, firewall open, until it is stopped
 bring-up mentions a running normie one. Why two files and not one with a
 switch: docs/journal/0927a.
 
-The two containers share every volume. The package volumes are shared by
-design: normie writes what YOLO then runs read-only (a running R or Python
-session sees new packages after a restart). The per-checkout volumes, which
-hold `~/.claude`, `~/.codex`, the AI CLIs and shell history, are named for the
-checkout's folder name alone, not `${devcontainerId}` (which depends on the
-config file and would give each mode its own). So one login and one CLI
-install serve both modes, and **each checkout's folder name must be unique on
+The two containers share the package, auth, AI CLI and VS Code extension volumes. Normie writes
+packages that YOLO then runs read-only (a running R or Python session sees new
+packages after a restart). The per-checkout volumes hold `~/.claude`,
+`~/.codex`, the AI CLIs, shell history and VS Code extensions. They are named
+for the checkout's folder name alone, not
+`${devcontainerId}` (which depends on the config file and would give each mode
+its own). So one login and one CLI install serve both modes, and **each
+checkout's folder name must be unique on
 the Docker daemon**: a second checkout with the same name would share the
 Claude and Codex tokens and the CLIs themselves. `check-checkout.sh` enforces
 this at every start: it records the host folder in `~/.claude` the first

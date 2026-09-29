@@ -107,11 +107,14 @@ Do not edit either config file's posture settings.
   REJECTed, so they fail fast rather than hanging — suspect the firewall before
   the code. In normie mode, the container starts without these network
   restrictions. The allowlist when the firewall is on:
-  - **Packages**: npm and the VS Code marketplace (per-publisher
-    `*.gallerycdn.vsassets.io` — a new extension publisher needs a new entry
-    or its install silently fails). PyPI, P3M, CRAN, Bioconductor and CTAN
-    are deliberately **not** allowed: packages are installed in normie
-    mode, so a missing package goes to the user.
+  - **Packages**: npm. PyPI, P3M, CRAN, Bioconductor and CTAN are deliberately
+    **not** allowed: packages are installed in normie mode, so a missing
+    package goes to the user.
+  - **VS Code extensions**: install or update them in normie mode with
+    `bash .devcontainer/setup/install-vscode-extensions.sh` from a VS Code
+    terminal. YOLO mounts the shared volume read-only. Neither mode auto-installs
+    on attach; marketplace and extension CDN hosts are absent from the YOLO
+    allowlist.
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
   - **Research**: arXiv, SSRN, OpenAlex. Google's ranges are deliberately
