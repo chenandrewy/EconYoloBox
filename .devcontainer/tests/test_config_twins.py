@@ -4,9 +4,9 @@
 #          .devcontainer/normie/devcontainer.json (normie), parsed as JSONC with
 #          .devcontainer/host/dc-resolve.py's comment stripper.
 # Outputs: unittest results. Fails unless each file carries its mode's posture
-#          and the two differ in nothing else but the name, the normie: window
-#          title prefix and the paths that are relative to the file's own
-#          folder. Comments are not compared.
+#          and the two differ only in declared mode-specific behavior: name,
+#          extension installation, mount access, window title and relative
+#          build paths. Comments are not compared.
 
 import copy
 import importlib.machinery
@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 YOLO = ROOT / ".devcontainer" / "devcontainer.json"
 NORMIE = ROOT / ".devcontainer" / "normie" / "devcontainer.json"
 PACKAGE_TARGETS = ("/opt/R/", "/opt/venv", "/usr/local/texlive")
+EXTENSION_TARGET = "/home/ubuntu/.vscode-server/extensions"
 POSTURE = {
     "yolo": {"seccomp": "builtin", "readonly": "true", "internet": "firewalled"},
     "normie": {"seccomp": "unconfined", "readonly": "false", "internet": "open"},
@@ -66,7 +67,7 @@ def neutralize(config):
     config["build"]["context"] = None
     config["runArgs"] = [None if arg.startswith("--security-opt=seccomp=") else arg for arg in config["runArgs"]]
     config["mounts"] = [
-        mount.rsplit("readonly=", 1)[0] if any(f"target={t}" in mount for t in PACKAGE_TARGETS) else mount
+        mount.rsplit("readonly=", 1)[0] if any(f"target={t}" in mount for t in (*PACKAGE_TARGETS, EXTENSION_TARGET)) else mount
         for mount in config["mounts"]
     ]
     config["containerEnv"]["YOLOBOX_INTERNET"] = None
@@ -107,6 +108,19 @@ class ConfigTwinTests(unittest.TestCase):
     def test_shared_volumes_are_not_keyed_by_config(self):
         for mount in self.yolo["mounts"]:
             self.assertNotIn("devcontainerId", mount)
+
+    def test_vscode_extensions_use_one_managed_volume(self):
+        target = f"target={EXTENSION_TARGET},type=volume"
+        source = "source=${localWorkspaceFolderBasename}-vscode-extensions-managed"
+        for config, readonly in ((self.yolo, "true"), (self.normie, "false")):
+            matches = [mount for mount in config["mounts"] if target in mount]
+            self.assertEqual(matches, [f"{source},{target},readonly={readonly}"])
+            settings = config["customizations"]["vscode"]["settings"]
+            self.assertNotIn("remote.downloadExtensionsLocally", settings)
+            self.assertFalse(settings["extensions.autoUpdate"])
+            self.assertFalse(settings["extensions.autoCheckUpdates"])
+        self.assertEqual(self.yolo["customizations"]["vscode"]["extensions"], [])
+        self.assertEqual(self.normie["customizations"]["vscode"]["extensions"], [])
 
 
 if __name__ == "__main__":

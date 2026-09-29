@@ -71,9 +71,10 @@ Windows and Linux support is partially wired but has not been tested.
    Docker engine is running. Leave Docker Desktop running while using
    EconYoloBox.
 
-2. **Install the Dev Containers extension.** Open VS Code, select the Extensions
-   icon in the left sidebar, search for `Dev Containers` by Microsoft, and click
-   **Install**.
+2. **Install the host VS Code extensions.** Open VS Code and select the
+   Extensions icon in the left sidebar. Install `Dev Containers` by Microsoft.
+   If you use the PDF viewer, also install `PDF` by tomoki1207 here; it runs in
+   host VS Code, not in the container.
 
 3. **Clone EconYoloBox in VS Code.** Open the Command Palette with
    **Shift–Command–P**, select **Git: Clone**, and enter:
@@ -87,15 +88,18 @@ Windows and Linux support is partially wired but has not been tested.
 
 4. **Build and open the container.** In the cloned repository's VS Code window,
    open the Command Palette and select **Dev Containers: Reopen in Container**.
-   When VS Code asks which configuration, pick the plain one (YOLO mode); the
-   one named `(normie)` is normie mode.
+   When VS Code asks which configuration for a fresh checkout, pick the one
+   named `(normie)` to install extensions first.
 
    Wait for the first build to finish. It also installs the base R, Python
    and TeX Live stacks and, at first start, the Claude Code and Codex CLIs, so
    expect it to take a while longer than later rebuilds. VS Code reloads with
-   `Dev Container` shown in the lower-left corner when it is ready.
+   `Dev Container` shown in the lower-left corner when it is ready. In its
+   integrated terminal, run `bash .devcontainer/setup/install-vscode-extensions.sh`
+   and check that all 12 workspace extensions pass. Then reopen the plain
+   configuration for everyday YOLO mode.
 
-   The container starts in YOLO mode: firewall on, allowing only the network
+   The YOLO container starts with its firewall on, allowing only the network
    allowlist, with read-only package volumes and builtin seccomp. For open
    internet access and package installs, use normie mode: the `(normie)`
    configuration, or `ybcode --normie` with the
@@ -172,8 +176,9 @@ ybox --stop --normie   # stop the normie container
 ```
 
 Both can run at once, and neither replaces the other, so switching is instant
-and ends nothing. They share one set of volumes: logins, the AI CLIs, shell
-history and the packages normie mode installs. A normie container keeps
+and ends nothing. They share volumes for logins, the AI CLIs, shell history
+and the packages and VS Code extensions normie mode installs. YOLO mounts
+those extensions read-only. A normie container keeps
 running, firewall open, until it is stopped (or, possibly, until its last VS
 Code window closes), so every YOLO bring-up mentions a running one.
 

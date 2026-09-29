@@ -1,5 +1,5 @@
 // YOLO mode. Its twin, normie/devcontainer.json, is the same file with the
-// posture flipped (seccomp, the three package mounts' readonly, and
+// posture flipped (seccomp, the package and extension mounts' readonly,
 // YOLOBOX_INTERNET), " (normie)" on the name and "normie:" at the front of
 // window.title; tests/test_config_twins.py
 // fails on any other difference, so edit both. Each mode is its own container,
@@ -42,28 +42,11 @@
   ],
   "customizations": {
     "vscode": {
-      // New publisher here => add its <publisher>.gallerycdn.vsassets.io
-      // entry to init-firewall.sh, or the install silently fails.
-      "extensions": [
-        "anthropic.claude-code",
-        // GitHub.copilot and GitHub.copilot-chat are built into VS Code now
-        // (bundled at a newer version than the marketplace would resolve);
-        // listing them here only triggered a downgrade/rollback/retry loop on
-        // every attach - see docs/journal/0922a. Copilot still works built-in.
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-        "tamasfe.even-better-toml",
-        "tomoki1207.pdf",
-        "james-yu.latex-workshop",
-        "donjayamanne.githistory",
-        "mhutchie.git-graph",
-        "ms-python.python",
-        "ms-python.vscode-pylance",
-        "ikuyadeu.r-pack",
-        "reditorsupport.r",
-        "chenandrewy.aichatrender"
-      ],
+      // Normie installs extensions into the shared volume. YOLO only reads it.
+      "extensions": [],
       "settings": {
+        "extensions.autoUpdate": false,
+        "extensions.autoCheckUpdates": false,
         "editor.formatOnSave": true,
         "editor.defaultFormatter": "esbenp.prettier-vscode",
         "[markdown]": {
@@ -148,6 +131,8 @@
     "source=claude-code-bashhistory-${localWorkspaceFolderBasename},target=/commandhistory,type=volume",
     "source=${localWorkspaceFolderBasename}-claude-config,target=/home/ubuntu/.claude,type=volume",
     "source=${localWorkspaceFolderBasename}-codex-config,target=/home/ubuntu/.codex,type=volume",
+    // Normie owns extension installs; YOLO reads the same complete registry.
+    "source=${localWorkspaceFolderBasename}-vscode-extensions-managed,target=/home/ubuntu/.vscode-server/extensions,type=volume,readonly=true",
     // The AI CLIs live here rather than in an image layer, so that updating
     // Codex in a running container is not undone by the next rebuild (a baked
     // `@latest` layer freezes at first cache; see the Dockerfile note). Codex

@@ -51,6 +51,14 @@ if ! command -v claude >/dev/null 2>&1 || ! command -v codex >/dev/null 2>&1; th
     echo "note: AI CLIs not installed - run .devcontainer/setup/install-base.sh cli"
 fi
 
+# VS Code extensions live in the shared extension volume, installed only from
+# normie (docs/journal/0928e). A partial install is silent in the editor - a
+# missing Pylance just means an empty Outline (0720c) - so check the registry
+# in every shell. --verify only reads the volume (about 0.05s for 12).
+if ! bash /yolobox/.devcontainer/setup/install-vscode-extensions.sh --verify >/dev/null 2>&1; then
+    echo "note: VS Code extensions missing - in normie mode, from a VS Code terminal: bash .devcontainer/setup/install-vscode-extensions.sh"
+fi
+
 # Posture warning banner and prompt tag. Each mode has its own container,
 # built from its own config file (ybcode or ybcode --normie on the host), so
 # outside YOLO mode every shell warns what is loosened, and zsh's prompt

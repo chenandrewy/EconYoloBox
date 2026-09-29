@@ -10,6 +10,29 @@ tools baked into it (docs/journal/0926d).
 |---|---|---|
 | `install-base.sh` | the base: Python, R, TeX Live and the AI CLIs | in the container, normie mode; `cli` and `--verify` in any mode; `--image-build` in the Dockerfile |
 | `install-optional.sh` | the optional set | in the container, normie mode; `--verify` in any mode |
+| `install-vscode-extensions.sh` | the 12 workspace VS Code extensions | in a VS Code terminal in normie mode; `--verify` in either mode |
+
+## VS Code extensions
+
+On a fresh checkout or extension volume, open `ybcode --normie` on the host.
+In its VS Code integrated terminal, run:
+
+```sh
+bash .devcontainer/setup/install-vscode-extensions.sh
+```
+
+The script calls VS Code's `code --install-extension` CLI sequentially inside
+normie. It checks the shared volume's extension registry and directories and
+fails if one is missing. Then open `ybcode` for YOLO mode. YOLO mounts the same
+volume read-only and has no automatic extension installation. To check it
+without writing, run `bash .devcontainer/setup/install-vscode-extensions.sh
+--verify` in either mode. Both configs disable automatic extension updates;
+run the install command again in normie when updating.
+
+`tomoki1207.pdf` is a UI-only extension (`extensionKind: ["ui"]`). It runs in
+the host VS Code, not the container, and is already installed on this host.
+On a new host, install it once in local VS Code. It does not belong in the
+shared container volume or this script's registry check.
 
 Packages change only in normie mode, from inside (docs/journal/0926e). Run
 both as `ubuntu`; `install-base.sh` refuses on the host.

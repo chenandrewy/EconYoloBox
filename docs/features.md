@@ -155,7 +155,9 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   the YOLO container. Each mode is its own container from its own config
   file, so both can run, switching ends nothing, and a rebuild by `ybox` or
   VS Code keeps the mode. They share logins, the AI CLIs and the package
-  volumes. A normie container runs until stopped (`ybox --stop --normie`),
+  volumes. Normie installs VS Code extensions into a shared volume that YOLO
+  mounts read-only. A normie
+  container runs until stopped (`ybox --stop --normie`),
   and every YOLO bring-up mentions it. The mode stays in view: a red VS Code
   window, a `normie` tag in the prompt and Claude's status line, and a
   banner in every shell. The rest of
@@ -175,9 +177,8 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
 - **Research-tuned network allowlist.** When enabled, the firewall is deny-by-default and
   allows FRED, OpenAlex, arXiv, SSRN, WRDS and the Ken French data library
-  alongside npm, code hosting, and agent APIs. Google's published first-party
-  ranges are also allowed, so Google-hosted services resolve; arbitrary GCP
-  customer ranges are not. R and Python package registries are deliberately
+  alongside npm, code hosting, and agent APIs. Google's ranges are not allowed,
+  since they would also open Docs, Drive and Forms. R and Python package registries are deliberately
   blocked: the stacks are installed in normie mode, with the firewall off. CDN-fronted
   documentation hosts are added at DNS resolution time so ordinary address
   rotation does not break them.
@@ -247,7 +248,7 @@ commands.
 - **AIChatRender VS Code extension.** The transcript panel formerly bundled
   here is now maintained separately in the
   [AIChatRender repository](https://github.com/chenandrewy/aichatrender) and is
-  installed automatically from the VS Code Marketplace by this devcontainer.
+  installed with the other extensions by the normie-mode VS Code CLI command.
 
 - **Agent config and skills as code.** `agents/YOLOBOX-CLAUDE.md` holds
   shared Claude/Codex guidance; `agents/` also holds shared LyX and

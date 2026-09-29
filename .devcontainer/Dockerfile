@@ -286,8 +286,8 @@ RUN ARCH=$(dpkg --print-architecture) && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
 # Create ubuntu-owned mount point and config directories before switching users.
-RUN mkdir -p /yolobox /home/ubuntu/.claude /home/ubuntu/.codex /home/ubuntu/.config && \
-  chown -R ubuntu:ubuntu /yolobox /home/ubuntu/.claude /home/ubuntu/.codex /home/ubuntu/.config
+RUN mkdir -p /yolobox /home/ubuntu/.claude /home/ubuntu/.codex /home/ubuntu/.config /home/ubuntu/.vscode-server/extensions && \
+  chown -R ubuntu:ubuntu /yolobox /home/ubuntu/.claude /home/ubuntu/.codex /home/ubuntu/.config /home/ubuntu/.vscode-server
 
 # Set up non-root user
 USER ubuntu
