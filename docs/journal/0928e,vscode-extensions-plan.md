@@ -158,9 +158,9 @@ These checks use an existing VS Code profile, Docker installation and cached
 images. They do not establish the experience of someone starting without VS
 Code extensions or a prior container volume. Test that separately:
 
-1. Reset this Mac's VS Code data, then open a fresh checkout. Quit **all** VS
-   Code windows with Command-Q first. In Finder, use **Go > Go to Folder** for
-   each of these paths and move the folder to Trash:
+1. Reset this Mac's VS Code data and this checkout's extension volume. Quit
+   **all** VS Code windows with Command-Q first. In Finder, use **Go > Go to
+   Folder** for each of these paths and move the folder to Trash:
 
    - `~/Library/Application Support/Code` (settings, profiles and state)
    - `~/.vscode` (locally installed extensions)
@@ -171,23 +171,43 @@ Code extensions or a prior container volume. Test that separately:
    installed. Moving to Trash has the same fresh-start effect as
    deleting the folders but leaves a way to recover settings and extensions.
    Do not sign into Settings Sync during the test, or it may restore them.
-   The existing Docker extension volume is separate and is **not** reset by
-   deleting VS Code's host data, so the test also needs a checkout with a new
-   folder basename. In a **host macOS Terminal**, `cd` to the root of the
-   committed EconYoloBox checkout, then run:
+   The Docker extension volume is separate and is **not** reset by deleting
+   host VS Code data. In a **host macOS Terminal**, `cd` to the root of the
+   existing EconYoloBox checkout. Check the exact volume name and every
+   container using it:
 
    ```sh
-   test_checkout="$HOME/EconYoloBox-first-user-$(date +%Y%m%d-%H%M%S)"
-   git clone --no-hardlinks "$PWD" "$test_checkout"
-   printf 'Open this folder in VS Code: %s\n' "$test_checkout"
+   # Run: in a host Terminal, from the checkout root, after quitting VS Code.
+   # Inputs: the checkout folder name and Docker's container metadata.
+   # Outputs: the extension volume name and its attached containers.
+   extension_volume="$(basename "$PWD")-vscode-extensions-managed"
+   docker ps -a --filter "volume=$extension_volume" \
+     --format '{{.ID}} {{.Names}} {{.Status}}'
    ```
 
-   `git clone` includes committed files only. Open the printed folder through
-   VS Code's **File > Open Folder** and continue with step 2. Its unique
-   basename gives it a new
-   `${localWorkspaceFolderBasename}-vscode-extensions-managed` volume, while
-   leaving the old checkout's volume alone. Docker images and global package
-   volumes still remain shared on this Mac.
+   For the current checkout, the volume is
+   `1-SANDBOX-vscode-extensions-managed`; the listing should show only its
+   YOLO and normie containers. If other containers appear, investigate before
+   removing anything. [Docker cannot remove a volume while any container
+   references it](https://docs.docker.com/get-started/docker-concepts/running-containers/persisting-container-data/),
+   even a stopped one. After confirming the list and with VS Code closed, run
+   this in the same Terminal:
+
+   ```sh
+   # Run: in the same host Terminal after confirming the list above.
+   # Inputs: extension_volume and its attached YOLO/normie containers.
+   # Outputs: removes those containers and the named extension volume.
+   docker ps -aq --filter "volume=$extension_volume" | while IFS= read -r id; do
+     docker rm -f "$id" || break
+   done
+   docker volume rm "$extension_volume"
+   ```
+
+   This removes the two containers and only their named extension volume;
+   their other named volumes, Docker images and global package volumes remain.
+   Reopen the existing checkout in VS Code for step 2. Choosing `(normie)`
+   creates a new, empty extension volume with the same name.
+
 2. Follow the main README exactly. Install Dev Containers in the reset host VS
    Code, and install `tomoki1207.pdf` locally if the PDF viewer is wanted.
    Choose `(normie)` on first Reopen in Container, and wait for the first build
