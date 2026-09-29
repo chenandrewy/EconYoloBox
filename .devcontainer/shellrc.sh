@@ -62,10 +62,9 @@ fi
 # Posture warning banner and prompt tag. Each mode has its own container,
 # built from its own config file (ybcode or ybcode --normie on the host), so
 # outside YOLO mode every shell warns what is loosened, and zsh's prompt
-# carries a tag, so the mode stays in view. posture.sh reads the container
-# itself: the firewall-open marker post-start.sh leaves, the package mounts,
-# and PID 1's seccomp mode (PID 1, since an inner agent sandbox may add a
-# filter to the checking process).
+# carries a tag, so the mode stays in view. posture.sh checks the declared
+# container mode against the firewall marker and PID 1's seccomp mode. It also
+# reports package access for this process, which an agent sandbox may restrict.
 _ybx_posture=$(bash /yolobox/.devcontainer/posture.sh)
 _ybx_mode=${_ybx_posture%% *}
 if [ "$_ybx_mode" != yolo ]; then
@@ -79,7 +78,7 @@ if [ "$_ybx_mode" != yolo ]; then
     if [ "$_ybx_mode" = normie ]; then
         printf '%s\n' \
             "${_ybx_hi}Warning: Normie Mode${_ybx_off}" \
-            'Firewall open, package volumes writable, seccomp unconfined'
+            'Firewall open, container package volumes writable, seccomp unconfined'
     else
         printf '%s\n' \
             "${_ybx_hi}Warning: Custom Posture${_ybx_off}" \

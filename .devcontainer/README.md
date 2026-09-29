@@ -113,9 +113,10 @@ this helper. See the [package setup README](setup/README.md) for installation an
 - `check-yolo-boundaries.sh` — refuses supplied YOLO launchers unless the
   firewall is enabled and PID 1 has filtered seccomp.
 - `init-firewall.sh` — network firewall rules applied by `post-start.sh` when enabled.
-- `posture.sh` — reports the container's posture (`yolo`, `normie` or
-  `custom`) from the container itself; `package-mode.sh` reports how the
-  package volumes are mounted.
+- `posture.sh` — reports the declared container mode (`yolo` or `normie`)
+  after checking live internet and seccomp state; `custom` flags a mismatch.
+  Its `package_access` field comes from `package-mode.sh` and describes the
+  mounts visible to the calling process.
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
 - `home/` — user-level dotfiles that must survive a rebuild. The container's
   home directory is not a persisted volume, so a file placed at `~` would be
@@ -335,12 +336,17 @@ Normie mode needs `unconfined` because Codex's approval modes run commands in
 Bubblewrap, which builtin seccomp blocks (see
 [Codex sandbox modes](#codex-sandbox-modes-and-launchers)). There are only the
 two presets; `post-start.sh` reports any other combination (a container made
-before the per-mode configs, say) as a custom posture.
+before the per-mode configs, say) as a custom posture. In normie, a Codex
+command sandbox can report `package_access=readonly` while the mode remains
+`normie`; an approved escalated command can see writable mounts.
 
 The config sets seccomp in `runArgs`, `readonly` on the three package mounts,
 and `YOLOBOX_INTERNET` in `containerEnv` (read by `post-start.sh` at every
-start; anything but `open` arms the firewall). All three are fixed at
-creation. The Dev Containers tooling keys a container on its folder and config
+start; anything but `open` arms the firewall). `YOLOBOX_MODE` names the
+configured mode. `posture.sh` checks that mode against live internet and
+seccomp state while reporting package access separately. All settings are fixed
+at creation; existing containers need recreation to receive `YOLOBOX_MODE`.
+The Dev Containers tooling keys a container on its folder and config
 file, so the two containers coexist, and whatever recreates one, `ybox` or VS
 Code's own Rebuild or Reopen, recreates it from the same config, in the same
 mode. Neither container ever replaces the other: switching modes is attaching

@@ -13,12 +13,13 @@ Key features:
    - **YOLO mode** is the default. It has a firewall and filtered system calls,
      so Claude Code and Codex can run unsupervised and efficiently. Don't waste
      time or tokens approving commands. *Cook!*
-     - Is unsupervised *cooking* too scary? Adjust `.devcontainer/init-firewall.sh`. 
-       Turn off all internet, except for the model providers, if desired.
+     - Is the *cooking* too spicy? Adjust `.devcontainer/init-firewall.sh`
+       to your palate. Turn off all internet, except for the model providers, if
+       you prefer mild.
    - **Normie mode** opens a second container with open internet and
-     unfiltered system calls. Use it for work that YOLO mode blocks: browsing
-     arbitrary websites, installing packages and VS Code extensions, or trying
-     new software. Like normies, use Claude "auto mode" and Codex
+     unfiltered system calls. Use it for work blocked in YOLO mode (searching
+     arbitrary websites, installing packages and VS Code extensions, trying
+     random software). Like normies, use Claude "auto mode" and Codex
      `auto_review` for safety.
    - **The two modes share package volumes.** R, Python, TeX Live and the
      VS Code extensions each live in their own volume. Normie mode can write to

@@ -147,9 +147,11 @@
     // containerEnv becomes `docker run --env`, which
     // outranks --env-file, so setting it here would clobber the detected value.
     // Fallback if detection finds nothing: the Dockerfile's baked-in ARG TZ.
-    // Posture: read by post-start.sh at every start; anything but "open" arms
-    // the firewall. Fixed at creation like the rest of the posture.
+    // Internet and declared mode are fixed at creation. post-start.sh reads
+    // YOLOBOX_INTERNET; posture.sh uses YOLOBOX_MODE to identify the container
+    // even when a command sandbox sees the package mounts as read-only.
     "YOLOBOX_INTERNET": "firewalled",
+    "YOLOBOX_MODE": "yolo",
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "CLAUDE_CONFIG_DIR": "/home/ubuntu/.claude",
     "AI_SESH_MACHINE": "${localEnv:AI_SESH_MACHINE}",

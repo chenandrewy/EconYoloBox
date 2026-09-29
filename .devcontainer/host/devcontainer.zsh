@@ -74,11 +74,11 @@ _ybox_containers() {
 _ybox_posture() {
   local inspected
   if ! inspected=$(docker inspect "$1"); then
-    print -r -- 'custom internet=unverified packages=unverified seccomp=unverified (docker inspect failed)'
+    print -r -- 'custom internet=unverified package_access=unverified seccomp=unverified (docker inspect failed)'
     return 0
   fi
   print -r -- "$inspected" | python3 "$_DC_RESOLVE_PY" posture ||
-    print -r -- 'custom internet=unverified packages=unverified seccomp=unverified (inspection output could not be parsed)'
+    print -r -- 'custom internet=unverified package_access=unverified seccomp=unverified (inspection output could not be parsed)'
 }
 
 # _ybox_mode_name <yolo|normie|custom>
@@ -262,8 +262,8 @@ _ybox_rebuild_other() {
 # ybox --status [DIRECTORY]
 #
 # The flag picks the mode's container; no flag means YOLO:
-#   --yolo (the default)  internet=firewalled packages=readonly seccomp=builtin
-#   --normie              internet=open packages=writable seccomp=unconfined
+#   --yolo (the default)  internet=firewalled package_access=readonly seccomp=builtin
+#   --normie              internet=open package_access=writable seccomp=unconfined
 # Both containers can exist and run at once. --rebuild recreates both modes'
 # containers (the other only if it exists) and then attaches to the chosen
 # one; --stop acts on the chosen mode's container only; --status reports both.

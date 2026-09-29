@@ -20,8 +20,8 @@
 #   python3 dc-resolve.py posture
 #     Input:   `docker inspect <container>` JSON on stdin.
 #     Output:  the container's security posture, fixed at its creation:
-#              "yolo", "normie" or "custom", then internet=, packages= and
-#              seccomp= words, e.g. "yolo internet=firewalled packages=readonly
+#              "yolo", "normie" or "custom", then internet=, package_access= and
+#              seccomp= words, e.g. "yolo internet=firewalled package_access=readonly
 #              seccomp=builtin". Anything not verified reads as custom.
 #
 # Called by _dc_resolve/ybox in devcontainer.zsh; not meant to be run by hand.
@@ -179,14 +179,14 @@ def posture(src):
     if isinstance(inspected, list) and len(inspected) == 1:
         inspected = inspected[0]
     if not isinstance(inspected, dict):
-        return "custom internet=unverified packages=unverified seccomp=unverified"
+        return "custom internet=unverified package_access=unverified seccomp=unverified"
     settings = (
         internet_mode((inspected.get("Config") or {}).get("Env")),
         package_access(inspected.get("Mounts")),
         security_policy((inspected.get("HostConfig") or {}).get("SecurityOpt")),
     )
     name = next((mode for mode, preset in PRESETS.items() if preset == settings), "custom")
-    return "{} internet={} packages={} seccomp={}".format(name, *settings)
+    return "{} internet={} package_access={} seccomp={}".format(name, *settings)
 
 
 if __name__ == "__main__":

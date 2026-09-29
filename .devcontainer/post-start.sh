@@ -94,9 +94,9 @@ if ! ext_report=$(bash .devcontainer/setup/install-vscode-extensions.sh --verify
     echo "  in normie mode, from a VS Code terminal: bash .devcontainer/setup/install-vscode-extensions.sh" >&2
 fi
 
-# The posture, read from the container: internet as armed above, and the
-# package mounts and PID 1's seccomp mode as created. Only ybox's two presets
-# are named; any other combination is reported as custom.
+# The declared container mode is checked against the live internet and PID 1
+# seccomp state. Package access is reported for this process separately; it may
+# be read-only inside an additional agent sandbox even in normie mode.
 posture=$(bash .devcontainer/posture.sh)
 case "${posture%% *}" in
     yolo)

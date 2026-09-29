@@ -21,8 +21,8 @@ NORMIE = ROOT / ".devcontainer" / "normie" / "devcontainer.json"
 PACKAGE_TARGETS = ("/opt/R/", "/opt/venv", "/usr/local/texlive")
 EXTENSION_TARGET = "/home/ubuntu/.vscode-server/extensions"
 POSTURE = {
-    "yolo": {"seccomp": "builtin", "readonly": "true", "internet": "firewalled"},
-    "normie": {"seccomp": "unconfined", "readonly": "false", "internet": "open"},
+    "yolo": {"mode": "yolo", "seccomp": "builtin", "readonly": "true", "internet": "firewalled"},
+    "normie": {"mode": "normie", "seccomp": "unconfined", "readonly": "false", "internet": "open"},
 }
 
 
@@ -54,6 +54,7 @@ def posture(config):
         "seccomp": seccomp[0] if len(seccomp) == 1 else seccomp,
         "readonly": readonly.pop() if len(readonly) == 1 and len(package_mounts) == 3 else readonly,
         "internet": config["containerEnv"].get("YOLOBOX_INTERNET"),
+        "mode": config["containerEnv"].get("YOLOBOX_MODE"),
     }
 
 
@@ -71,6 +72,7 @@ def neutralize(config):
         for mount in config["mounts"]
     ]
     config["containerEnv"]["YOLOBOX_INTERNET"] = None
+    config["containerEnv"]["YOLOBOX_MODE"] = None
     return config
 
 

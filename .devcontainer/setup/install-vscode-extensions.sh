@@ -25,6 +25,7 @@ extensions=(
     ikuyadeu.r-pack
     reditorsupport.r
     chenandrewy.aichatrender
+    Catppuccin.catppuccin-vsc
 )
 
 if [[ $# -gt 1 || ( $# -eq 1 && $1 != --verify ) ]]; then
@@ -34,8 +35,13 @@ fi
 
 if [[ $# -eq 0 ]]; then
     posture=$(bash "$script_dir/../posture.sh")
-    if [[ $posture != normie\ * || ! -w $extensions_dir ]]; then
+    if [[ $posture != normie\ * ]]; then
         echo "Install extensions in normie mode, with its writable extension volume." >&2
+        exit 1
+    fi
+    if [[ ! -w $extensions_dir ]]; then
+        echo "The extension volume is not writable from this process (an agent sandbox?)." >&2
+        echo "Run this from a VS Code integrated terminal in the normie container." >&2
         exit 1
     fi
     if ! command -v code >/dev/null 2>&1; then

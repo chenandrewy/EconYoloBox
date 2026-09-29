@@ -1,7 +1,8 @@
 #!/bin/bash
 # Run:     bash .devcontainer/tests/test-posture.sh
 # Inputs:  posture.sh, check-yolo-boundaries.sh, check-checkout.sh and
-#          post-start.sh; creates temporary fixtures.
+#          post-start.sh; creates temporary fixtures. Each posture case sets
+#          YOLOBOX_MODE itself ('' stands for a container made before it).
 #          The two config files have their own test, test_config_twins.py.
 # Outputs: TAP-like pass/fail lines and a nonzero status on failure.
 set -u
@@ -23,23 +24,35 @@ printf 'Seccomp:\t9\n' >"$tmp/unexpected.status"
 touch "$tmp/open-marker"
 
 check_posture() {
-    name=$1 expected=$2
-    shift 2
-    actual=$(bash "$posture" "$@") || fail "$name exited nonzero"
+    name=$1 expected=$2 mode=$3
+    shift 3
+    actual=$(YOLOBOX_MODE="$mode" bash "$posture" "$@") || fail "$name exited nonzero"
     [ "$actual" = "$expected" ] || fail "$name: expected '$expected', got '$actual'"
     pass "$name"
 }
-check_posture 'yolo preset' 'yolo internet=firewalled packages=readonly seccomp=builtin' \
+check_posture 'yolo preset' 'yolo internet=firewalled package_access=readonly seccomp=builtin' yolo \
     "$tmp/closed-marker" "$tmp/filtered.status" readonly
-check_posture 'normie preset' 'normie internet=open packages=writable seccomp=unconfined' \
+check_posture 'normie preset' 'normie internet=open package_access=writable seccomp=unconfined' normie \
     "$tmp/open-marker" "$tmp/unfiltered.status" writable
-check_posture 'open firewall alone is custom' 'custom internet=open packages=readonly seccomp=builtin' \
+check_posture 'normie sandbox retains mode' 'normie internet=open package_access=readonly seccomp=unconfined' normie \
+    "$tmp/open-marker" "$tmp/unfiltered.status" readonly
+check_posture 'normie mixed access retains mode' 'normie internet=open package_access=mixed seccomp=unconfined' normie \
+    "$tmp/open-marker" "$tmp/unfiltered.status" 'mixed: /opt/venv writable, /usr/local/texlive readonly'
+check_posture 'older normie stays normie' 'normie internet=open package_access=writable seccomp=unconfined' '' \
+    "$tmp/open-marker" "$tmp/unfiltered.status" writable
+check_posture 'older yolo stays yolo' 'yolo internet=firewalled package_access=readonly seccomp=builtin' '' \
+    "$tmp/closed-marker" "$tmp/filtered.status" readonly
+check_posture 'older normie sandbox remains custom' 'custom internet=open package_access=readonly seccomp=unconfined' '' \
+    "$tmp/open-marker" "$tmp/unfiltered.status" readonly
+check_posture 'open firewall alone is custom' 'custom internet=open package_access=readonly seccomp=builtin' yolo \
     "$tmp/open-marker" "$tmp/filtered.status" readonly
-check_posture 'mixed package mounts are custom' 'custom internet=firewalled packages=mixed seccomp=builtin' \
+check_posture 'yolo writable packages are custom' 'custom internet=firewalled package_access=writable seccomp=builtin' yolo \
+    "$tmp/closed-marker" "$tmp/filtered.status" writable
+check_posture 'mixed yolo package mounts are custom' 'custom internet=firewalled package_access=mixed seccomp=builtin' yolo \
     "$tmp/closed-marker" "$tmp/filtered.status" 'mixed: /opt/venv writable, /usr/local/texlive readonly'
-check_posture 'unexpected seccomp mode is unverified' 'custom internet=firewalled packages=readonly seccomp=unverified' \
+check_posture 'unexpected seccomp mode is unverified' 'custom internet=firewalled package_access=readonly seccomp=unverified' yolo \
     "$tmp/closed-marker" "$tmp/unexpected.status" readonly
-check_posture 'missing PID 1 status is unverified' 'custom internet=firewalled packages=readonly seccomp=unverified' \
+check_posture 'missing PID 1 status is unverified' 'custom internet=firewalled package_access=readonly seccomp=unverified' yolo \
     "$tmp/closed-marker" "$tmp/no-status" readonly
 
 bash "$guard" test-yolo "$tmp/closed-marker" "$tmp/filtered.status" 2>"$tmp/guard.err" || fail 'filtered yolo guard should pass'
@@ -70,7 +83,7 @@ if bash "$checkout" "$tmp/checkout" /Users/me/test/1-YOLOBOX 2>"$tmp/checkout.er
 grep -q 'REFUSING' "$tmp/checkout.err" && grep -q "rm $tmp/checkout" "$tmp/checkout.err" || fail 'refusal message'
 [ "$(cat "$tmp/checkout")" = /Users/me/1-YOLOBOX ] || fail 'refusal must not rewrite the marker'
 pass 'a same-basename checkout elsewhere is refused, with the way to accept a move'
-bash "$checkout" "$tmp/checkout" '' 2>"$tmp/checkout.err" || fail 'unknown folder should not refuse'
+env -u LOCAL_CONTAINER_FOLDER bash "$checkout" "$tmp/checkout" '' 2>"$tmp/checkout.err" || fail 'unknown folder should not refuse'
 grep -q 'not checked' "$tmp/checkout.err" || fail 'unknown folder warning'
 pass 'an unknown host folder warns and is not refused'
 grep -q '^bash .devcontainer/check-checkout.sh$' "$root/.devcontainer/post-start.sh" || fail 'post-start must run the checkout guard'
