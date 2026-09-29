@@ -108,7 +108,7 @@ unset _ybx_posture _ybx_mode
 # Start Claude in the container, always under --remote-control so the session is
 # visible to `ccsessions` / `cckill` on the host. The name is derived from the
 # working directory rather than asked for, so starting a session is still one
-# word: on host "MacBook.local", /yolobox/workshop/My-Project becomes
+# word: on host "MacBook.local", /yolobox/<folder>/My-Project becomes
 # "MacBook:My-Project#1". The yolobox root itself uses the host folder's
 # name. Set CC_SESSION_NAME to override the project portion. Yolo needs no
 # flag here because the container is the blast radius — host-side launchers
@@ -118,9 +118,10 @@ unset _ybx_posture _ybx_mode
 # they refuse.
 _cc_session_name() {
     local base host n=1 running
-    # Strip the user-workshop prefix first, then the yolobox root, so both
-    # /yolobox/workshop/Foo and /yolobox/tools reduce to a short name.
-    base="${CC_SESSION_NAME:-${PWD#/yolobox/workshop}}"
+    # Strip the top-level folder first, whatever it is named, then the yolobox
+    # root, so both /yolobox/<folder>/Foo and /yolobox/tools reduce to a short
+    # name.
+    base="${CC_SESSION_NAME:-${PWD#/yolobox/*/}}"
     base="${base#/yolobox}"
     base="${base#/}"
     base="${base:-${LOCAL_CONTAINER_FOLDER##*/}}"
