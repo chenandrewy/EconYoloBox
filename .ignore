@@ -1,8 +1,6 @@
-# Keep the user workspace visible to Codex and other tools that honor
+# Keep the user folders below visible to Codex and other tools that honor
 # gitignore-style .ignore files. This negation overrides the matching entry in
 # .gitignore without changing what Git tracks.
-!/workspace/
-!/workspace/**
 !/cellar/
 !/cellar/**
 

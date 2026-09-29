@@ -10,11 +10,11 @@ Key features:
 
 1. **YOLO agents by default, with a toggle for "normie" mode**
 
-   - **YOLO mode:** open the container with `bbcode` (or `bbe` for a
+   - **YOLO mode:** open the container with `ybcode` (or `bbe` for a
      terminal); it is the default. Then run Claude Code and Codex in yolo mode
      using the convenient aliases `cchat-yolo` and `gptchat-yolo`. Cook!
-   - **Normie mode:** open it with `bbcode --normie` (or `bbe --normie`)
-     instead. Then you can work with the sandbox like a normie to do stuff
+   - **Normie mode:** open it with `ybcode --normie` (or `bbe --normie`)
+     instead. Then you can work with the yolobox like a normie to do stuff
      that requires internet access and (probably) babysitting of the agents
      (e.g. install R packages, test new software, search arbitrary websites).
      The VS Code window title starts with `normie:`, the prompt says `normie`,
@@ -24,8 +24,8 @@ Key features:
 2. **Ergonomic container and AI access**
 
    - Enter the container at a project-specific path with one command.
-   - Organize agent guidance and settings as code, with optional Dropbox
-     synchronization.
+   - Edit agent guidance in [agents/YOLOBOX-CLAUDE.md](agents/YOLOBOX-CLAUDE.md) and keep
+     settings as code, with optional Dropbox synchronization.
    - Synchronize AI chat sessions across machines via Dropbox.
 
 3. **Economics-research AI tooling**
@@ -37,14 +37,21 @@ Key features:
    - Convert PDFs to Markdown with high fidelity using a tool built on Mistral
      OCR (h/t Don Bowen).
 
-More concretely, it's a shared sandbox built around the following folders:
+More concretely, the whole checkout is bind-mounted at `/yolobox` in the
+container. The yolobox itself is these tracked folders:
 
-- `.credentials/`: credential injection mechanism
-- `.devcontainer/`: sandbox implementation
-- `.host/`: ergonomic container access
-- `.tools/`: custom AI tooling
+- `.devcontainer/`: container definitions, runtime support, host launchers,
+  provisioning, and tests
+- `agents/`: agent guidance, settings and skills; `agents/managed/` is the
+  policy baked into the image
+- `credentials/`: user-maintained credential mapping and host credential management
+- `docs/`: design notes and the feature tour
+- `tools/`: custom research tooling
 
-See [Sandbox Features](docs/features.md) for a detailed tour.
+Copy paste (or move) your working folders into the yolobox. I recommend having three folders, one for projects, one for finished projects (for reference), and one for a research library (pdfs). Add these to the .gitignore. 
+
+
+See [Yolobox Features](docs/features.md) for a detailed tour.
 
 ## Minimal setup
 
@@ -91,31 +98,31 @@ Windows and Linux support is partially wired but has not been tested.
    The container starts in YOLO mode: firewall on, allowing only the network
    allowlist, with read-only package volumes and builtin seccomp. For open
    internet access and package installs, use normie mode: the `(normie)`
-   configuration, or `bbcode --normie` with the
+   configuration, or `ybcode --normie` with the
    [host launcher](#optional-host-command-workflow).
    Normie mode also disables Docker's outer syscall filter for every
    container process; see
    [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
 
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
-   The sandbox repository is mounted at `/sandbox`; all user content goes
-   under `/sandbox/workspace/`, which `.gitignore` excludes wholesale, so the
+   The yolobox repository is mounted at `/yolobox`; all user content goes
+   under `/yolobox/workshop/`, which `.gitignore` excludes wholesale, so the
    outer EconYoloBox repository never sees your projects whatever they are
    named. Each project must therefore be its own Git repository. Projects that
-   are finished or retired move to `/sandbox/done/`, which is ignored the same
-   way; `workspace/` holds only active work.
+   are finished or retired move to `/yolobox/hangar/`, which is ignored the same
+   way; `workshop/` holds only active work.
 
    For a new project:
 
    ```bash
-   mkdir -p /sandbox/workspace/My-Project
-   git -C /sandbox/workspace/My-Project init
+   mkdir -p /yolobox/workshop/My-Project
+   git -C /yolobox/workshop/My-Project init
    ```
 
    For an existing project, clone its repository instead:
 
    ```bash
-   cd /sandbox/workspace
+   cd /yolobox/workshop
    git clone https://github.com/your-name/your-project.git My-Project
    ```
 
@@ -123,7 +130,7 @@ Windows and Linux support is partially wired but has not been tested.
    you to authenticate. Start Claude with auto mode selected:
 
    ```bash
-   cd /sandbox/workspace/My-Project
+   cd /yolobox/workshop/My-Project
    claude --permission-mode auto
    ```
 
@@ -134,7 +141,7 @@ Windows and Linux support is partially wired but has not been tested.
    Or start Codex with:
 
    ```bash
-   cd /sandbox/workspace/My-Project
+   cd /yolobox/workshop/My-Project
    codex
    ```
 
@@ -158,10 +165,10 @@ writable package volumes, `unconfined` seccomp), which is for supervised work.
 The launcher's flag picks which one to open:
 
 ```zsh
-bbcode             # the YOLO container, in VS Code (bbe: in a terminal)
-bbcode --normie    # the normie container
-bbox --status      # both containers and their modes, changing nothing
-bbox --stop --normie   # stop the normie container
+ybcode             # the YOLO container, in VS Code (bbe: in a terminal)
+ybcode --normie    # the normie container
+ybox --status      # both containers and their modes, changing nothing
+ybox --stop --normie   # stop the normie container
 ```
 
 Both can run at once, and neither replaces the other, so switching is instant
@@ -201,12 +208,12 @@ are not needed to authenticate Claude or Codex. In the Mac's Terminal, open
 your checkout root and run:
 
 ```bash
-python3 .credentials/setup.py
+python3 credentials/setup.py
 ```
 
 Press Enter to skip any service you do not use. The container receives the
 credentials as environment variables when it is created, so a container that
-already exists needs recreating to see new ones: `bbox --rebuild`, which
+already exists needs recreating to see new ones: `ybox --rebuild`, which
 recreates both modes' containers.
 
 ### Update the AI CLIs
@@ -216,7 +223,7 @@ volume, so a rebuild does not undo an update. They do not update themselves;
 to update both, in any mode:
 
 ```bash
-bash /sandbox/.setup/install-base.sh cli
+bash /yolobox/.devcontainer/setup/install-base.sh cli
 ```
 
 ### Add to the package stacks
@@ -224,36 +231,36 @@ bash /sandbox/.setup/install-base.sh cli
 R, Python and TeX Live live in shared volumes that every project mounts,
 read-only by default. The first build fills them with a lean base. For the rest
 of the usual stack, or any other package, switch to normie mode with
-`bbcode --normie` on the host. Then, in the container:
+`ybcode --normie` on the host. Then, in the container:
 
 ```bash
-bash .setup/install-optional.sh      # the rest of the usual stack
+bash .devcontainer/setup/install-optional.sh      # the rest of the usual stack
 ```
 
 or `install.packages()`, `pip install` or `tlmgr install`. Switch back to YOLO
-mode (`bbcode`, then `bbox --stop --normie`) and run
-`bash .devcontainer/tests/test-packages.sh`. See [setup](.setup/README.md) and
+mode (`ybcode`, then `ybox --stop --normie`) and run
+`bash .devcontainer/setup/tests/test-packages.sh`. See [setup](.devcontainer/setup/README.md) and
 the [devcontainer README](.devcontainer/README.md#working-modes) for the
 details.
 
 ## Optional host command workflow
 
-The general-purpose `bbox` launcher brings up the requested mode's container,
+The general-purpose `ybox` launcher brings up the requested mode's container,
 verifies it, and can open a shell or VS Code at a project path. Ensure the
 VS Code `code` CLI is installed if using `--code`. To install the launcher, run the
 following from the checkout root in a host zsh terminal:
 
 ```zsh
 npm install -g @devcontainers/cli
-bash .host/setup.sh
+bash .devcontainer/host/setup.sh
 exec zsh
-type bbox
+type ybox
 ```
 
-Run `bbox` to bring the container up, `bbcode My-Project` (`bbox --code`) to
-open a project in VS Code, or `bbe My-Project` (`bbox --shell`) to enter it in
+Run `ybox` to bring the container up, `ybcode My-Project` (`ybox --code`) to
+open a project in VS Code, or `bbe My-Project` (`ybox --shell`) to enter it in
 a terminal. Each takes `--normie` (or an explicit `--yolo`), and
-`bbox --rebuild` recreates both modes' containers after a Dockerfile or
+`ybox --rebuild` recreates both modes' containers after a Dockerfile or
 config change, then opens the chosen one. VS Code's own **Rebuild Container**
 rebuilds only the window's mode, from its configuration.
 
@@ -268,7 +275,7 @@ export TZ=America/Chicago
 
 Budget the container image (which carries a copy of the base stacks, about
 1.5GB, to seed the volumes) plus about **5.7GB of volumes** for the first
-sandbox checkout: 4.7GB of shared R, Python and TeX volumes, and 1GB of
+yolobox checkout: 4.7GB of shared R, Python and TeX volumes, and 1GB of
 per-checkout volumes (AI CLIs and their config). Each additional checkout adds
 about 1GB, since the image and the package volumes are shared.
 
@@ -280,7 +287,7 @@ to confirm that eviction is the actual problem.
 ## TeX Live setup
 
 The devcontainer uses a shared, pdfLaTeX-only TeX Live volume, read-only by
-default, which the first build fills. See [setup](.setup/README.md) for adding
+default, which the first build fills. See [setup](.devcontainer/setup/README.md) for adding
 packages and for validation.
 
 ## License

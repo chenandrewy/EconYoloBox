@@ -1,4 +1,4 @@
-# Sandbox Features
+# Yolobox Features
 
 Agents run unsupervised but bounded, the container supplies the system layer for
 economics research, and the daily workflow around all of it is short.
@@ -9,12 +9,12 @@ The container provides the outer execution boundary. The default is the YOLO
 posture: the deny-by-default egress firewall is up, the package volumes are
 read-only, and Docker's outer syscall filter (`builtin` seccomp) is on. Each
 mode is its own container, whose config file fixes its posture at creation:
-`bbcode` opens the YOLO one, `bbcode --normie` the normie one.
+`ybcode` opens the YOLO one, `ybcode --normie` the normie one.
 Explicit YOLO launchers skip permissions and refuse to start unless the
 firewall is enabled and PID 1 has filtered seccomp. Egress blocking is a hard
 boundary; an LLM reviewer is a soft one.
 
-For internet access, switch to normie mode (`bbcode --normie`: open internet,
+For internet access, switch to normie mode (`ybcode --normie`: open internet,
 writable package volumes, `unconfined` seccomp) and use Claude's
 `claude --permission-mode auto`. Its two-stage classifier skips in-project
 edits and is cheap per call. Codex's automatic review is a full model call per
@@ -45,13 +45,12 @@ granted so startup can install a default-deny egress firewall, and an agent
 running without permission prompts inside that boundary.
 
 The current configuration and the files and credentials exposed inside the
-container determine its protection. Traces of the lineage remain — the
-container user is `node`, and the shell-history volume is still named
-`claude-code-bashhistory-*`.
+container determine its protection. A trace of the lineage remains: the
+shell-history volume is still named `claude-code-bashhistory-*`.
 
 The consequence is worth stating plainly: ordinary agent preferences are not
 the boundary. The container isolates the process and the firewall bounds its
-network reach when enabled; files deliberately bind-mounted into `/sandbox`
+network reach when enabled; files deliberately bind-mounted into `/yolobox`
 remain live host files. With the firewall down, commands approved to run outside
 the inner sandbox have the container's internet access and can affect or transmit
 accessible data. Automatic review is a safeguard, not an OS-level restriction
@@ -84,10 +83,10 @@ tooling those changes exist to support is described in
 - **Startup scripts.** `postStartCommand` (`post-start.sh`) configures the firewall,
   seeds canonical agent guidance and shared skills, and checks the enforced
   agent policy. The firewall stays off only in the normie container: its
-  config hard-codes `SANDBOX_INTERNET=open` in the container's environment,
+  config hard-codes `YOLOBOX_INTERNET=open` in the container's environment,
   fixed at creation, and anything other than `open` arms. Every shell says so
   while it is off. The configs and the startup scripts are in the tracked,
-  writable workspace, and so is the host launcher, `.host/devcontainer.zsh`,
+  writable workspace, and so is the host launcher, `.devcontainer/host/devcontainer.zsh`,
   which the host's `~/.zshrc` sources straight from the checkout: an agent
   that edits them changes what the next creation, start, or host shell
   runs. They are not a security boundary against an
@@ -128,7 +127,7 @@ chosen knowing what it costs:
 - **They are fixed at creation.** Rotating or revoking one means recreating
   the container.
 
-Neither design was a boundary against the agent: anything running as `node`
+Neither design was a boundary against the agent: anything running as `ubuntu`
 could read the old file too, as it had to for WRDS queries to work. Nor does
 either stop the host user, who can always `docker exec -u root`.
 
@@ -142,21 +141,21 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   minimal pdfLaTeX TeX Live live in shared Docker volumes. The first build
   fills them with a lean base: the image carries a copy, and Docker seeds each
   empty volume from it. After that the human changes them with
-  `bash .setup/install-base.sh` from inside the container in normie mode, with
+  `bash .devcontainer/setup/install-base.sh` from inside the container in normie mode, with
   the firewall off and the volumes writable, and every project mounts them
   read-only by default. Agents run the stacks but cannot
   change them. Packages change only in normie mode, from inside.
 
-- **Two working modes, two containers.** YOLO mode, the default (`bbcode`,
+- **Two working modes, two containers.** YOLO mode, the default (`ybcode`,
   `bbe`), is firewalled, read-only and builtin: agents run unsupervised.
-  Normie mode (`bbcode --normie`, `bbe --normie`) is open, writable and
+  Normie mode (`ybcode --normie`, `bbe --normie`) is open, writable and
   unconfined: supervised work that feels like the Mac, with agents in
   approval modes. There the user installs with the ordinary
   `install.packages()`, `pip install` and `tlmgr install`, then goes back to
   the YOLO container. Each mode is its own container from its own config
-  file, so both can run, switching ends nothing, and a rebuild by `bbox` or
+  file, so both can run, switching ends nothing, and a rebuild by `ybox` or
   VS Code keeps the mode. They share logins, the AI CLIs and the package
-  volumes. A normie container runs until stopped (`bbox --stop --normie`),
+  volumes. A normie container runs until stopped (`ybox --stop --normie`),
   and every YOLO bring-up mentions it. The mode stays in view: a red VS Code
   window, a `normie` tag in the prompt and Claude's status line, and a
   banner in every shell. The rest of
@@ -193,17 +192,17 @@ workable should each be one step.
 
 | Location | Commands |
 | --- | --- |
-| `.host/devcontainer.zsh` (host shell) | `bbox` (`bbu`, `bbe`, and `bbcode` are short wrappers) |
+| `.devcontainer/host/devcontainer.zsh` (host shell) | `ybox` (`bbu`, `bbe`, and `ybcode` are short wrappers) |
 | `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
-| `.tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork` |
-| `.tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
-| `.tools/latex/` | `sync-lyx.sh` |
-| `.tools/lit/` | `cited_by.py` |
-| `.devcontainer/agents/` | `seed-agent-guidelines.sh` (runs at container start) |
-| `.devcontainer/` | `test-firewall.sh`, `test-agent-policy.sh` |
-| `.setup/` (container; normie mode except `cli`, `--verify`) | `install-base.sh`, `install-optional.sh` |
+| `tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork` |
+| `tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
+| `tools/latex/` | `sync-lyx.sh` |
+| `tools/lit/` | `cited_by.py` |
+| `agents/` | `seed-agent-guidelines.sh` (runs at container start) |
+| `.devcontainer/tests/` | `test-firewall.sh`, `test-agent-policy.sh` (also installed on PATH) |
+| `.devcontainer/setup/` (container; normie mode except `cli`, `--verify`) | `install-base.sh`, `install-optional.sh` |
 
-Everything in `.tools/` is on `PATH` via `shellrc.sh`, so the filenames are the
+Everything in `tools/` is on `PATH` via `shellrc.sh`, so the filenames are the
 commands.
 
 ### Documents and literature
@@ -219,24 +218,24 @@ commands.
 
 ### Containers, sessions, and agents
 
-- **One-command project opening (`.host/`).** Source `devcontainer.zsh` in your
-  `~/.zshrc` and use `bbcode [dir]` to bring up the enclosing YOLO container
-  (or `bbcode --normie [dir]` for the normie one), verify its posture, and
+- **One-command project opening (`.devcontainer/host/`).** Source `devcontainer.zsh` in your
+  `~/.zshrc` and use `ybcode [dir]` to bring up the enclosing YOLO container
+  (or `ybcode --normie [dir]` for the normie one), verify its posture, and
   open that exact subfolder in VS Code. `bbe [dir]` follows the same bring-up
-  path and enters zsh; `bbox --status` reports both containers. VS Code's own
+  path and enters zsh; `ybox --status` reports both containers. VS Code's own
   Reopen in Container remains the minimal everyday path; it offers both
   configs.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered
-  (`My-Project#1`), so `bbox --shell <dir>` then `cchat-yolo` is the whole
+  (`My-Project#1`), so `ybox --shell <dir>` then `cchat-yolo` is the whole
   workflow and every session is identifiable without being named by hand.
 
 - **Fleet control.** Every session starts under `--remote-control`, so host-side
   tooling can list sessions across all running containers and terminate them in
   one command. Running many agents at once stays tractable. Note that the
   launchers themselves (`ccsessions`, `cckill`, `cc-remote-*`) are personal
-  machine-level configuration and are **not shipped here** — see `.host/README.md`.
+  machine-level configuration and are **not shipped here** — see `.devcontainer/host/README.md`.
   What this repo provides is the half that makes them possible: every session
   remote-controlled and deterministically named.
 
@@ -250,20 +249,18 @@ commands.
   [AIChatRender repository](https://github.com/chenandrewy/aichatrender) and is
   installed automatically from the VS Code Marketplace by this devcontainer.
 
-- **Agent config and skills as code (`.devcontainer/agents/`).** The single
-  source of truth for Claude/Codex guidance, shared LyX and PDF-bookmark skills,
-  and settings is re-seeded on every container start. Guidance and skills are
-  symlinked so edits apply live; writable settings are copied so drift resets to
-  canonical. Separately, root-owned managed policy files enforce the connector
-  and plugin restrictions described above. Preferences such as model, effort
-  level, statusline, and remote control remain workflow defaults, not a security
-  mechanism.
+- **Agent config and skills as code.** `agents/YOLOBOX-CLAUDE.md` holds
+  shared Claude/Codex guidance; `agents/` also holds shared LyX and
+  PDF-bookmark skills and settings, all re-seeded on every container start.
+  Guidance and skills are symlinked so edits apply live; writable settings are
+  copied so drift resets to canonical. Separately, root-owned managed policy
+  files, baked from `agents/managed/`, enforce the connector and plugin restrictions described above.
 
 - **Host-aware workspace settings.** Startup captures a stable host name and
-  the host time zone (overridable in `SANDBOX.toml`), and `SANDBOX.toml` also
-  provides agent-visible paths for the research library and macOS screenshots. That lets agents resolve
-  phrases such as “this screenshot” without clipboard access and use the right
-  zone for human-facing timestamps.
+  the host time zone. `agents/YOLOBOX-CLAUDE.md` provides agent-visible paths for the
+  research library and macOS screenshots. That lets agents resolve phrases
+  such as “this screenshot” without clipboard access and use the right zone
+  for human-facing timestamps.
 
 - **Persistent agent auth.** Named volumes keep Claude and Codex login state
   across rebuilds, shared by both modes' containers, so one login serves

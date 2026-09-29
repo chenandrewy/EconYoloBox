@@ -1,0 +1,17 @@
+#compdef ybcode
+# Run:     source .devcontainer/host/_ybcode after zsh completion initialization.
+# Inputs:  the current ybcode command line only.
+# Outputs: the _ybcode completion function and, when available, its compdef binding.
+
+_ybcode() {
+  _arguments -s \
+    '(--normie)--yolo[use the YOLO container (the default)]' \
+    '(--yolo)--normie[use the normie container]' \
+    '(--rebuild-without-cache)--rebuild[recreate both modes'"'"' containers using the Docker build cache]' \
+    '(--rebuild)--rebuild-without-cache[recreate both modes'"'"' containers without the Docker build cache]' \
+    ':directory:_directories'
+}
+
+if (( $+functions[compdef] )); then
+  compdef _ybcode ybcode
+fi

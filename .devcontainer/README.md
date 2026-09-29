@@ -1,10 +1,13 @@
 # Dev Container & Credentials
 
-Both `.devcontainer/` and `.credentials/` are designed to be copied across projects.
+`.devcontainer/` holds the environment implementation, including host launchers,
+provisioning, and tests. User-maintained agent configuration and credential
+management stay visible at the repository root in `agents/` and `credentials/`.
+Copy these directories together when adapting the environment to another project.
 
 This file documents how the pieces work.
 
-## Credentials (`.credentials/`)
+## Credentials (`credentials/`)
 
 Credentials are resolved in two ways, in order:
 
@@ -42,7 +45,7 @@ Edit `credentials-map.json`:
 Keys are credential store entry names; values are the env var names scripts will use. `setup.py` automatically groups prompts by the first segment of the key (e.g. `wrds-username` and `wrds-password` are grouped under "WRDS").
 
 After changing credentials on the host, recreate the containers
-(`bbox --rebuild`, which recreates both modes' containers):
+(`ybox --rebuild`, which recreates both modes' containers):
 `initializeCommand` rewrites the env file from the host store, and Docker
 reads it only when it creates a container. Revoking access likewise means
 recreating them; emptying the file no longer does it.
@@ -50,13 +53,31 @@ recreating them; emptying the file no longer does it.
 ## Dev Container (`.devcontainer/`)
 
 `.devcontainer/` is the container itself: its definition, its startup, and the
-tools baked into it. `.host/` is the launcher (`bbox`), and
-[`.setup/`](../.setup/README.md) is provisioning you run by hand, in the
+tools baked into it. `.devcontainer/host/` is the launcher (`ybox`), and
+[`.devcontainer/setup/`](setup/README.md) is provisioning you run by hand, in the
 container: the package volumes and the AI CLIs.
+
+The checkout mounts at `/yolobox` inside both containers. The host checkout
+folder can keep its existing name. When changing an existing installation from
+the former `/sandbox` mount, close attached VS Code windows and run
+`ybox --rebuild` on the host. The launcher recreates both modes if both exist;
+an old container cannot be reused with the new working directory. Open a fresh
+shell afterward so `sesh-init` can update the home-directory session links.
+Stored session transcripts may still mention the old path as historical data.
+
+### Updating an existing checkout after the directory reorganization
+
+Host support and provisioning moved from `infra/` into `host/` and `setup/`
+inside `.devcontainer/`; credential management moved to root `credentials/`.
+From the checkout root on the host, rerun `bash .devcontainer/host/setup.sh`,
+then open a new shell (or run `exec zsh`) to load the new launcher registration.
+Setup migrates earlier registrations while preserving unrelated shell settings.
+Run `ybox --rebuild` to recreate the containers with the updated initialization
+commands and image scripts. Existing package and authentication volumes are kept.
 
 ### TeX Live and LyX
 
-TeX Live 2026 is installed with `bash .setup/install-base.sh tex` in the
+TeX Live 2026 is installed with `bash .devcontainer/setup/install-base.sh tex` in the
 container, **in normie mode**, using upstream `install-tl`. It is minimal and pdfLaTeX-only. The base is
 `scheme-small` without XeTeX, plus bibtexextra (biblatex, biber), latexindent,
 latexmk and cm-super; `install-optional.sh` adds latexextra, fontsrecommended,
@@ -67,13 +88,13 @@ in the writable home directory. Packages are added with `tlmgr install` in
 normie mode, or by listing them in `TEX_PKGS` and rerunning the builder;
 existing packages are never updated in place.
 
-`tex-refresh` runs LyX converter detection as `node` in `~/.lyx` at startup,
+`tex-refresh` runs LyX converter detection as `ubuntu` in `~/.lyx` at startup,
 after the firewall configuration step. A missing installation warns without
 preventing other container use. If TeX is installed after startup, run
 `tex-refresh` manually in each consumer and reopen any already-running LyX.
 The user configuration is not persisted across container recreation, so it
 is regenerated at startup. Custom LyX `-userdir` locations are not managed by
-this helper. See the host setup README for installation and failure handling.
+this helper. See the [package setup README](setup/README.md) for installation and failure handling.
 
 ### Configuration files
 
@@ -96,7 +117,6 @@ this helper. See the host setup README for installation and failure handling.
   `custom`) from the container itself; `package-mode.sh` reports how the
   package volumes are mounted.
 - `shellrc.sh` — interactive shell setup for the container environment, including workspace-local `PATH` additions, aliases, and functions.
-- `agents/` — canonical agent guidance and settings, applied to the container's user-level config on every start (see "Agent Config" below).
 - `home/` — user-level dotfiles that must survive a rebuild. The container's
   home directory is not a persisted volume, so a file placed at `~` would be
   wiped; these live in the tracked repo instead and are pointed at by
@@ -105,7 +125,7 @@ this helper. See the host setup README for installation and failure handling.
 
 ### Hostname and Claude session names
 
-`write-local-env.sh` captures the host's name as `LOCAL_HOSTNAME` when the
+`host/write-local-env.sh` captures the host's name as `LOCAL_HOSTNAME` when the
 container initializes. The `hostname-local` alias prints that value inside the
 container. `cchat-yolo` uses it, without the routine `.local` suffix, to prefix
 Claude Code remote-control session names so sessions from different computers
@@ -121,7 +141,7 @@ Because the name appears in every session, a short one is worth setting.
 
 Docker's outer seccomp policy is part of each mode's config: `builtin` in the
 YOLO container (the default), `unconfined` in the normie container
-(`bbcode --normie`). Codex's sandboxed modes need `unconfined`,
+(`ybcode --normie`). Codex's sandboxed modes need `unconfined`,
 because builtin seccomp blocks Bubblewrap setup here and
 automatic review did not provide reliable recovery for all native tools.
 Validation after container recreation is still required; the mode alone is
@@ -136,7 +156,7 @@ runtime mode check, not proof of Docker's exact builtin profile.
 See [Docker's seccomp documentation](https://docs.docker.com/engine/security/seccomp/).
 
 Changing mode means using the other container, not changing this one; each
-keeps its seccomp policy for life. `bbox` inspects the exact container
+keeps its seccomp policy for life. `ybox` inspects the exact container
 returned by `devcontainer up` and stops before attachment if its posture is
 not its config's. VS Code's **Rebuild Container** rebuilds from the window's
 config, so it keeps the mode.
@@ -163,24 +183,12 @@ networking does not necessarily resolve bubblewrap's namespace setup failure.
 Use standard `codex` for everyday work. Select a model with `/model` or
 `codex --model <model>`; separate chat and mini wrappers are unnecessary.
 
-A bare `codex` defaults to requesting sandboxing: `/etc/codex/config.toml` (from
-`agents/SANDBOX-codex-config.toml`) sets `approval_policy`/`sandbox_mode` to the
-on-request/workspace-write defaults. User configuration can override them.
-These two settings alone do not select automatic review.
-
-We recommend "Approve for me". Set the following at the top level of your
-`~/.codex/config.toml`, before any table headers (update existing keys rather
-than adding duplicates):
-
-```toml
-approval_policy = "on-request"
-sandbox_mode = "workspace-write"
-approvals_reviewer = "auto_review"
-```
-
-Then launch `codex` normally. Automatic review remains a user preference; the
-container does not enforce it or rewrite your user config. For a single session,
-use `codex --approve-for-me` (available in the inspected CLI 0.154.0).
+A bare `codex` requests "Approve for me": `/etc/codex/config.toml` (from
+`agents/managed/YOLOBOX-codex-config.toml`) sets `approval_policy = "on-request"`,
+`sandbox_mode = "workspace-write"`, and `approvals_reviewer = "auto_review"`.
+User configuration can override these defaults. The container does not rewrite
+your user config. For a single session, use `codex --approve-for-me` (available
+in the inspected CLI 0.154.0).
 
 The explicit `gptchat-yolo` / `gptmini-yolo` wrappers remain in `shellrc.sh`.
 They use `--dangerously-bypass-approvals-and-sandbox`. Along with `cchat-yolo`,
@@ -197,7 +205,7 @@ absolute path through an escalated shell worked in one session. The native
 editing tool still failed. These tool-specific recovery paths are not a reliable
 substitute for a working sandbox; this prompted the switch to unconfined.
 
-**Validation after recreation.** Run these harmless probes as `node`:
+**Validation after recreation.** Run these harmless probes as `ubuntu`:
 
 ```bash
 bwrap --unshare-user --ro-bind / / /bin/true
@@ -211,7 +219,7 @@ Then start a normal Codex workspace-write session and verify:
   inside the workspace without an escalated shell fallback.
 - A workspace write succeeds, while a write to a disposable, user-owned test
   location outside all writable roots is denied without escalation. Verify the
-  location is writable by `node` outside the sandbox so the check tests sandbox
+  location is writable by `ubuntu` outside the sandbox so the check tests sandbox
   enforcement rather than ordinary Unix permissions.
 - Command networking matches the chosen policy: default workspace-write stays
   offline; explicitly enabled networking can reach an intended public endpoint,
@@ -238,8 +246,8 @@ documentation.
 
 The template mounts persistent volumes for:
 
-- `/home/node/.claude` — Claude auth and config
-- `/home/node/.codex` — Codex auth and config
+- `/home/ubuntu/.claude` — Claude auth and config
+- `/home/ubuntu/.codex` — Codex auth and config
 
 This keeps interactive login state across container rebuilds and restarts.
 Both modes' containers mount the same volumes, so one login serves both.
@@ -258,26 +266,26 @@ it:
 "dev.containers.gitCredentialHelperConfigLocation": "none"
 ```
 
-### Agent Config (`agents/`)
+### Agent Config
 
-`.devcontainer/agents/` is the single source of truth for agent config and
-managed agent policy inside the container:
+All agent configuration lives in `agents/` at the repository root:
 
-- `SANDBOX-CLAUDE.md` — canonical agent guidance
-- `SANDBOX-AGENTS.md` — symlink to `SANDBOX-CLAUDE.md`; kept separate so Codex-specific guidance can diverge later
-- `SANDBOX-claude-settings.json` — canonical user-level Claude Code settings
-- `SANDBOX-claude-statusline.sh` — status line script referenced by the settings
-- `SANDBOX-claude-managed-settings.json` — system-enforced Claude Code policy, baked to `/etc/claude-code/managed-settings.json`
-- `SANDBOX-codex-config.toml` — stable Codex defaults, baked to `/etc/codex/config.toml`
-- `SANDBOX-codex-requirements.toml` — system-enforced Codex Apps and Plugins policy, baked to `/etc/codex/requirements.toml`
+- `YOLOBOX-CLAUDE.md` — the editable source for shared Claude and Codex guidance
+- `YOLOBOX-AGENTS.md` — a symlink to it, kept separate so Codex-specific guidance can diverge later
+- `YOLOBOX-claude-settings.json` — canonical user-level Claude Code settings
+- `YOLOBOX-claude-statusline.sh` — status line script referenced by the settings
 - `skills/` — canonical shared Agent Skills, linked into both Claude Code and Codex user-level skill directories
 - `seed-agent-guidelines.sh` — applies the user-level guidance and Claude settings on every container start (`postStartCommand`)
+- `managed/` — files baked into the image:
+  - `YOLOBOX-claude-managed-settings.json` — system-enforced Claude Code policy, baked to `/etc/claude-code/managed-settings.json`
+  - `YOLOBOX-codex-config.toml` — stable Codex defaults, baked to `/etc/codex/config.toml`
+  - `YOLOBOX-codex-requirements.toml` — system-enforced Codex Apps and Plugins policy, baked to `/etc/codex/requirements.toml`
 
-The three baked system files are **not** handled by the seed script. They are
+The three `managed/` files are **not** handled by the seed script. They are
 `COPY`ed into the image as root-owned `0444`, so changing one requires a
 rebuild. The Codex system config provides stable, user-overridable defaults;
 the two policy files enforce settings that user config cannot override.
-`../.devcontainer/test-agent-policy.sh` verifies that the default is installed
+`.devcontainer/tests/test-agent-policy.sh` verifies that the default is installed
 and that the policies are actually in force.
 
 The seed script handles guidance and settings differently:
@@ -286,28 +294,26 @@ The seed script handles guidance and settings differently:
 - Shared skills are **symlinked individually** into `~/.claude/skills/` and
   `~/.agents/skills/`. This keeps one portable source while preserving unrelated
   personal skills in either directory.
-- Settings are **copied** to `~/.claude/settings.json`, not symlinked, because Claude Code writes to its settings file (`/config`, `/model`, permission grants). Those writes land in the volume copy and are overwritten by the canonical file on the next container start. To keep a setting permanently, put it in `SANDBOX-claude-settings.json`.
-- Codex's `~/.codex/config.toml` remains node-owned and volatile because it
+- Settings are **copied** to `~/.claude/settings.json`, not symlinked, because Claude Code writes to its settings file (`/config`, `/model`, permission grants). Those writes land in the volume copy and are overwritten by the canonical file on the next container start. To keep a setting permanently, put it in `YOLOBOX-claude-settings.json`.
+- Codex's `~/.codex/config.toml` remains ubuntu-owned and volatile because it
   mixes model choices, project trust, and other runtime state. Stable defaults
-  belong in `SANDBOX-codex-config.toml`; user config has higher precedence.
+  belong in `YOLOBOX-codex-config.toml`; user config has higher precedence.
 
-User-specific settings live in the root-level `SANDBOX.toml`: `timezone`
-(IANA zone; comment out to use the detected host zone), `cellar` (the research
-library), `done` (finished and retired projects), and `screenshot_directory`. Paths are container paths. Agents read path settings
-directly, so path edits take effect immediately.
-`timezone` becomes `TZ` at create time, so it needs a
-rebuild. Settings are read with `sandbox-setting.sh`, a `sed` over flat `key = "value"`
-/ `key = true|false` lines rather than a TOML parser.
+Agent-visible paths for the research library, finished and retired projects,
+and screenshots live under **Key Paths** in `agents/YOLOBOX-CLAUDE.md`.
+Guidance is symlinked, so path edits require no container restart. The host
+time zone is detected separately when the container is created (see
+[Timezone](#timezone)).
 
 ### Working modes
 
-The security posture is not in `SANDBOX.toml`. Each mode is its own
-container, built from its own config file, which hard-codes the posture:
+Each mode is its own container, built from its own config file, which
+hard-codes the security posture:
 
 | Mode | Config | Launch | Internet | Package volumes | Seccomp | Use |
 |---|---|---|---|---|---|---|
-| YOLO mode (default) | `devcontainer.json` | `bbcode`, `bbe` | firewalled | read-only | `builtin` | everyday work; YOLO launchers allowed; agents ask when a package is missing |
-| Normie mode | `normie/devcontainer.json` | `bbcode --normie`, `bbe --normie` | open | writable | `unconfined` | supervised work, like the Mac: open web, package installs, agents in approval modes |
+| YOLO mode (default) | `devcontainer.json` | `ybcode`, `bbe` | firewalled | read-only | `builtin` | everyday work; YOLO launchers allowed; agents ask when a package is missing |
+| Normie mode | `normie/devcontainer.json` | `ybcode --normie`, `bbe --normie` | open | writable | `unconfined` | supervised work, like the Mac: open web, package installs, agents in approval modes |
 
 Normie mode needs `unconfined` because Codex's approval modes run commands in
 Bubblewrap, which builtin seccomp blocks (see
@@ -316,14 +322,14 @@ two presets; `post-start.sh` reports any other combination (a container made
 before the per-mode configs, say) as a custom posture.
 
 The config sets seccomp in `runArgs`, `readonly` on the three package mounts,
-and `SANDBOX_INTERNET` in `containerEnv` (read by `post-start.sh` at every
+and `YOLOBOX_INTERNET` in `containerEnv` (read by `post-start.sh` at every
 start; anything but `open` arms the firewall). All three are fixed at
 creation. The Dev Containers tooling keys a container on its folder and config
-file, so the two containers coexist, and whatever recreates one, `bbox` or VS
+file, so the two containers coexist, and whatever recreates one, `ybox` or VS
 Code's own Rebuild or Reopen, recreates it from the same config, in the same
 mode. Neither container ever replaces the other: switching modes is attaching
 to the other one. A normie container runs, firewall open, until it is stopped
-(`bbox --stop --normie`); `bbox --status` lists both, and every YOLO
+(`ybox --stop --normie`); `ybox --status` lists both, and every YOLO
 bring-up mentions a running normie one. Why two files and not one with a
 switch: docs/journal/0927a.
 
@@ -346,26 +352,26 @@ spelling out the loosened boundaries, the zsh prompt and Claude's status line
 lead with a `normie` (or `custom`) tag, and the VS Code window title starts
 with `normie:`, set by `window.title` in `normie/devcontainer.json`.
 
-In normie mode, install as `node` with the ordinary commands:
+In normie mode, install as `ubuntu` with the ordinary commands:
 `install.packages()` writes to the shared site library, `pip install` to
 `/opt/venv`, and `tlmgr install` to the TeX tree (then run `tex-refresh`).
-The image seeds the volumes `node`-owned, so no sudo is needed. pip
+The image seeds the volumes `ubuntu`-owned, so no sudo is needed. pip
 resolves against current PyPI and can replace dependencies, one reason the mode
 is supervised. Agents install in normie mode only when the user asks.
-`.setup/install-base.sh` installs the base this way, and
-`.setup/install-optional.sh` the optional set;
-`install-optional.sh --verify` and `tests/test-optional.sh` check it in any
+`.devcontainer/setup/install-base.sh` installs the base this way, and
+`.devcontainer/setup/install-optional.sh` the optional set;
+`install-optional.sh --verify` and `setup/tests/test-optional.sh` check it in any
 mode.
 
-### Package stacks and AI CLIs (`.setup/install-base.sh`)
+### Package stacks and AI CLIs (`.devcontainer/setup/install-base.sh`)
 
 The R, Python and TeX stacks live in three shared Docker volumes. The image
 carries a copy of the lean base only to seed them: its build runs
 `install-base.sh --image-build`, and Docker copies the image's directory into
 each volume the first time an empty one is mounted (docs/journal/0926f). After
 that the human changes the base in normie mode with
-`bash .setup/install-base.sh` (see the [setup README](../.setup/README.md)),
-and optionally adds the rest with `.setup/install-optional.sh`.
+`bash .devcontainer/setup/install-base.sh` (see the [setup README](setup/README.md)),
+and optionally adds the rest with `.devcontainer/setup/install-optional.sh`.
 The YOLO container mounts them read-only and the normie container writable:
 
 | Volume | Mount |
@@ -394,7 +400,7 @@ System dependencies that need root (`gfortran`, `libcurl4-openssl-dev`,
 the volume a new name, rebuild the container in normie mode, then fill it.
 
 The Claude Code and Codex CLIs are part of the base, installed into a writable
-per-container volume by the same script, `bash .setup/install-base.sh cli`,
+per-container volume by the same script, `bash .devcontainer/setup/install-base.sh cli`,
 which works in any mode. `post-start.sh` runs it at startup while either CLI
 is missing, so a fresh volume fills itself. They were a Dockerfile layer pinned to
 `@latest`, which turned out to mean "whatever was current the day the layer
@@ -408,12 +414,12 @@ while either CLI is missing. The npm-managed CLIs should not be assumed to
 self-update; re-run `install-base.sh cli` to update both to their current
 releases.
 
-`tests/test-packages.sh`, run as `node` in a rebuilt container, is the
+`setup/tests/test-packages.sh`, run as `ubuntu` in a rebuilt container, is the
 acceptance check for the base. It covers mounts that match `packages`, the
 declared base stacks, every installed R package loading, a `fixest`
 regression, refused installs of absent packages (read-only mode), and pdflatex,
 biber, latexindent, latexmk and LyX export. It passes without the optional
-set; `tests/test-optional.sh` checks that set separately.
+set; `setup/tests/test-optional.sh` checks that set separately.
 
 ### Dockerfile ordering
 
@@ -427,9 +433,8 @@ In practice, large system installs, source builds, and language package installs
 
 ### Timezone
 
-`SANDBOX.toml`'s `timezone` wins if set. Otherwise the container matches your
-host's timezone: `write-local-env.sh` detects it at `initializeCommand` time —
-`$TZ` if exported, else `timedatectl`,
+The container matches your host's timezone: `write-local-env.sh` detects it at
+`initializeCommand` time — `$TZ` if exported, else `timedatectl`,
 else the target of the `/etc/localtime` symlink (which is how macOS and desktop
 Linux actually record it) — and passes it in via `--env-file`.
 

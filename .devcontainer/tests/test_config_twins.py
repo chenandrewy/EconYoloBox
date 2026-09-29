@@ -2,7 +2,7 @@
 # Run:     python3 .devcontainer/tests/test_config_twins.py
 # Inputs:  .devcontainer/devcontainer.json (YOLO) and
 #          .devcontainer/normie/devcontainer.json (normie), parsed as JSONC with
-#          .host/dc-resolve.py's comment stripper.
+#          .devcontainer/host/dc-resolve.py's comment stripper.
 # Outputs: unittest results. Fails unless each file carries its mode's posture
 #          and the two differ in nothing else but the name, the normie: window
 #          title prefix and the paths that are relative to the file's own
@@ -26,7 +26,7 @@ POSTURE = {
 
 
 def load_resolver():
-    path = ROOT / ".host" / "dc-resolve.py"
+    path = ROOT / ".devcontainer" / "host" / "dc-resolve.py"
     loader = importlib.machinery.SourceFileLoader("dc_resolve_under_test", str(path))
     spec = importlib.util.spec_from_loader("dc_resolve_under_test", loader)
     module = importlib.util.module_from_spec(spec)
@@ -52,7 +52,7 @@ def posture(config):
     return {
         "seccomp": seccomp[0] if len(seccomp) == 1 else seccomp,
         "readonly": readonly.pop() if len(readonly) == 1 and len(package_mounts) == 3 else readonly,
-        "internet": config["containerEnv"].get("SANDBOX_INTERNET"),
+        "internet": config["containerEnv"].get("YOLOBOX_INTERNET"),
     }
 
 
@@ -69,7 +69,7 @@ def neutralize(config):
         mount.rsplit("readonly=", 1)[0] if any(f"target={t}" in mount for t in PACKAGE_TARGETS) else mount
         for mount in config["mounts"]
     ]
-    config["containerEnv"]["SANDBOX_INTERNET"] = None
+    config["containerEnv"]["YOLOBOX_INTERNET"] = None
     return config
 
 
@@ -84,7 +84,9 @@ class ConfigTwinTests(unittest.TestCase):
 
     def test_no_posture_comes_from_the_host_environment(self):
         for path in (YOLO, NORMIE):
-            self.assertNotIn("localEnv:SANDBOX_", path.read_text(encoding="utf-8"), path)
+            text = path.read_text(encoding="utf-8")
+            self.assertNotIn("localEnv:YOLOBOX_", text, path)
+            self.assertNotIn("localEnv:SANDBOX_", text, path)
 
     def test_names_tell_the_modes_apart(self):
         self.assertEqual(self.normie["name"], self.yolo["name"] + " (normie)")

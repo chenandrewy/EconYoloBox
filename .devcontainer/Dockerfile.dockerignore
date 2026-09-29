@@ -1,9 +1,24 @@
 # The build context is the repository root (devcontainer.json build.context),
-# so that the image can install the base with .setup/install-base.sh
+# so that the image can install the base with .devcontainer/setup/install-base.sh
 # (docs/journal/0926f). BuildKit reads this file in place of a root
 # .dockerignore because it sits beside the Dockerfile with its name.
-# Everything is excluded except what the Dockerfile uses; workspace/, cellar/
-# and done/ are research data and must never reach the daemon.
+# Everything is excluded except what the Dockerfile uses; user content
+# must never reach the daemon.
 *
 !.devcontainer/
-!.setup/install-base.sh
+.devcontainer/*
+!.devcontainer/tex-refresh.sh
+!.devcontainer/init-firewall.sh
+!.devcontainer/setup/
+.devcontainer/setup/*
+!.devcontainer/setup/install-base.sh
+!.devcontainer/tests/
+.devcontainer/tests/*
+!.devcontainer/tests/test-agent-policy.sh
+!agents/
+agents/*
+!agents/managed/
+agents/managed/*
+!agents/managed/YOLOBOX-claude-managed-settings.json
+!agents/managed/YOLOBOX-codex-config.toml
+!agents/managed/YOLOBOX-codex-requirements.toml

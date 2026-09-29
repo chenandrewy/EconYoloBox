@@ -8,7 +8,7 @@
 #          A path that is not a mount point counts as writable, since the
 #          container can write it (into its disposable image layer).
 #
-# The live mounts, fixed at container creation by bbox (--normie: writable).
+# The live mounts, fixed at container creation by ybox (--normie: writable).
 
 site_library=$(find /opt/R -mindepth 4 -maxdepth 4 -type d -path '*/lib/R/site-library' -print -quit 2>/dev/null)
 modes=()

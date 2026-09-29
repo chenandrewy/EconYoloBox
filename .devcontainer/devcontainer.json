@@ -1,6 +1,6 @@
 // YOLO mode. Its twin, normie/devcontainer.json, is the same file with the
 // posture flipped (seccomp, the three package mounts' readonly, and
-// SANDBOX_INTERNET), " (normie)" on the name and "normie:" at the front of
+// YOLOBOX_INTERNET), " (normie)" on the name and "normie:" at the front of
 // window.title; tests/test_config_twins.py
 // fails on any other difference, so edit both. Each mode is its own container,
 // keyed by its config file, so neither replaces the other (docs/journal/0927a).
@@ -9,9 +9,9 @@
   "build": {
     "dockerfile": "Dockerfile",
     // The repository root, so the image can install the base with
-    // .setup/install-base.sh (docs/journal/0926f). Dockerfile.dockerignore
-    // passes only .devcontainer/ and that script, so workspace/, cellar/ and
-    // done/ never reach the daemon.
+    // .devcontainer/setup/install-base.sh (docs/journal/0926f). Dockerfile.dockerignore
+    // passes only the required runtime scripts, managed policy and base installer, so
+    // user content never reaches the daemon.
     "context": "..",
     "args": {
       "TZ": "${localEnv:TZ:America/New_York}",
@@ -26,7 +26,7 @@
     }
   },
   "userEnvProbe": "none",
-  "initializeCommand": "bash -c 'bash .devcontainer/write-local-env.sh && source .devcontainer/find-python.sh && $PYTHON .devcontainer/inject-credentials.py'",
+  "initializeCommand": "bash -c 'bash .devcontainer/host/write-local-env.sh && source .devcontainer/host/find-python.sh && $PYTHON .devcontainer/inject-credentials.py'",
   "runArgs": [
     "--cap-add=NET_ADMIN",
     "--cap-add=NET_RAW",
@@ -99,17 +99,17 @@
       }
     }
   },
-  "remoteUser": "node",
+  "remoteUser": "ubuntu",
   "mounts": [
     // Shared package volumes: R, Python and TeX. Docker seeds each empty one
     // from the image, which carries the base (docs/journal/0926f); after that
-    // they change in normie mode, by `bash .setup/install-base.sh` in the
+    // they change in normie mode, by `bash .devcontainer/setup/install-base.sh` in the
     // container (docs/journal/0921a, 0925b, 0926a, 0926e), and are otherwise
     // mounted read-only, so agents in here
     // can run the stacks but never change them. They are shared across
     // projects on this Docker daemon; only per-project writable state is
     // named for the checkout, further down. Adding a package does not
-    // change these names: edit the list in .setup/install-base.sh and rerun it.
+    // change these names: edit the list in .devcontainer/setup/install-base.sh and rerun it.
     //
     // Names carry distro, interpreter version and (for R) the P3M snapshot
     // date, so a bump builds a fresh volume instead of serving stale binaries.
@@ -120,8 +120,8 @@
     // load-bearing: packages compiled against one distro's libraries must never
     // be mounted into another.
     //
-    // A new volume is tried by renaming it here and running bbox --rebuild:
-    // Docker seeds it, node-owned, from the image's directory, which already
+    // A new volume is tried by renaming it here and running ybox --rebuild:
+    // Docker seeds it, ubuntu-owned, from the image's directory, which already
     // holds the base. Rename back to abandon it.
     //
     // Posture: read-only in YOLO mode, writable in normie mode, where the user
@@ -146,8 +146,8 @@
     // these volumes (re-login; startup reinstalls the CLIs); find orphans with
     // `docker volume ls -f dangling=true`.
     "source=claude-code-bashhistory-${localWorkspaceFolderBasename},target=/commandhistory,type=volume",
-    "source=${localWorkspaceFolderBasename}-claude-config,target=/home/node/.claude,type=volume",
-    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/node/.codex,type=volume",
+    "source=${localWorkspaceFolderBasename}-claude-config,target=/home/ubuntu/.claude,type=volume",
+    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/ubuntu/.codex,type=volume",
     // The AI CLIs live here rather than in an image layer, so that updating
     // Codex in a running container is not undone by the next rebuild (a baked
     // `@latest` layer freezes at first cache; see the Dockerfile note). Codex
@@ -157,25 +157,25 @@
     "source=${localWorkspaceFolderBasename}-npm-global-noble-node24,target=/usr/local/share/npm-global,type=volume"
   ],
   "containerEnv": {
-    // TZ is intentionally absent: write-local-env.sh writes SANDBOX.toml's
-    // timezone (or the detected host zone) into /tmp/devcontainer-local.env.
+    // TZ is intentionally absent: write-local-env.sh writes the detected host
+    // zone into /tmp/devcontainer-local.env.
     // containerEnv becomes `docker run --env`, which
     // outranks --env-file, so setting it here would clobber the detected value.
     // Fallback if detection finds nothing: the Dockerfile's baked-in ARG TZ.
     // Posture: read by post-start.sh at every start; anything but "open" arms
     // the firewall. Fixed at creation like the rest of the posture.
-    "SANDBOX_INTERNET": "firewalled",
+    "YOLOBOX_INTERNET": "firewalled",
     "NODE_OPTIONS": "--max-old-space-size=4096",
-    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    "CLAUDE_CONFIG_DIR": "/home/ubuntu/.claude",
     "AI_SESH_MACHINE": "${localEnv:AI_SESH_MACHINE}",
-    "CODEX_HOME": "/home/node/.codex",
+    "CODEX_HOME": "/home/ubuntu/.codex",
     "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
     "LC_ALL": "C.UTF-8",
     "LANG": "C.UTF-8"
   },
-  "workspaceMount": "source=${localWorkspaceFolder},target=/sandbox,type=bind,consistency=delegated",
-  "workspaceFolder": "/sandbox",
-  // Arms the firewall (unless SANDBOX_INTERNET is "open"), seeds
+  "workspaceMount": "source=${localWorkspaceFolder},target=/yolobox,type=bind,consistency=delegated",
+  "workspaceFolder": "/yolobox",
+  // Arms the firewall (unless YOLOBOX_INTERNET is "open"), seeds
   // agent guidelines, checks policy, refreshes TeX.
   "postStartCommand": "bash .devcontainer/post-start.sh",
   "waitFor": "postStartCommand"

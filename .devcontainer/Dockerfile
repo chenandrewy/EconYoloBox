@@ -12,16 +12,17 @@ ARG TEXLIVE_YEAR=2026
 ARG LYX_VERSION=2.4.5
 ARG LYX_SHA256=4667f2759ae6070198c6f25606950a6374fd54863ac3dbf4fdcc05d01fa4bff4
 
-ARG USERNAME=node
+ARG USERNAME=ubuntu
 
-# ubuntu:24.04 ships a default `ubuntu` user at uid 1000, which collides with
-# the `node` user this workspace is built around. Delete it and take the uid:
-# /home/node/... is hardcoded in devcontainer.json, the ai-sesh tooling, and the
-# agent config paths, so renaming to `ubuntu` instead would be the larger edit.
-# (userdel warns about the absent mail spool and still exits 0.)
-RUN userdel -r ubuntu && \
-  groupadd --gid 1000 ${USERNAME} && \
-  useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash ${USERNAME}
+# The container user is ubuntu:24.04's own default user, `ubuntu` at uid 1000:
+# the ordinary non-root account; the name carries no meaning of its own. It was
+# `node` (from the old node:20 base) until 2026-09-28; the uid is unchanged, so
+# volumes seeded under that name keep the right owner. /home/ubuntu/... is
+# hardcoded in devcontainer.json (mount targets, CLAUDE_CONFIG_DIR, CODEX_HOME).
+# Supplementary groups are cleared so the account matches the freshly created
+# `node` it replaces: no sudo or adm membership from the base image.
+RUN test "$(id -u ${USERNAME}):$(id -g ${USERNAME})" = 1000:1000 && \
+  usermod --shell /bin/bash --groups '' ${USERNAME}
 
 # ubuntu:24.04 ships /etc/dpkg/dpkg.cfg.d/excludes, which path-excludes
 # /usr/share/doc/* to slim the image. Debian's fzf package ships its shell
@@ -151,17 +152,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
   librsvg2-bin \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Ensure default node user has access to /usr/local/share.
+# Ensure default ubuntu user has access to /usr/local/share.
 # npm-global is now a volume mountpoint, which makes this load-bearing beyond
 # the chown: Docker seeds a fresh named volume from the image directory at that
 # path, ownership included. The directory must therefore exist and be
-# node-owned here, or the new volume comes up root-owned and `npm install -g`
-# fails as node with EACCES.
+# ubuntu-owned here, or the new volume comes up root-owned and `npm install -g`
+# fails as ubuntu with EACCES.
 # Must run BEFORE the LyX build below, not after: `make install` drops ~40MB of
 # LyX data files into /usr/local/share/lyx, and a recursive chown crossing them
 # would rewrite every one of those inodes into a new layer for no benefit.
 RUN mkdir -p /usr/local/share/npm-global && \
-  chown -R node:node /usr/local/share
+  chown -R ubuntu:ubuntu /usr/local/share
 
 # LyX built from upstream source, replacing the Debian 12 backports pin this
 # image used to carry. Noble's archive LyX is 2.4.0~RC3 - a release candidate -
@@ -230,9 +231,9 @@ options(Ncpus = 2)
 EOF
 
 # Git defaults
-# safe.directory '*': the bind-mounted /sandbox root intermittently reports
+# safe.directory '*': the bind-mounted /yolobox root intermittently reports
 # uid 0 under Docker Desktop's virtiofs, which trips git's ownership check for
-# the sandbox repo and every project repo nested under it.
+# the yolobox repo and every project repo nested under it.
 # worktree.useRelativePaths: the repo is bind-mounted at a different path in the
 # container than on the host, so absolute gitdir links break on one side.
 RUN git config --system pager.branch cat && \
@@ -249,7 +250,7 @@ RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhisto
 # Set `DEVCONTAINER` environment variable to help with orientation
 ENV DEVCONTAINER=true
 
-WORKDIR /sandbox
+WORKDIR /yolobox
 
 # The Python, R and TeX stacks live in shared volumes, which devcontainer.json
 # mounts over /opt/venv, the R site library and /usr/local/texlive, read-only
@@ -271,12 +272,12 @@ ENV PATH="/opt/venv/bin:$PATH"
 # exist here for the mounted volume to be found. TeX's mount point is created
 # too, or Docker would make it root-owned.
 #
-# All three go to node: Docker seeds a fresh volume from the image directory,
-# ownership included, so a new volume starts node-owned, and install-base.sh
-# fills these directories as node below. The read-only mount, not the owner, is what
+# All three go to ubuntu: Docker seeds a fresh volume from the image directory,
+# ownership included, so a new volume starts ubuntu-owned, and install-base.sh
+# fills these directories as ubuntu below. The read-only mount, not the owner, is what
 # protects them in YOLO mode (docs/journal/0926e).
 RUN mkdir -p /opt/R/${R_VERSION}/lib/R/site-library /usr/local/texlive && \
-  chown -R node:node /opt/venv /opt/R/${R_VERSION}/lib/R/site-library /usr/local/texlive
+  chown -R ubuntu:ubuntu /opt/venv /opt/R/${R_VERSION}/lib/R/site-library /usr/local/texlive
 
 ARG GIT_DELTA_VERSION=0.18.2
 RUN ARCH=$(dpkg --print-architecture) && \
@@ -284,12 +285,12 @@ RUN ARCH=$(dpkg --print-architecture) && \
   sudo dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
-# Create node-owned mount point and config directories before switching users.
-RUN mkdir -p /sandbox /home/node/.claude /home/node/.codex /home/node/.config && \
-  chown -R node:node /sandbox /home/node/.claude /home/node/.codex /home/node/.config
+# Create ubuntu-owned mount point and config directories before switching users.
+RUN mkdir -p /yolobox /home/ubuntu/.claude /home/ubuntu/.codex /home/ubuntu/.config && \
+  chown -R ubuntu:ubuntu /yolobox /home/ubuntu/.claude /home/ubuntu/.codex /home/ubuntu/.config
 
 # Set up non-root user
-USER node
+USER ubuntu
 
 # Install global packages
 ENV NPM_CONFIG_PREFIX=/usr/local/share/npm-global
@@ -310,19 +311,19 @@ RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/
   -a "source /usr/share/doc/fzf/examples/key-bindings.zsh" \
   -a "source /usr/share/doc/fzf/examples/completion.zsh" \
   -a "export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
-  -a "source /sandbox/.devcontainer/shellrc.sh" \
+  -a "source /yolobox/.devcontainer/shellrc.sh" \
   -x
 
 # zsh-in-docker defaults to en_US.UTF-8, which is not generated in this image.
 # Pin to C.UTF-8 (available by default) to avoid locale warnings in child shells.
-RUN sed -i "s/^export LANG=.*/export LANG='C.UTF-8'/" /home/node/.zshrc && \
-  sed -i "s/^export LANGUAGE=.*/export LANGUAGE='C.UTF-8'/" /home/node/.zshrc && \
-  sed -i "s/^export LC_ALL=.*/export LC_ALL='C.UTF-8'/" /home/node/.zshrc
+RUN sed -i "s/^export LANG=.*/export LANG='C.UTF-8'/" /home/ubuntu/.zshrc && \
+  sed -i "s/^export LANGUAGE=.*/export LANGUAGE='C.UTF-8'/" /home/ubuntu/.zshrc && \
+  sed -i "s/^export LC_ALL=.*/export LC_ALL='C.UTF-8'/" /home/ubuntu/.zshrc
 
 # The Claude Code and Codex CLIs are NOT baked into the image either: a baked
 # `npm install -g ...@latest` layer pins itself to whenever it was first
 # cached, so rebuilds kept serving whatever was current on that day. They are
-# installed at runtime by `.setup/install-base.sh` into NPM_CONFIG_PREFIX,
+# installed at runtime by `.devcontainer/setup/install-base.sh` into NPM_CONFIG_PREFIX,
 # which is a writable per-container volume - so an update made in a running
 # container survives rebuilds instead of being reverted by them. A fresh volume
 # starts empty, and post-start.sh installs them; if that fails, shellrc.sh
@@ -371,8 +372,8 @@ RUN chmod 0755 /usr/local/bin/tex-refresh
 # bind-mounted, not copied, so no copy of it lands in the image; the layer
 # still reruns whenever the script changes. A CTAN or PyPI failure fails the
 # build; rebuilding is the retry.
-USER node
-RUN --mount=type=bind,source=.setup/install-base.sh,target=/tmp/install-base.sh \
+USER ubuntu
+RUN --mount=type=bind,source=.devcontainer/setup/install-base.sh,target=/tmp/install-base.sh \
   bash /tmp/install-base.sh --image-build
 USER root
 
@@ -385,8 +386,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy and set up firewall script
 COPY .devcontainer/init-firewall.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/init-firewall.sh && \
-  echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
-  chmod 0440 /etc/sudoers.d/node-firewall
+  echo "ubuntu ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/ubuntu-firewall && \
+  chmod 0440 /etc/sudoers.d/ubuntu-firewall
 
 # Keep frequently edited, baked-in agent config and policy at the end of the
 # Dockerfile so changing them does not invalidate expensive layers above.
@@ -394,29 +395,29 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
 # Claude Code policy. `disableClaudeAiConnectors` has any-source-true semantics,
 # so user- and project-level settings cannot override this file. The companion
 # denylist covers the gap it leaves: connectors passed via `--mcp-config`.
-COPY .devcontainer/agents/SANDBOX-claude-managed-settings.json /etc/claude-code/managed-settings.json
+COPY agents/managed/YOLOBOX-claude-managed-settings.json /etc/claude-code/managed-settings.json
 
 # Codex system config supplies stable defaults without touching the volatile,
-# node-owned ~/.codex/config.toml where Codex persists user preferences.
-COPY .devcontainer/agents/SANDBOX-codex-config.toml /etc/codex/config.toml
+# ubuntu-owned ~/.codex/config.toml where Codex persists user preferences.
+COPY agents/managed/YOLOBOX-codex-config.toml /etc/codex/config.toml
 
 # Codex requirements are admin-enforced and outrank user config, profiles, and
 # CLI --config / --enable overrides.
-COPY .devcontainer/agents/SANDBOX-codex-requirements.toml /etc/codex/requirements.toml
+COPY agents/managed/YOLOBOX-codex-requirements.toml /etc/codex/requirements.toml
 
 # COPY already lands these root-owned, since this stage runs as root; the chmod
-# is what makes them read-only to `node`.
+# is what makes them read-only to `ubuntu`.
 RUN chmod 0444 /etc/claude-code/managed-settings.json \
   /etc/codex/config.toml \
   /etc/codex/requirements.toml
 
 # Policy verification, run manually or from postStartCommand. Copied rather than
-# invoked from /sandbox so a check of the policy is not itself node-writable.
-COPY .devcontainer/test-agent-policy.sh /usr/local/bin/
+# invoked from /yolobox so a check of the policy is not itself ubuntu-writable.
+COPY .devcontainer/tests/test-agent-policy.sh /usr/local/bin/
 RUN chmod 0755 /usr/local/bin/test-agent-policy.sh
 
 # Debian installs fd as fdfind to avoid a package-name collision. Provide the
 # conventional command name after all expensive build layers are complete.
 RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
 
-USER node
+USER ubuntu

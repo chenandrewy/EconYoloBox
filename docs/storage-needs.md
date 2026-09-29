@@ -1,10 +1,10 @@
 # Devcontainer storage needs
 
-What the sandbox costs on disk: the image, the BuildKit build cache, and the
+What the yolobox costs on disk: the image, the BuildKit build cache, and the
 persistent volumes. The shared workspace devcontainer is built locally from
 `.devcontainer/Dockerfile`, starting from the official `ubuntu:24.04` image.
 
-For the intended setup of **one sandbox checkout and one devcontainer**, the
+For the intended setup of **one yolobox checkout and one devcontainer**, the
 persistent volumes use about **2.8GB**: about **1.5GB** for the lean R,
 Python, and TeX base, plus about **1.3GB** for the AI CLIs and agent
 configuration, nearly all of it CLI binaries. Installing the optional set
@@ -68,7 +68,7 @@ with the lean base, or about **4.7GB** with the optional set.
 There is one set on the Docker daemon. Docker seeds them from the image on
 the first build (so the image carries another copy of the lean base, about
 1.5GB, not yet measured in the image figures above; docs/journal/0926f), the
-optional set is added in normie mode by `.setup/install-optional.sh`, and they
+optional set is added in normie mode by `.devcontainer/setup/install-optional.sh`, and they
 are mounted read-only in YOLO mode:
 
 | Volume | Mount | Lean base | With optional set |
@@ -96,8 +96,8 @@ state are about 115MB:
 | Volume | Mount | Size | Binaries | Config and state |
 |---|---|---|---|---|
 | `<folder>-npm-global-noble-node24` | `/usr/local/share/npm-global` | 559MB | 559MB | — |
-| `<folder>-codex-config` | `/home/node/.codex` | 746MB | 658MB | 88MB |
-| `<folder>-claude-config` | `/home/node/.claude` | 25MB | — | 25MB |
+| `<folder>-codex-config` | `/home/ubuntu/.codex` | 746MB | 658MB | 88MB |
+| `<folder>-claude-config` | `/home/ubuntu/.claude` | 25MB | — | 25MB |
 | `claude-code-bashhistory-<folder>` | `/commandhistory` | 48KB | — | 48KB |
 
 The npm-global volume holds the CLIs themselves: Codex (329MB) and Claude
@@ -114,7 +114,7 @@ mount the same set, so a second mode costs no extra space here
 (docs/journal/0927a). The folder name alone keys them, so a second checkout
 with the same folder name on the same Docker daemon would share them, logins
 and CLIs included; `check-checkout.sh` refuses that at startup. Renaming the
-sandbox folder leaves these volumes behind; moving it does not. Before 0927a
+yolobox folder leaves these volumes behind; moving it does not. Before 0927a
 the names ended in `${devcontainerId}` (a ~52-character id); those volumes,
 and any renamed-away ones, show up in `docker volume ls -f dangling=true`.
 
@@ -126,7 +126,7 @@ checkout's `<folder>-venv-noble-py3.12-<id>` (1.2GB) and
 `<folder>-r-site-library-noble-4.5.3-<id>` (about 800MB).
 
 Session data is not here. `ai-sesh` symlinks `~/.claude/projects` and
-`~/.claude/todos` into `/sandbox`, so Claude and Codex history consumes
+`~/.claude/todos` into `/yolobox`, so Claude and Codex history consumes
 Dropbox-synced host disk rather than volume space.
 
 ## What is in the image

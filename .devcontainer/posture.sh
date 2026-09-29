@@ -11,7 +11,7 @@
 #            normie internet=open packages=writable seccomp=unconfined
 #          and any other combination as custom. Always exits 0.
 #
-# bbox on the host picks the posture when it creates the container (--yolo,
+# ybox on the host picks the posture when it creates the container (--yolo,
 # the default, or --normie), and all three settings are fixed from then on, so
 # this reads the container itself; no file in the workspace takes part.
 #
