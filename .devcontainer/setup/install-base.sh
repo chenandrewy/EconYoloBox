@@ -2,7 +2,7 @@
 # Install the lean base: the Python, R and TeX stacks and the AI CLIs.
 #
 # Run, inside the devcontainer as ubuntu, from anywhere in this checkout:
-#   In normie mode (on the host, `ybcode --normie` or `bbe --normie`):
+#   In normie mode (on the host, `ybcode --normie` or `ybe --normie`):
 #     bash .devcontainer/setup/install-base.sh                # python r tex cli (all)
 #     bash .devcontainer/setup/install-base.sh tex            # TeX Live only
 #     bash .devcontainer/setup/install-base.sh r --force      # reinstall present R packages
@@ -189,9 +189,9 @@ require_install_mode() {
     if [ ${#problems[@]} -gt 0 ]; then
         echo "install-base.sh: not in normie mode:" >&2
         printf '  - %s\n' "${problems[@]}" >&2
-        echo 'Switch to normie mode: on the host, ybcode --normie (or bbe --normie),' >&2
+        echo 'Switch to normie mode: on the host, ybcode --normie (or ybe --normie),' >&2
         echo "then in the container: bash .devcontainer/setup/install-base.sh $STACK_TARGETS" >&2
-        echo 'Back to YOLO mode afterwards: ybcode or bbe; ybox --stop --normie.' >&2
+        echo 'Back to YOLO mode afterwards: ybcode or ybe; ybox --stop --normie.' >&2
         echo 'The AI CLIs update in any mode: bash .devcontainer/setup/install-base.sh cli' >&2
         exit 1
     fi
@@ -746,7 +746,7 @@ elif [ "$VERIFY" -eq 0 ] && [ -n "$STACK_TARGETS" ]; then
     fi
     echo "Restart R/Python sessions in every container that mounts these volumes;"
     echo "after a TeX change run tex-refresh there too and reopen LyX."
-    echo 'Done. Back to YOLO mode: on the host, ybcode or bbe; ybox --stop --normie.'
+    echo 'Done. Back to YOLO mode: on the host, ybcode or ybe; ybox --stop --normie.'
 else
     echo "Done."
 fi

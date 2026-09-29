@@ -147,8 +147,8 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
   change them. Packages change only in normie mode, from inside.
 
 - **Two working modes, two containers.** YOLO mode, the default (`ybcode`,
-  `bbe`), is firewalled, read-only and builtin: agents run unsupervised.
-  Normie mode (`ybcode --normie`, `bbe --normie`) is open, writable and
+  `ybe`), is firewalled, read-only and builtin: agents run unsupervised.
+  Normie mode (`ybcode --normie`, `ybe --normie`) is open, writable and
   unconfined: supervised work that feels like the Mac, with agents in
   approval modes. There the user installs with the ordinary
   `install.packages()`, `pip install` and `tlmgr install`, then goes back to
@@ -193,7 +193,7 @@ workable should each be one step.
 
 | Location | Commands |
 | --- | --- |
-| `.devcontainer/host/devcontainer.zsh` (host shell) | `ybox` (`bbu`, `bbe`, and `ybcode` are short wrappers) |
+| `.devcontainer/host/devcontainer.zsh` (host shell) | `ybox` (`ybe` and `ybcode` are short wrappers) |
 | `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
 | `tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork` |
 | `tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
@@ -222,7 +222,7 @@ commands.
 - **One-command project opening (`.devcontainer/host/`).** Source `devcontainer.zsh` in your
   `~/.zshrc` and use `ybcode [dir]` to bring up the enclosing YOLO container
   (or `ybcode --normie [dir]` for the normie one), verify its posture, and
-  open that exact subfolder in VS Code. `bbe [dir]` follows the same bring-up
+  open that exact subfolder in VS Code. `ybe [dir]` follows the same bring-up
   path and enters zsh; `ybox --status` reports both containers. VS Code's own
   Reopen in Container remains the minimal everyday path; it offers both
   configs.

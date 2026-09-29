@@ -33,16 +33,20 @@ alias dcu='devcontainer up --workspace-folder .'
 dccode() { :; }
 bbox() { :; }
 bbcode() { :; }
+bbu() { :; }
+bbe() { :; }
 _bbox() { :; }
 _bbcode() { :; }
 autoload -Uz compinit
 compinit -D -i
 compdef _bbox bbox
 compdef _bbcode bbcode
+compdef _bbox bbu bbe
 alias bbox='false'
 alias bbcode='false'
 alias ybox='false'
 alias ybcode='false'
+alias ybe='false'
 source "$root/.devcontainer/host/devcontainer.zsh"
 source "$root/.devcontainer/host/devcontainer.zsh"
 
@@ -126,13 +130,13 @@ count() { ls $store | grep -c -- "$1" || true; }
 
 (( ! $+aliases[dcu] )) || fail 'legacy dcu alias survived reload'
 (( ! $+functions[dccode] )) || fail 'legacy dccode function survived reload'
-(( $+functions[bbu] && $+functions[bbe] && $+functions[ybcode] )) || fail 'short wrappers missing after reload'
+(( $+functions[ybe] && $+functions[ybcode] )) || fail 'short wrappers missing after reload'
 (( $+functions[ybox] )) || fail 'ybox missing after reload'
-for name in bbox bbcode _bbox _bbcode; do
+for name in bbox bbcode bbu bbe _bbox _bbcode; do
   (( ! $+functions[$name] && ! $+aliases[$name] )) || fail "legacy $name survived reload"
 done
-(( ! $+_comps[bbox] && ! $+_comps[bbcode] )) || fail 'legacy completion bindings survived reload'
-[[ $_comps[ybox] == _ybox && $_comps[ybcode] == _ybcode ]] || fail 'renamed completion bindings missing'
+(( ! $+_comps[bbox] && ! $+_comps[bbcode] && ! $+_comps[bbu] && ! $+_comps[bbe] )) || fail 'legacy completion bindings survived reload'
+[[ $_comps[ybox] == _ybox && $_comps[ybcode] == _ybcode && $_comps[ybe] == _ybcode ]] || fail 'renamed completion bindings missing'
 pass 'reload removes legacy names and binds the renamed functions and completions'
 
 # Each mode brings up its own config's container.
@@ -166,13 +170,15 @@ out=$(run --normie "$root") || fail 'normie reuse'
 [[ "$out" == *note:* ]] && fail 'a normie bring-up has no note'
 pass 'a normie bring-up reuses its container'
 
-run --shell --normie "$root/tools" >/dev/null || fail 'bbe --normie'
+run --shell --normie "$root/tools" >/dev/null || fail 'ybox --shell --normie'
 grep -qF "devcontainer|exec --workspace-folder $root --config $normie_config zsh -c cd /yolobox/tools && exec zsh" $log || fail 'shell must exec into the normie container'
-run --shell --yolo "$root" >/dev/null || fail 'bbe --yolo'
+run --shell --yolo "$root" >/dev/null || fail 'ybox --shell --yolo'
 grep -qF "devcontainer|exec --workspace-folder $root --config $yolo_config" $log || fail 'shell must exec into the YOLO container'
-: >$log; bbe --normie "$root" </dev/null >/dev/null || fail 'bbe wrapper'
-grep -qF -- "--config $normie_config" $log || fail 'bbe passes --normie through'
-pass 'bbe and --shell exec into the chosen mode'"'"'s container'
+: >$log; ybe --normie "$root/tools" </dev/null >/dev/null || fail 'ybe --normie wrapper'
+grep -qF "devcontainer|exec --workspace-folder $root --config $normie_config zsh -c cd /yolobox/tools && exec zsh" $log || fail 'ybe passes --normie and directory through'
+: >$log; ybe "$root" </dev/null >/dev/null || fail 'ybe default wrapper'
+grep -qF "devcontainer|exec --workspace-folder $root --config $yolo_config" $log || fail 'ybe defaults to YOLO'
+pass 'ybe and --shell exec into the chosen mode'"'"'s container'
 
 out=$(run --stop --normie "$root") || fail 'stop'
 [[ "$out" == *'stopped the normie mode container normie-new-2'* ]] || fail 'stop message'

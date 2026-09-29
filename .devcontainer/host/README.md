@@ -64,10 +64,10 @@ its own path, so another checkout cannot redirect its helpers.
 | `ybox --rebuild [dir]` | Recreate both modes' containers, keeping Docker's build cache, then bring up the chosen mode's. |
 | `ybox --rebuild-without-cache [dir]` | The same with `--build-no-cache`. |
 
-`bbu`, `bbe`, and `ybcode` are short wrappers around `ybox`, `ybox --shell`,
-and `ybox --code`, and take the same flags: `ybcode --normie`, `bbe --yolo`.
-They contain no separate bring-up logic. The former `dcu`, `dce`, and
-`dccode`, `bbox`, and `bbcode` names are removed on load.
+`ybe` and `ybcode` are short wrappers around `ybox --shell` and `ybox --code`,
+and take the same flags: `ybcode --normie`, `ybe --yolo`. They contain no
+separate bring-up logic. The former `dcu`, `dce`, `dccode`, `bbox`, `bbcode`,
+`bbu`, and `bbe` names are removed on load.
 
 Each mode is its own container, built from its own config file, which
 hard-codes its posture:
@@ -128,7 +128,7 @@ never invokes Docker.
 To start Claude on a project folder in this repo:
 
 ```zsh
-bbe My-Project             # shell in the container, in that folder
+ybe My-Project             # shell in the container, in that folder
 cchat-yolo                 # Claude, remote-controlled, named for the folder
 ```
 

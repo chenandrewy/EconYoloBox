@@ -4,8 +4,8 @@
 #   source /path/to/EconYoloBox/.devcontainer/host/devcontainer.zsh
 #
 # Inputs:  --yolo (the default) or --normie, and an optional project directory.
-# Outputs: ybox plus the bbu/bbe/ybcode wrappers, which take the same flags
-#   (ybcode --normie, bbe --yolo). Requires docker, devcontainer, python3, and
+# Outputs: ybox plus the ybe/ybcode wrappers, which take the same flags
+#   (ybcode --normie, ybe --yolo). Requires docker, devcontainer, python3, and
 #   (for --code) code.
 #
 # Each mode is its own container, built from its own config file:
@@ -21,10 +21,10 @@ _DC_HOST_DIR="${0:A:h}"
 _DC_RESOLVE_PY="$_DC_HOST_DIR/dc-resolve.py"
 
 # Remove old names and aliases before defining functions, including on reload.
-unalias dcu dce dccode bbox bbcode ybox bbu bbe ybcode 2>/dev/null || true
-unfunction dcu dce dccode bbox bbcode _bbox _bbcode 2>/dev/null || true
+unalias dcu dce dccode bbox bbcode bbu bbe ybox ybe ybcode 2>/dev/null || true
+unfunction dcu dce dccode bbox bbcode _bbox _bbcode bbu bbe 2>/dev/null || true
 if (( $+functions[compdef] )); then
-  compdef -d bbox bbcode
+  compdef -d bbox bbcode bbu bbe
 fi
 
 # _dc_resolve [project_dir]
@@ -394,8 +394,7 @@ ybox() {
 }
 
 # Short names. All creation and resolution stays in ybox.
-bbu() { ybox "$@"; }
-bbe() { ybox --shell "$@"; }
+ybe() { ybox --shell "$@"; }
 ybcode() { ybox --code "$@"; }
 
 # Completion initialization belongs to the user's zsh setup.

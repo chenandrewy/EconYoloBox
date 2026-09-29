@@ -1,7 +1,7 @@
-#compdef ybcode
+#compdef ybcode ybe
 # Run:     source .devcontainer/host/_ybcode after zsh completion initialization.
-# Inputs:  the current ybcode command line only.
-# Outputs: the _ybcode completion function and, when available, its compdef binding.
+# Inputs:  the current ybcode or ybe command line only.
+# Outputs: the _ybcode completion function and, when available, its compdef bindings.
 
 _ybcode() {
   _arguments -s \
@@ -13,5 +13,5 @@ _ybcode() {
 }
 
 if (( $+functions[compdef] )); then
-  compdef _ybcode ybcode
+  compdef _ybcode ybcode ybe
 fi

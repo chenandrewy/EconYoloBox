@@ -106,7 +106,7 @@ case "${posture%% *}" in
         echo "Normie mode: ${posture#* }"
         echo "  supervised: install with install.packages(), pip install or tlmgr install,"
         echo "  or bash .devcontainer/setup/install-optional.sh. Back to YOLO mode: on the host,"
-        echo "  ybcode or bbe; ybox --stop --normie stops this container."
+        echo "  ybcode or ybe; ybox --stop --normie stops this container."
         ;;
     *)
         echo "Custom posture, neither YOLO nor normie mode: ${posture#* }" >&2

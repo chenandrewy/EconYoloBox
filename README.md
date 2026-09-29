@@ -10,10 +10,10 @@ Key features:
 
 1. **YOLO agents by default, with a toggle for "normie" mode**
 
-   - **YOLO mode:** open the container with `ybcode` (or `bbe` for a
+   - **YOLO mode:** open the container with `ybcode` (or `ybe` for a
      terminal); it is the default. Then run Claude Code and Codex in yolo mode
      using the convenient aliases `cchat-yolo` and `gptchat-yolo`. Cook!
-   - **Normie mode:** open it with `ybcode --normie` (or `bbe --normie`)
+   - **Normie mode:** open it with `ybcode --normie` (or `ybe --normie`)
      instead. Then you can work with the yolobox like a normie to do stuff
      that requires internet access and (probably) babysitting of the agents
      (e.g. install R packages, test new software, search arbitrary websites).
@@ -169,7 +169,7 @@ writable package volumes, `unconfined` seccomp), which is for supervised work.
 The launcher's flag picks which one to open:
 
 ```zsh
-ybcode             # the YOLO container, in VS Code (bbe: in a terminal)
+ybcode             # the YOLO container, in VS Code (ybe: in a terminal)
 ybcode --normie    # the normie container
 ybox --status      # both containers and their modes, changing nothing
 ybox --stop --normie   # stop the normie container
@@ -263,7 +263,7 @@ type ybox
 ```
 
 Run `ybox` to bring the container up, `ybcode My-Project` (`ybox --code`) to
-open a project in VS Code, or `bbe My-Project` (`ybox --shell`) to enter it in
+open a project in VS Code, or `ybe My-Project` (`ybox --shell`) to enter it in
 a terminal. Each takes `--normie` (or an explicit `--yolo`), and
 `ybox --rebuild` recreates both modes' containers after a Dockerfile or
 config change, then opens the chosen one. VS Code's own **Rebuild Container**

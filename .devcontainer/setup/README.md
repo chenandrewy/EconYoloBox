@@ -74,11 +74,11 @@ Installing the optional set, adding to the base in volumes that already exist,
 or repairing one, happens from inside, in normie mode:
 
 1. Open the normie container: on the host, `ybcode --normie` (or
-   `bbe --normie`).
+   `ybe --normie`).
 2. In the container: `bash .devcontainer/setup/install-base.sh` (for a base change or a
    repair; it skips what is present).
 3. Optionally, in the container: `bash .devcontainer/setup/install-optional.sh`.
-4. Back to YOLO mode: on the host, `ybcode` (or `bbe`) opens the YOLO
+4. Back to YOLO mode: on the host, `ybcode` (or `ybe`) opens the YOLO
    container, which already sees the new packages; `ybox --stop --normie`
    stops the normie one.
 5. In the YOLO container: `bash .devcontainer/setup/tests/test-packages.sh`.
