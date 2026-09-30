@@ -4,49 +4,63 @@ EconYoloBox is an ergonomic, AI-forward environment for economics research. It
 was built by obsessively improving my research workflow (instead of doing
 actual research work).
 
-— Andrew Chen
+— Andrew Y. Chen
 
-Key features:
+## Philosophy
 
-1. **Sandboxed YOLO mode, with an easy "Normie" mode switch**
+- **AI usage is a risk-return tradeoff**: We all want to be on the frontier.
+  EconYoloBox helps you get there, with your preferred tradeoff.
+- **AIs are like human co-authors**: Every team is different. Good teams learn
+  by doing, together. EconYoloBox makes working together smooth and efficient.
+- **AI changes constantly**: I'm just gonna update this repo as new developments
+  arrive. Don't pull blindly. Watch the repo if you wanna see what I'm up to.
+  Dated release tags (`vYYYY.MM.DD`) will mark notable checkpoints.
+
+<p align="center">
+  <img src="docs/images/risk-return.png" alt="AI usage is a risk-return tradeoff: sketch of research return against risk. A YOLO agent in a container aims above the frontier traced by no AI, web copy-paste, manual agents and a YOLO agent with no container." width="600">
+</p>
+
+
+## Key features
+
+1. **Sandboxed YOLO mode, with an easy "normie" mode switch**
 
    - **YOLO mode** is the default. It has a firewall and filtered system calls,
      so Claude Code and Codex can run unsupervised and efficiently. Don't waste
      time or tokens approving commands. *Cook!*
-     - Is the *cooking* too spicy? Adjust `.devcontainer/init-firewall.sh`
+     - Is my *cooking* too spicy? Adjust `.devcontainer/init-firewall.sh`
        to your palate. Turn off all internet, except for the model providers, if
        you prefer mild.
    - **Normie mode** opens a second container with open internet and
      unfiltered system calls. Use it for work blocked in YOLO mode (searching
-     arbitrary websites, installing packages and VS Code extensions, trying
-     random software). Like normies, use Claude "auto mode" and Codex
-     `auto_review` for safety.
-   - **The two modes share package volumes.** R, Python, TeX Live and the
-     VS Code extensions each live in their own volume. Normie mode can write to
-     them, but YOLO mode mounts them read-only. Any packages you install in
-     normie mode are available in YOLO mode, but YOLO agents can't install R,
-     Python or TeX packages (and thus can't install any malicious packages).
+     arbitrary websites, installing packages). Like normies, use Claude
+     "auto mode" and Codex `auto_review` for safety.
+   - **The YOLO and normie containers share package volumes.** R, Python,
+     TeX Live and the VS Code extensions live in their own volumes. Normie mode
+     can write to them, but YOLO mode has read-only access. Packages you
+     install in normie mode are available in YOLO mode, but YOLO agents can't
+     install packages (including malicious ones) to these volumes.
    - See [switching modes](#switching-modes) and
      [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
 
 2. **Ergonomic container and AI access**
 
-   - Enter the container at a project path with one command: `ybcode My-Project`
-     opens it in VS Code and `ybe My-Project` in a terminal. Add `--normie` to
-     either for normie mode. These need the
-     [host launcher](#optional-host-command-workflow).
+   - **One box for all your research.** In my experience, having one big
+     container is the way to go for volatile economics research
+     projects—especially if you sync via Dropbox like I do. This box does it
+     all for me. I hope it does the same for you.
+   - Start working in the container with one command: `ybcode My-Project`.
+     This opens `My-Project` in the YOLO container in VS Code. If you prefer
+     the terminal, `ybe My-Project` does it.
+   - Switch to normie mode with `ybcode --normie My-Project` (or
+     `ybe --normie My-Project`). These commands require the
+     [host launcher](#optional-host-command-workflow) setup.
    - Start unsupervised agents in YOLO mode with `cchat-yolo` (Claude Code) or
-     `gptchat-yolo` (Codex).
-   - Edit agent guidance in
-     [agents/YOLOBOX-CLAUDE.md](agents/YOLOBOX-CLAUDE.md) and keep settings as
-     code, with optional Dropbox synchronization.
-   - Synchronize AI chat sessions across machines via Dropbox.
+     `gptchat-yolo` (Codex). The YOLO launchers refuse to start in normie mode.
 
 3. **Economics-research AI tooling**
 
    - Use a container image designed for fast R and Python package installation.
-   - Chat with AI about math with equations rendered by a custom VS Code
-     extension.
    - Search the literature with a custom OpenAlex citation-lookup tool.
    - Convert PDFs to Markdown with high fidelity using a tool built on Mistral
      OCR (h/t Don Bowen).
@@ -63,8 +77,10 @@ container. The yolobox itself is these tracked folders:
 - `docs/`: design notes and the feature tour
 - `tools/`: custom research tooling
 
-Put your projects in `workshop/` (active) and `hangar/` (finished). Both are
-ignored by the outer repo, so each project is its own Git repository.
+I put my active projects in `workshop/`, finished projects in `hangar/` (for
+reference) and literature in `cellar/`. These are ignored by Git (see
+`.gitignore`). Having nested Git repos inside `workshop/` and `hangar/` works
+for me.
 
 See [Yolobox Features](docs/features.md) for a detailed tour.
 
@@ -126,7 +142,7 @@ Windows and Linux support is partially wired but has not been tested.
    internet access and package installs, use normie mode: the `(normie)`
    configuration, or `ybcode --normie` with the
    [host launcher](#optional-host-command-workflow).
-   The default allowlist is one point on the risk/return tradeoff. 
+   The default allowlist is one point on the risk/return tradeoff.
    Adjust the internet access in `.devcontainer/init-firewall.sh` to match
    your own preferences.
    Normie mode also disables Docker's outer syscall filter for every
