@@ -10,7 +10,7 @@ tools baked into it (docs/journal/0926d).
 |---|---|---|
 | `install-base.sh` | the base: Python, R, TeX Live and the AI CLIs | in the container, normie mode; `cli` and `--verify` in any mode; `--image-build` in the Dockerfile |
 | `install-optional.sh` | the optional set | in the container, normie mode; `--verify` in any mode |
-| `install-vscode-extensions.sh` | the 12 workspace VS Code extensions | in a VS Code terminal in normie mode; `--verify` in either mode |
+| `install-vscode-extensions.sh` | the workspace VS Code extensions | in a VS Code terminal in normie mode; `--verify` in either mode |
 
 ## VS Code extensions
 
@@ -28,6 +28,20 @@ volume read-only and has no automatic extension installation. To check it
 without writing, run `bash .devcontainer/setup/install-vscode-extensions.sh
 --verify` in either mode. Both configs disable automatic extension updates;
 run the install command again in normie when updating.
+
+To change which extensions are installed, edit the `extensions` array at the
+top of `install-vscode-extensions.sh` (marketplace IDs, as shown on an
+extension's page or by `code --list-extensions`), then rerun it in normie.
+Removing an ID stops the checks from requiring it but does not uninstall it
+from the shared volume; run `code --uninstall-extension <id>` in normie for
+that. Keep the configs' `"extensions": []`; VS Code would otherwise install
+into the volume on attach, outside this script.
+
+The Extensions sidebar in normie installs into the same writable volume, so
+it is fine for trying an extension. YOLO then sees it too (read-only; its
+sidebar cannot install, and its firewall blocks the marketplace). Add the ID
+to the script's list to keep it: `--verify` checks only listed extensions,
+and a fresh volume gets only those.
 
 `tomoki1207.pdf` is a UI-only extension (`extensionKind: ["ui"]`). It runs in
 the host VS Code, not the container, and is already installed on this host.

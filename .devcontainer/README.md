@@ -258,7 +258,7 @@ VS Code extensions live in one per-checkout volume mounted at
 mounts it read-only. Neither config asks VS Code to install extensions on
 attach. For a fresh volume, attach to normie first and run
 `bash .devcontainer/setup/install-vscode-extensions.sh` in its integrated
-terminal. This invokes VS Code's container CLI for each of the 12 workspace extensions
+terminal. This invokes VS Code's container CLI for each workspace extension
 and fails if any are absent from the registry. Run the same command with
 `--verify` in either mode to check without installing. Extension auto-update
 and checks are off in both configs; install or update extensions in normie. The

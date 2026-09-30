@@ -111,8 +111,15 @@ Windows and Linux support is partially wired but has not been tested.
    expect it to take a while longer than later rebuilds. VS Code reloads with
    `Dev Container` shown in the lower-left corner when it is ready. In its
    integrated terminal, run `bash .devcontainer/setup/install-vscode-extensions.sh`
-   and check that all 12 workspace extensions pass. Then reopen the plain
+   and check that every workspace extension passes. Then reopen the plain
    configuration for everyday YOLO mode.
+
+   To add or drop extensions, edit the list at the top of that script and
+   rerun it in normie; see
+   [VS Code extensions](.devcontainer/setup/README.md#vs-code-extensions).
+   Installing from the Extensions sidebar in normie also works, and YOLO
+   sees the result, but the script does not know about it: a fresh extension
+   volume will not get it back.
 
    The YOLO container starts with its firewall on, allowing only the network
    allowlist, with read-only package volumes and builtin seccomp. For open

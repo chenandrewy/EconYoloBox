@@ -13,7 +13,6 @@ script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 extensions_dir=/home/ubuntu/.vscode-server/extensions
 registry=$extensions_dir/extensions.json
 extensions=(
-    anthropic.claude-code
     dbaeumer.vscode-eslint
     esbenp.prettier-vscode
     tamasfe.even-better-toml
