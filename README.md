@@ -17,7 +17,7 @@ actual research work).
   Dated release tags (`vYYYY.MM.DD`) will mark notable checkpoints.
 
 <p align="center">
-  <img src="docs/images/risk-return.png" alt="AI usage is a risk-return tradeoff: sketch of research return against risk. A YOLO agent in a container aims above the frontier traced by no AI, web copy-paste, manual agents and a YOLO agent with no container." width="600">
+  <img src="docs/images/risk-return.png" alt="AI usage is a risk-return tradeoff: sketch of research return against risk. YOLO mode in a container aims above the frontier traced by no AI, web copy-paste, manual mode and YOLO mode with no container." width="600">
 </p>
 
 
