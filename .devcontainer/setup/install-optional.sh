@@ -75,6 +75,7 @@ PY_PKGS=(
     beautifulsoup4
     lxml
     PyYAML
+    pypdf
 )
 
 # From the P3M snapshot, so versions match the base.
