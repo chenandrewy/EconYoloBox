@@ -15,7 +15,7 @@ normie_config=$root/.devcontainer/normie/devcontainer.json
 #   $tmp/containers/<id>: "<config> <internet> <packages-rw> <seccomp> <state>"
 store=$tmp/containers
 mkdir -p $store
-typeset -g MOCK_VSCODE=0 MOCK_WORKDIR=/yolobox MOCK_UP_POSTURE='' MOCK_UP_STRAY=0
+typeset -g MOCK_VSCODE=0 MOCK_WORKDIR=/yolobox MOCK_UP_POSTURE='' MOCK_UP_STRAY=0 MOCK_EXEC_STATUS=0
 
 # add_container <id> <config> <yolo|normie> [state]
 add_container() {
@@ -61,7 +61,7 @@ devcontainer() {
     esac
     shift
   done
-  [[ "$sub" == up ]] || return 0
+  [[ "$sub" == up ]] || return $MOCK_EXEC_STATUS
   for id in $store/*(N:t); do
     [[ "$(field $id 1)" == "$config" ]] || continue
     if (( remove )); then rm -f $store/$id; else
@@ -180,6 +180,29 @@ grep -qF "devcontainer|exec --workspace-folder $root --config $normie_config zsh
 grep -qF "devcontainer|exec --workspace-folder $root --config $yolo_config" $log || fail 'ybe defaults to YOLO'
 pass 'ybe and --shell exec into the chosen mode'"'"'s container'
 
+: >$log
+ybe "$root/tools" --command 'gptchat-yolo' </dev/null >/dev/null || fail 'ybe startup command'
+grep -qF "devcontainer|exec --workspace-folder $root --config $yolo_config zsh -ic cd /yolobox/tools && gptchat-yolo" $log || fail 'command must run in interactive container shell at selected path'
+MOCK_EXEC_STATUS=37
+ybe "$root" --command gptchat-yolo </dev/null >/dev/null && fail 'command failure must propagate'
+[[ $? == 37 ]] || fail 'command exit status lost'
+MOCK_EXEC_STATUS=0
+for args in '--command' '--command gptchat-yolo' '--shell --command'; do
+  : >$log
+  ybox ${=args} >/dev/null 2>&1 && fail "accepted invalid command options: $args"
+  [[ ! -s $log ]] || fail 'invalid command options reached Docker'
+done
+pass 'startup commands use the container shell and preserve failures; invalid options stop before Docker'
+
+for launcher mode in ybcc yolo ybcodex yolo nbcc normie nbcodex normie; do
+  : >$log
+  "$launcher" "$root/tools" </dev/null >/dev/null || fail "$launcher"
+  config=$(_ybox_config "$root" "$mode")
+  grep -qF "devcontainer|exec --workspace-folder $root --config $config zsh -ic cd /yolobox/tools && " $log || fail "$launcher must use selected container and directory"
+  [[ $_comps[$launcher] == _yb_agent_completion ]] || fail "$launcher completion"
+done
+pass 'all four agent launchers use ybox verification and the selected container directory'
+
 out=$(run --stop --normie "$root") || fail 'stop'
 [[ "$out" == *'stopped the normie mode container normie-new-2'* ]] || fail 'stop message'
 [[ "$(field normie-new-2-0123456789abcdef 5)" == exited ]] || fail 'normie must be stopped'
@@ -259,6 +282,11 @@ reset_store
 add_container legacy "$yolo_config" normie
 if err=$(run "$root" 2>&1); then fail 'a mismatched container should be refused'; fi
 [[ "$err" == *'expected YOLO mode'* && "$err" == *"ybox --rebuild $root"* ]] || fail 'mismatch message'
+for launcher in ybcc ybcodex; do
+  : >$log
+  "$launcher" "$root" >/dev/null 2>&1 && fail "$launcher accepted wrong container posture"
+  grep -q 'devcontainer|exec' $log && fail "$launcher launched in wrong container posture"
+done
 out=$(run --status "$root")
 [[ "$out" == *'WARNING: that is normie mode, not YOLO mode'* ]] || fail 'status flags the mismatch'
 reset_store

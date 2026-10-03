@@ -4,6 +4,7 @@
 #   source /path/to/EconYoloBox/.devcontainer/host/devcontainer.zsh
 #
 # Inputs:  --yolo (the default) or --normie, and an optional project directory.
+#   With --shell, --command STRING runs a shell command inside the container.
 # Outputs: ybox plus the ybe/ybcode wrappers, which take the same flags
 #   (ybcode --normie, ybe --yolo). Requires docker, devcontainer, python3, and
 #   (for --code) code.
@@ -269,6 +270,7 @@ _ybox_rebuild_other() {
 # one; --stop acts on the chosen mode's container only; --status reports both.
 ybox() {
   local action='' mode='' project_dir='.' rebuild=0 positional_seen=0 arg resolved root relative_dir
+  local shell_command='' command_seen=0
   local config remote_path existing listed container actual state container_id docker_context folder_uri m REPLY
   local -a up_args
 
@@ -276,6 +278,12 @@ ybox() {
     arg="$1"
     shift
     case "$arg" in
+      --command)
+        (( $# && ! command_seen )) && [[ -n "$1" ]] || { print -u2 -- 'ybox: --command requires one nonempty command string, supplied once'; return 2; }
+        shell_command="$1"
+        command_seen=1
+        shift
+        ;;
       --yolo|--normie)
         [[ -n "$mode" ]] && { print -u2 -- 'ybox: --yolo and --normie are mutually exclusive'; return 2; }
         mode="${arg#--}"
@@ -313,6 +321,10 @@ ybox() {
         ;;
     esac
   done
+  if (( command_seen )) && [[ "$action" != shell ]]; then
+    print -u2 -- 'ybox: --command requires --shell (or ybe)'
+    return 2
+  fi
   if [[ "$action" == status ]] && { (( rebuild )) || [[ -n "$mode" ]]; }; then
     print -u2 -- 'ybox: --status reports both modes; it takes no other option'
     return 2
@@ -383,7 +395,11 @@ ybox() {
 
   case "$action" in
     shell)
-      devcontainer exec --workspace-folder "$root" --config "$config" zsh -c "cd ${(q)remote_path} && exec zsh"
+      if (( command_seen )); then
+        devcontainer exec --workspace-folder "$root" --config "$config" zsh -ic "cd ${(q)remote_path} && $shell_command"
+      else
+        devcontainer exec --workspace-folder "$root" --config "$config" zsh -c "cd ${(q)remote_path} && exec zsh"
+      fi
       ;;
     code)
       docker_context=$(docker context show) || return 1
@@ -396,6 +412,8 @@ ybox() {
 # Short names. All creation and resolution stays in ybox.
 ybe() { ybox --shell "$@"; }
 ybcode() { ybox --code "$@"; }
+
+source "$_DC_HOST_DIR/agents.zsh"
 
 # Completion initialization belongs to the user's zsh setup.
 source "$_DC_HOST_DIR/_ybox"

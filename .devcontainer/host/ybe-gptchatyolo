@@ -1,0 +1,8 @@
+#!/usr/bin/env zsh
+# Run:     .devcontainer/host/ybe-gptchatyolo [DIRECTORY]
+# Inputs:  optional project directory (defaults to cwd), then -- agent arguments.
+#          Requires the host ybe prerequisites and gptchat-yolo in the container.
+# Outputs: an interactive gptchat-yolo session in the container; its exit status.
+
+source "${0:A:h}/devcontainer.zsh" || exit
+ybcodex "$@"

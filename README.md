@@ -216,6 +216,12 @@ ybox --status      # both containers and their modes, changing nothing
 ybox --stop --normie   # stop the normie container
 ```
 
+To launch an agent directly from the host, use `ybcc` or `ybcodex` for YOLO
+permissions, and `nbcc` (Claude auto mode) or `nbcodex` (Codex Approve for me)
+for normie mode. All accept an optional project directory and agent arguments
+after `--`, for example `ybcc My-Project -- --resume`. See the
+[agent launcher reference](.devcontainer/host/README.md#agent-commands).
+
 Both can run at once, and neither replaces the other, so switching is instant
 and ends nothing. They share volumes for logins, the AI CLIs, shell history
 and the packages and VS Code extensions normie mode installs. YOLO mounts

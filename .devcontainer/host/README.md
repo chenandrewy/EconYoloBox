@@ -10,7 +10,7 @@ The functions run on your **Mac**, before Docker creates the container. `ybox`
 picks the mode's container (YOLO by default, normie with `--normie`), brings
 it up with the Dev Containers CLI, verifies it, and then optionally opens a
 shell or editor.
-Launching and managing Claude Code sessions remains a separate personal concern.
+Agent launchers select the container and matching agent permission mode together.
 
 ## Setup
 
@@ -42,6 +42,7 @@ rc file or testing, use `bash .devcontainer/host/setup.sh --rc-file PATH`.
 |--------------------|-------------------------------------------------------------|
 | `setup.sh`         | host prerequisite checks and shell registration             |
 | `devcontainer.zsh` | `ybox`, short wrappers, bring-up, and verification        |
+| `agents.zsh`       | shared agent launchers and directory completion            |
 | `_ybox`            | side-effect-free native zsh completion                     |
 | `_ybcode`          | zsh completion for the VS Code wrapper                     |
 | `dc-resolve.py`    | container-path, CLI-output, and folder-URI helpers          |
@@ -68,6 +69,62 @@ its own path, so another checkout cannot redirect its helpers.
 and take the same flags: `ybcode --normie`, `ybe --yolo`. They contain no
 separate bring-up logic. The former `dcu`, `dce`, `dccode`, `bbox`, `bbcode`,
 `bbu`, and `bbe` names are removed on load.
+
+## Agent commands
+
+After opening a new host terminal, or reloading the launcher with
+`source ~/Dropbox/1-SANDBOX/.devcontainer/host/devcontainer.zsh`:
+
+| Command | Container | Agent permission mode |
+|---|---|---|
+| `ybcc` | YOLO | Claude bypass permissions, through guarded `cchat-yolo` |
+| `ybcodex` | YOLO | Codex bypass approvals and sandbox, through guarded `gptchat-yolo` |
+| `nbcc` | Normie | Claude `--permission-mode auto` |
+| `nbcodex` | Normie | Codex workspace-write, on-request approvals, `approvals_reviewer=auto_review` (Approve for me) |
+
+All four accept `[DIRECTORY] [-- AGENT_ARGS...]`. The directory defaults to
+your current host directory. They use the same startup, container verification,
+and directory mapping as `ybe`, load the container's interactive shell, and
+return to the host when the agent exits. Claude's YOLO wrapper retains its
+existing remote-control session naming.
+
+```zsh
+ybcc
+nbcodex My-Project
+ybcc My-Project -- --resume
+nbcodex -- resume --last
+ybcodex -- --model MODEL_NAME
+```
+
+The shared forms are `ybagent {cc|codex} [DIRECTORY] [-- ARGS...]` and
+`nbagent {cc|codex} [DIRECTORY] [-- ARGS...]`; `claude` is also accepted as
+an agent name. Directory completion is available for all six commands.
+Use `--help` before the separator for launcher help, or `-- --help` for agent help.
+
+These commands own the permission options: conflicting permission flags, Codex
+profiles/config overrides, and Claude settings overrides are rejected before
+container startup. Use `ybe` for a custom agent configuration. Agent arguments
+are quoted literally, including prompts with spaces or shell punctuation.
+The agent CLIs must already be installed in the container and support these
+modes; no installation or fallback permission mode is attempted.
+
+Permission references: [Claude permission modes](https://code.claude.com/docs/en/permissions)
+and [Codex sandbox and approvals](https://learn.chatgpt.com/docs/sandboxing).
+
+The earlier standalone script remains a compatibility entry point for `ybcodex`:
+
+```zsh
+.devcontainer/host/ybe-gptchatyolo             # current directory
+.devcontainer/host/ybe-gptchatyolo My-Project  # chosen project
+```
+
+For arbitrary shell commands, the general form is
+`ybe [dir] --command 'shell command'`: it loads the container's interactive
+zsh configuration so aliases and functions are available, runs the command
+in the selected directory, and returns to the host when it finishes.
+`gptchat-yolo` must already be defined or installed inside the container.
+After reloading `devcontainer.zsh`, the general form also works directly
+in your existing terminal.
 
 Each mode is its own container, built from its own config file, which
 hard-codes its posture:
