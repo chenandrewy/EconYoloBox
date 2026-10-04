@@ -1,9 +1,9 @@
-# Run: source devcontainer.zsh; then ybcc/ ybcodex/ nbcc/ nbcodex [DIR] [-- ARGS...].
+# Run: source devcontainer.zsh; then ybcc/ ybgpt/ nbcc/ nbcodex [DIR] [-- ARGS...].
 # Inputs: optional host project directory and literal agent arguments after --.
 # Outputs: an agent session in the verified container, returning its exit status.
 # Requires ybox from devcontainer.zsh; this file is sourced automatically there.
 
-unalias ybagent nbagent ybcc ybcodex nbcc nbcodex 2>/dev/null || true
+unalias ybagent nbagent ybcc ybgpt nbcc nbcodex 2>/dev/null || true
 
 # One path through ybox keeps container selection, verification and cwd mapping
 # identical to ybe. Quote every argument before passing it to the container zsh.
@@ -23,7 +23,7 @@ _yb_agent() {
     *) print -u2 -- "agent launcher: unknown agent: $agent (use cc or codex)"; return 2 ;;
   esac
   if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
-    print -- 'Usage: ybcc|ybcodex|nbcc|nbcodex [DIRECTORY] [-- AGENT_ARGS...]'
+    print -- 'Usage: ybcc|ybgpt|nbcc|nbcodex [DIRECTORY] [-- AGENT_ARGS...]'
     return 0
   fi
   if (( $# )) && [[ "$1" != -- ]]; then
@@ -62,7 +62,7 @@ _yb_agent() {
 ybagent() { _yb_agent yolo "$@"; }
 nbagent() { _yb_agent normie "$@"; }
 ybcc() { ybagent cc "$@"; }
-ybcodex() { ybagent codex "$@"; }
+ybgpt() { ybagent codex "$@"; }
 nbcc() { nbagent cc "$@"; }
 nbcodex() { nbagent codex "$@"; }
 
@@ -77,5 +77,5 @@ _yb_agent_completion() {
   fi
 }
 if (( $+functions[compdef] )); then
-  compdef _yb_agent_completion ybagent nbagent ybcc ybcodex nbcc nbcodex
+  compdef _yb_agent_completion ybagent nbagent ybcc ybgpt nbcc nbcodex
 fi

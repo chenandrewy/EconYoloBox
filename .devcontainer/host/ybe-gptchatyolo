@@ -5,4 +5,4 @@
 # Outputs: an interactive gptchat-yolo session in the container; its exit status.
 
 source "${0:A:h}/devcontainer.zsh" || exit
-ybcodex "$@"
+ybgpt "$@"

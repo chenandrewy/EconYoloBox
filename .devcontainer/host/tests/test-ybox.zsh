@@ -194,7 +194,7 @@ for args in '--command' '--command gptchat-yolo' '--shell --command'; do
 done
 pass 'startup commands use the container shell and preserve failures; invalid options stop before Docker'
 
-for launcher mode in ybcc yolo ybcodex yolo nbcc normie nbcodex normie; do
+for launcher mode in ybcc yolo ybgpt yolo nbcc normie nbcodex normie; do
   : >$log
   "$launcher" "$root/tools" </dev/null >/dev/null || fail "$launcher"
   config=$(_ybox_config "$root" "$mode")
@@ -282,7 +282,7 @@ reset_store
 add_container legacy "$yolo_config" normie
 if err=$(run "$root" 2>&1); then fail 'a mismatched container should be refused'; fi
 [[ "$err" == *'expected YOLO mode'* && "$err" == *"ybox --rebuild $root"* ]] || fail 'mismatch message'
-for launcher in ybcc ybcodex; do
+for launcher in ybcc ybgpt; do
   : >$log
   "$launcher" "$root" >/dev/null 2>&1 && fail "$launcher accepted wrong container posture"
   grep -q 'devcontainer|exec' $log && fail "$launcher launched in wrong container posture"

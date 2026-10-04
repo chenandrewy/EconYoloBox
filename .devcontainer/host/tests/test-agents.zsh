@@ -26,12 +26,12 @@ typeset -gi mock_status=0 calls=0
 ybox() { captured=("$@"); (( ++calls )); return $mock_status; }
 fail() { print -u2 -- "FAIL: $*"; exit 1; }
 
-for name mode executable in ybcc yolo cchat-yolo ybcodex yolo gptchat-yolo nbcc normie claude nbcodex normie codex; do
+for name mode executable in ybcc yolo cchat-yolo ybgpt yolo gptchat-yolo nbcc normie claude nbcodex normie codex; do
   "$name" 'project with spaces; $(false)' -- --model 'a model' || fail "$name"
   [[ "$captured[1]" == "--$mode" && "$captured[2]" == --shell && "$captured[3]" == --command && "$captured[5]" == -- && "$captured[6]" == 'project with spaces; $(false)' ]] || fail "$name routing"
   actual=$(zsh -fc "$captured[4]")
   case "$name" in
-    ybcc|ybcodex) expected=$(print -rl -- "$executable" --model 'a model') ;;
+    ybcc|ybgpt) expected=$(print -rl -- "$executable" --model 'a model') ;;
     nbcc) expected=$(print -rl -- claude --permission-mode auto --model 'a model') ;;
     nbcodex) expected=$(print -rl -- codex --sandbox workspace-write --ask-for-approval on-request -c approvals_reviewer=auto_review --model 'a model') ;;
   esac

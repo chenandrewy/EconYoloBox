@@ -78,7 +78,7 @@ After opening a new host terminal, or reloading the launcher with
 | Command | Container | Agent permission mode |
 |---|---|---|
 | `ybcc` | YOLO | Claude bypass permissions, through guarded `cchat-yolo` |
-| `ybcodex` | YOLO | Codex bypass approvals and sandbox, through guarded `gptchat-yolo` |
+| `ybgpt` | YOLO | Codex bypass approvals and sandbox, through guarded `gptchat-yolo` |
 | `nbcc` | Normie | Claude `--permission-mode auto` |
 | `nbcodex` | Normie | Codex workspace-write, on-request approvals, `approvals_reviewer=auto_review` (Approve for me) |
 
@@ -93,7 +93,7 @@ ybcc
 nbcodex My-Project
 ybcc My-Project -- --resume
 nbcodex -- resume --last
-ybcodex -- --model MODEL_NAME
+ybgpt -- --model MODEL_NAME
 ```
 
 The shared forms are `ybagent {cc|codex} [DIRECTORY] [-- ARGS...]` and
@@ -111,7 +111,7 @@ modes; no installation or fallback permission mode is attempted.
 Permission references: [Claude permission modes](https://code.claude.com/docs/en/permissions)
 and [Codex sandbox and approvals](https://learn.chatgpt.com/docs/sandboxing).
 
-The earlier standalone script remains a compatibility entry point for `ybcodex`:
+The earlier standalone script remains a compatibility entry point for `ybgpt`:
 
 ```zsh
 .devcontainer/host/ybe-gptchatyolo             # current directory

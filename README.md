@@ -216,7 +216,7 @@ ybox --status      # both containers and their modes, changing nothing
 ybox --stop --normie   # stop the normie container
 ```
 
-To launch an agent directly from the host, use `ybcc` or `ybcodex` for YOLO
+To launch an agent directly from the host, use `ybcc` or `ybgpt` for YOLO
 permissions, and `nbcc` (Claude auto mode) or `nbcodex` (Codex Approve for me)
 for normie mode. All accept an optional project directory and agent arguments
 after `--`, for example `ybcc My-Project -- --resume`. See the
