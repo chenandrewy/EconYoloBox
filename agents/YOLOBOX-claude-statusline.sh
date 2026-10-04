@@ -7,7 +7,12 @@
 input=$(cat)
 
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // ""')
-dir=$(basename "$cwd")
+# Full path, like Codex's current-dir item, with $HOME shown as ~.
+dir=$cwd
+case "$dir" in
+  "$HOME") dir="~" ;;
+  "$HOME"/*) dir="~${dir#"$HOME"}" ;;
+esac
 
 model=$(echo "$input" | jq -r '.model.display_name // ""')
 
