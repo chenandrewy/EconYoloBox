@@ -245,7 +245,8 @@ guarantees the safety of mounted files or accessible credentials.
 ## Recommended additions
 
 The minimal setup works without these steps. Add the pieces needed for your
-workflow after the container is running.
+workflow after the container is running. For more, such as using one checkout
+from several Macs, see [extended setup](docs/extended-setup.md).
 
 ### Give the Mac a short name
 

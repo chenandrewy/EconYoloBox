@@ -74,3 +74,44 @@ session live on both machines at once. Claude appends to the jsonl live,
 not just on exit, so exiting first stops the file moving under Dropbox.
 Divergence only arises from breaking this rule (concurrent use, or resuming
 before Dropbox pulled the latest); the prefix check is the safety net.
+
+## Reading sessions in a host VS Code window
+
+Because `data/` is a bind-mounted, Dropbox-synced folder, the transcripts are
+ordinary files on the Mac, and AIChatRender in a local (host) VS Code window
+can read them. Add this machine's stores as extra roots and map the
+container's `/yolobox` to the host checkout, in VS Code **user** settings (the
+settings are machine-scoped and ignored in workspace settings):
+
+```jsonc
+"aichatrender.claudeTranscriptRoots": [
+  "/ABS/CHECKOUT/tools/ai-sesh/data/<machine>/claude"
+],
+"aichatrender.codexTranscriptRoots": [
+  "/ABS/CHECKOUT/tools/ai-sesh/data/<machine>/codex"
+],
+"aichatrender.pathMappings": [
+  { "from": "/yolobox/", "to": "/ABS/CHECKOUT" }
+]
+```
+
+Paths must be literal and absolute: no `~`, globs or `${...}`. If several Macs
+share one user `settings.json` (e.g. symlinked from Dropbox), list every
+machine's store in each array, since one file cannot pick a store per machine.
+Each new ai-sesh machine then needs its two paths added. The mapping is the
+same on every machine as long as the checkout path is.
+
+After `sesh-push`, a session can appear twice: the other machine's original
+and this machine's installed copy. The picker shows each copy's directory.
+**Follow Active Terminal Chat** cannot match a terminal across the container
+boundary, so in a host window it always falls back to the picker:
+
+- **Automatic** (newest mtime) is right in normal use: resuming appends to
+  this machine's copy, which becomes the newest, and the original stops
+  changing.
+- Picking by hand, choose the copy under this machine's `data/<machine>/`.
+
+In a devcontainer window the extension runs in the container and reads only
+`~/.claude/projects` (this machine's store), so there are no duplicates and
+terminal matching works. Full walkthrough:
+[extended setup](../../docs/extended-setup.md#using-more-than-one-mac).
