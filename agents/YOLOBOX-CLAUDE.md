@@ -130,6 +130,14 @@ Do not edit either config file's posture settings.
   servers and are not subject to the devcontainer firewall. When the firewall
   is on, this does not make arbitrary URLs available to terminal commands or
   project code.
+- **Downloads in YOLO mode.** When the user asks you to download a file
+  (a manual, paper, dataset or similar) to disk, run
+  `bash /yolobox/.devcontainer/posture.sh` first. If the firewall is on and the
+  source host is not on the allowlist above, **STOP and ask the user to switch
+  to normie mode**, naming the file and its likely source. Do not hunt through
+  mirrors, retry with other clients, or try to save the file through
+  `WebFetch`/`web`. You may use web search to pin down the right file and URL
+  before asking, so the request is concrete.
 - **Package installs depend on the mode.** In YOLO mode, the
   R, Python and TeX stacks are **read-only**. If a package is missing, **ASK THE
   USER TO ADD IT** (name the package) rather than installing it some other way.
