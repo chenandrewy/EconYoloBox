@@ -269,19 +269,34 @@ an unrelated allowed host that shares an IP can still make one reachable.
 After a VS Code update, its versioned server binary is downloaded on the host
 and transferred again; only the extension directory persists.
 
-GitHub auth is different: nothing is persisted in a volume, but VS Code's Dev
-Containers extension forwards the host's Git credentials on demand (its default,
-written into the root-owned system gitconfig). That forwarding is left on
-deliberately — it is what lets work in here push branches and open PRs. Note the
-capability is not a licence: pushing still gets asked about first.
+### GitHub auth
 
-To turn it off, the only effective switch is on the host, not in this repo — the
-helper is injected per session by the VS Code client, so no rebuild can remove
-it:
+GitHub access is split by mode (plan: `docs/journal/1006a`). YOLO holds no
+GitHub credentials; normie holds the user's `gh` login.
 
-```json
-"dev.containers.gitCredentialHelperConfigLocation": "none"
-```
+- **Normie.** Log in once from an `nb*` or `ybe --normie` session with
+  `gh auth login --with-token` (preferably a fine-grained token scoped to the
+  needed repositories), then run `gh auth setup-git` so Git uses the same
+  login. Both write to the container's own `~/.config/gh` and `~/.gitconfig`,
+  which are not on a shared volume, so YOLO never sees them. The login
+  survives a restart but not a rebuild.
+- **YOLO.** Run agents with `ybcc`/`ybgpt` (or a shell with `ybe`) from a
+  local VS Code window on the host. These use `devcontainer exec`, which
+  forwards no credentials. Local commits work; pushes go through normie or a
+  host terminal on the same checkout.
+
+**Do not attach VS Code to the YOLO container** (`ybcode` without `--normie`,
+or Reopen in Container with the YOLO config). An attached window starts VS
+Code's credential relay: sockets in `/tmp` (`vscode-remote-containers-ipc-*`,
+`vscode-git-*`, `vscode-ssh-auth-*`) that any process in the container can use
+to ask the host for its github.com credential, and a helper line in both
+`/usr/local/etc/gitconfig` and `~/.gitconfig`. The relay lasts while the
+window is attached. The host setting
+`"dev.containers.gitCredentialHelperConfigLocation": "none"` only stops the
+helper line being written; it is not known to stop the relay answering, and
+no setting stops SSH agent forwarding.
+
+Pushing from normie is not a licence: agents still ask first.
 
 ### Agent Config
 

@@ -147,6 +147,12 @@ Do not edit either config file's posture settings.
   commands (`install.packages()`, `pip install`, `tlmgr install`), and say when
   pip replaced a dependency. New **system** libraries (`apt-get`, `-dev`
   packages) always need permission — see `USER PERMISSION REQUIRED`.
+- **GitHub credentials depend on the mode.** YOLO has none: local commits
+  work, but pushes, private fetches and `gh` commands fail for lack of
+  authentication. Do not try to authenticate there or look for a credential;
+  tell the user the step belongs in normie (`nbcc`, `nbcodex`) or on the host.
+  Normie has the user's `gh` login once they have set it up. Pushing from
+  normie still needs permission — see `USER PERMISSION REQUIRED`.
 - If the firewall blocks a resource you need: **ASK THE USER TO ADD IT**
 - For "this screenshot," "the image," or "latest screenshot," look up
   the screenshots path under Key Paths.

@@ -266,5 +266,11 @@ commands.
 - **Persistent agent auth.** Named volumes keep Claude and Codex login state
   across rebuilds, shared by both modes' containers, so one login serves
   both. Their names are the checkout's folder name alone, so that name must
-  be unique on the Docker daemon, which startup enforces; VS Code forwards host Git credentials so in-container work
-  can push branches and open PRs.
+  be unique on the Docker daemon, which startup enforces.
+
+- **GitHub access in normie only.** YOLO holds no GitHub credentials, so a
+  YOLO agent can commit locally but cannot push or write issues. Normie holds
+  the user's `gh` login, stored on its own container filesystem rather than a
+  shared volume. Agents run from a host VS Code window through `ybcc`/`ybgpt`
+  and `nbcc`/`nbcodex`; attaching VS Code to YOLO would bring back its
+  credential relay. See the GitHub auth section of `.devcontainer/README.md`.

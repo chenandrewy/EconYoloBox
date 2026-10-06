@@ -82,6 +82,13 @@ After opening a new host terminal, or reloading the launcher with
 | `nbcc` | Normie | Claude `--permission-mode auto` |
 | `nbcodex` | Normie | Codex workspace-write, on-request approvals, `approvals_reviewer=auto_review` (Approve for me) |
 
+Run these from a local (unattached) VS Code window's terminal or any host
+terminal. They use `devcontainer exec`, which forwards no GitHub credentials,
+so `yb*` sessions have none and `nb*` sessions have only normie's own `gh`
+login. Do not attach VS Code to the YOLO container (plain `ybcode`): that
+starts VS Code's credential relay there. See the GitHub auth section of
+`../README.md`.
+
 All four accept `[DIRECTORY] [-- AGENT_ARGS...]`. The directory defaults to
 your current host directory. They use the same startup, container verification,
 and directory mapping as `ybe`, load the container's interactive shell, and
