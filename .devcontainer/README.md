@@ -289,12 +289,20 @@ GitHub credentials; normie holds the user's `gh` login.
 or Reopen in Container with the YOLO config). An attached window starts VS
 Code's credential relay: sockets in `/tmp` (`vscode-remote-containers-ipc-*`,
 `vscode-git-*`, `vscode-ssh-auth-*`) that any process in the container can use
-to ask the host for its github.com credential, and a helper line in both
+to request credentials from the host, and a helper line in both
 `/usr/local/etc/gitconfig` and `~/.gitconfig`. The relay lasts while the
 window is attached. The host setting
 `"dev.containers.gitCredentialHelperConfigLocation": "none"` only stops the
 helper line being written; it is not known to stop the relay answering, and
 no setting stops SSH agent forwarding.
+
+A listening relay does not establish that the host will return a usable
+credential. In the [2026-10-06 attached-container check](../docs/journal/1006c,vscode-relay-after-oauth-reset.md),
+after the user revoked VS Code's GitHub OAuth authorization and signed back
+in for Copilot, `gh auth status` reported no login and `git credential fill`
+returned no GitHub HTTPS credential (exit 128), despite listening relay
+sockets. The failure reason, direct IPC requests, and SSH-agent capabilities
+were not tested; this result does not yet justify relaxing the attach guidance.
 
 Pushing from normie is not a licence: agents still ask first.
 

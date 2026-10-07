@@ -273,4 +273,8 @@ commands.
   the user's `gh` login, stored on its own container filesystem rather than a
   shared volume. Agents run from a host VS Code window through `ybcc`/`ybgpt`
   and `nbcc`/`nbcodex`; attaching VS Code to YOLO would bring back its
-  credential relay. See the GitHub auth section of `.devcontainer/README.md`.
+  credential relay. A listening relay does not itself prove that credentials
+  are available: the [2026-10-06 check](journal/1006c,vscode-relay-after-oauth-reset.md)
+  obtained no GitHub HTTPS credential after the user's OAuth reset and VS Code
+  sign-in for Copilot. SSH-agent capabilities remain untested. See the GitHub
+  auth section of `.devcontainer/README.md`.
