@@ -10,8 +10,8 @@ and ask. The default fix is for the user to update the environment.
 
 - Get permission before installing packages or other software into the running environment.
 - Get permission before authenticating to GitHub or pushing/publishing anything.
-- Get permission before connecting to WRDS or testing WRDS credentials. If 
-  authentication, 2FA, or connection setup fails, stop and ask the user; do not retry, use another client, or delegate the attempt to another agent.
+- If connecting to WRDS or testing WRDS credentials fails, stop and ask the user to check 2FA; 
+  do not retry, use another client, or delegate the attempt to another agent.
 - Get permission before hand-rolling replacements for missing libraries or tools.
 - Get permission before working around environment problems (Dropbox locks, auth, firewall, or similar).
 
