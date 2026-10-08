@@ -108,26 +108,83 @@ Costs / remaining risks:
 
 ## Implementation sketch for later
 
+Follow-up discussion: volume identity is the central separation concern, and
+distinct source names solve it straightforwardly. The main integration work is
+then making ai-sesh preserve the intended session-sharing behavior. Disk usage,
+duplicated updates, and migration downtime are secondary operational costs,
+not reasons to complicate the design.
+
+The source names are encoded directly in the `mounts` arrays of
+`.devcontainer/devcontainer.json` and `.devcontainer/normie/devcontainer.json`.
+Use the following explicit mapping, with `${localWorkspaceFolderBasename}` as
+the checkout prefix:
+
+| Target inside either container | YOLO source | Normie source |
+| --- | --- | --- |
+| `/home/ubuntu/.codex` | `${localWorkspaceFolderBasename}-yolo-codex-config` | `${localWorkspaceFolderBasename}-normie-codex-config` |
+| `/home/ubuntu/.claude` | `${localWorkspaceFolderBasename}-yolo-claude-config` | `${localWorkspaceFolderBasename}-normie-claude-config` |
+| `/usr/local/share/npm-global` | `${localWorkspaceFolderBasename}-yolo-npm-global-noble-node24` | `${localWorkspaceFolderBasename}-normie-npm-global-noble-node24` |
+
+Docker volume identity comes from the source name, not the target path or
+container name. Keep the existing paths, `CODEX_HOME`, and `CLAUDE_CONFIG_DIR`
+inside each container. Inspect other npm-global contents before splitting that
+volume; the preferred layout is one installation volume per mode.
+
+Pitfalls to check explicitly:
+
+- Changing config files does not change existing container mounts. Recreate
+  both containers and inspect their actual mount maps: these three sources must
+  differ by mode; intentionally shared analysis-package volumes remain shared.
+- Check resolved symlinks too. Agent runtime state and installations must not
+  lead back to the old shared volume. Only deliberate sharing links should
+  connect the homes to common writable data.
+- Mode suffixes solve YOLO/normie collisions, not collisions between two host
+  checkouts with the same basename. Retain the existing one-checkout-per-basename
+  rule and verify `check-checkout.sh` markers in both new Claude volumes. A
+  globally unique checkout naming scheme would be a separate change.
+- Keep the host-derived ai-sesh machine ID the same in both modes. Appending
+  `yolo`/`normie` there would split the transcript store, contrary to the intended
+  shared-history behavior. Container identity and transcript-store identity serve
+  different purposes.
+- `sesh-init` already supports separate homes pointing into the same data tree;
+  do not assume it needs a redesign. Verify or update its initialization and
+  current-format session support. Ensure the correct links exist before either
+  agent starts, and test discovery/resume with independent local indexes.
+- Startup seeds settings and installs missing CLIs; interactive shells run
+  `sesh-init`, which can migrate files. Prepare migration before allowing normal
+  startup. Its `/proc` checks cannot see writers in the other container, so stop
+  affected work in both modes rather than relying on that busy check alone.
+- Retaining old home volumes does not snapshot the ai-sesh data reached through
+  symlinks. Back up the shared data separately while it is quiet. Rollback must
+  account for any writes to that shared data after cutover.
+- New installation volumes trigger an installer that requests `@latest` today.
+  Use recorded initial versions to avoid mixing the migration with an unrelated
+  upgrade. The launcher rebuild path also recreates the other mode; account for
+  both containers when scheduling the cutover.
+
 1. Inventory actual installed versions, process managers, home contents and
    symlinks, authentication locations, session formats, and CLI install paths.
    Check applicable guidance and current upstream documentation. Inventory
    active work before choosing a maintenance window.
-2. Allocate distinct persistent Codex and Claude home volumes for YOLO and
-   normie in `.devcontainer/devcontainer.json` and its normie twin. Keep the
-   in-container paths stable so existing seeding and ai-sesh scripts still work.
-3. Separate the agent executable installations too. Today npm-global is shared;
-   inspect everything installed there before deciding between mode-specific
-   npm-global volumes and dedicated agent install locations. Keep R/Python/TeX
-   package sharing unchanged. Explicitly preserve a workable update path for
+2. Assign the explicit mode-specific source names above in the two configs.
+   Check the pair together for accidental reuse of a source and retain stable
+   in-container paths. Verify checkout-marker behavior and relevant mount tests.
+3. Separate executable installations using the mode-specific npm-global volumes,
+   after inventorying their contents. Keep R/Python/TeX package sharing unchanged.
+   Explicitly preserve a workable update path for
    YOLO under its firewall/package restrictions; do not silently relax them.
-4. Stop affected agent sessions/managers for migration. Preserve the original
-   volumes; seed durable preferences/authentication only where supported and
+4. Stop affected agent sessions/managers in both modes for migration. Snapshot
+   shared ai-sesh data separately and preserve the original volumes. Prepare new
+   volumes before normal startup; seed durable preferences/authentication only where supported and
    desired. Do not copy live PID records, sockets, locks, or daemon bookkeeping
    into new homes. Avoid a blind recursive copy of either live home.
 5. Reapply `agents/` guidance/settings/skills and establish ai-sesh links in both
-   homes. Preserve existing transcript bytes. Check whether other durable state
-   needs migration for the installed Codex/Claude versions.
+   homes to the same existing machine store. Update ai-sesh only as needed for
+   reliable initialization and current session formats. Preserve existing
+   transcript bytes; identify supporting state needed for discovery and resume
+   without reintroducing shared daemon bookkeeping or runtime databases.
 6. Recreate containers with the new mounts and start each agent independently.
+   Inspect actual Docker mounts and resolved links against the mapping above.
    Verify daemon records and executable paths belong to the correct mode.
    Confirm `ybgpt` starts without the version warning and supported restart and
    update operations no longer collide. Inspect Claude's supported daemon status
@@ -135,7 +192,10 @@ Costs / remaining risks:
 7. Validate independent updates/restarts with no active user work; confirm the
    other container is unaffected. Check authentication, managed policies, skill
    discovery, sequential session resume/fork, and transcript visibility in both
-   modes. Cover relevant launcher/mount regressions with existing tests.
+   modes. Test both pre-migration conversations and new conversations created in
+   either mode; do not concurrently resume one conversation in both. Confirm
+   installed CLI and running daemon versions separately in each mode. Cover
+   relevant launcher/mount and ai-sesh regressions with existing tests.
 8. Update repository documentation and volume naming/cleanup instructions.
    Retain old volumes until migration is verified; remove them only as a
    separately authorized cleanup. Rollback means restoring old mounts, with
