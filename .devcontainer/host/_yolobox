@@ -1,0 +1,30 @@
+#compdef yolobox
+# Run: source .devcontainer/host/_yolobox after zsh completion initialization.
+# Inputs: current command line; no configuration or Docker access.
+# Outputs: completion for the complete yolobox interface.
+
+_yolobox() {
+  if (( ${words[(I)--]} )); then
+    _files
+    return
+  fi
+  local actions='--shell --code --claude --codex --status --stop'
+  _arguments -s \
+    '(--normie --status)--yolo[use the YOLO container (default)]' \
+    '(--yolo --status)--normie[use the normie container]' \
+    '(--rebuild-without-cache --status --stop)--rebuild[recreate both containers using the build cache]' \
+    '(--rebuild --status --stop)--rebuild-without-cache[recreate both containers without the build cache]' \
+    "($actions)--shell[open a shell (ybe / nbe)]" \
+    "($actions)--code[open VS Code (ybcode / nbcode)]" \
+    "($actions)--claude[launch Claude (ybcc / nbcc)]" \
+    "($actions)--codex[launch Codex (ybgpt / nbgpt)]" \
+    "($actions --rebuild --rebuild-without-cache)--stop[stop the selected container]" \
+    "($actions --yolo --normie --rebuild --rebuild-without-cache)--status[report both containers]" \
+    '(--code --claude --codex --status --stop)--command[with --shell, run a shell command]:command:' \
+    '--help[show actions, modes and shortcuts]' \
+    ':directory:_directories'
+}
+
+if (( $+functions[compdef] )); then
+  compdef _yolobox yolobox
+fi

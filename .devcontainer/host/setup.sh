@@ -5,18 +5,18 @@
 # Requires Python 3. Installs no software and does not start Docker or a container.
 #
 # The registration is a managed block at the end of the rc file:
-# Existing bbox-marked blocks are migrated to the ybox markers.
+# Existing ybox- and bbox-marked blocks are migrated to the yolobox markers.
 #
-#   # >>> ybox host launcher >>>
+#   # >>> yolobox host launcher >>>
 #   source /path/to/checkout/.devcontainer/host/devcontainer.zsh
-#   # <<< ybox host launcher <<<
+#   # <<< yolobox host launcher <<<
 #
 # The path is this checkout's, shell-quoted if needed. Rerunning cuts out the
 # old block and appends a fresh one, so the block moves back to the end (after
 # the user's completion setup) and follows a moved checkout. Outside the block,
 # only bare `source`/`.` lines for this same launcher (the previous README's
 # registration) are removed; everything else is kept byte for byte. A changed
-# file is backed up first to <rc>.ybox-backup-XXXXXX beside it; a missing,
+# file is backed up first to <rc>.yolobox-backup-XXXXXX beside it; a missing,
 # duplicated or out-of-order marker aborts with no changes.
 set -euo pipefail
 
@@ -47,22 +47,24 @@ launcher = Path(sys.argv[1])
 checkout = launcher.parent.parent.parent
 old_launchers = [checkout / d / launcher.name for d in ('.host', 'host', 'infra/host')]
 rc = Path(sys.argv[2]).expanduser()
-begin = '# >>> ybox host launcher >>>'
-end = '# <<< ybox host launcher <<<'
+begin = '# >>> yolobox host launcher >>>'
+end = '# <<< yolobox host launcher <<<'
 legacy_begin = '# >>> bbox host launcher >>>'
 legacy_end = '# <<< bbox host launcher <<<'
+previous_begin = '# >>> ybox host launcher >>>'
+previous_end = '# <<< ybox host launcher <<<'
 if not launcher.is_file():
     sys.exit(f'Launcher not found: {launcher}')
 if rc.is_symlink() and not rc.exists():
     sys.exit(f'Refusing to overwrite dangling symlink: {rc}')
 original = rc.read_text() if rc.exists() else ''
 lines = original.splitlines(keepends=True)
-starts = [i for i, line in enumerate(lines) if line.rstrip('\r\n') in (begin, legacy_begin)]
-ends = [i for i, line in enumerate(lines) if line.rstrip('\r\n') in (end, legacy_end)]
+starts = [i for i, line in enumerate(lines) if line.rstrip('\r\n') in (begin, legacy_begin, previous_begin)]
+ends = [i for i, line in enumerate(lines) if line.rstrip('\r\n') in (end, legacy_end, previous_end)]
 if starts or ends:
     if (len(starts) != 1 or len(ends) != 1 or starts[0] >= ends[0]
             or (lines[starts[0]].rstrip('\r\n'), lines[ends[0]].rstrip('\r\n'))
-            not in ((begin, end), (legacy_begin, legacy_end))):
+            not in ((begin, end), (legacy_begin, legacy_end), (previous_begin, previous_end))):
         sys.exit(f'Malformed host launcher setup block in {rc}; no changes made.')
 
 # Migrate simple registrations from the previous README without evaluating rc code.
@@ -91,7 +93,7 @@ if updated == original:
 else:
     rc.parent.mkdir(parents=True, exist_ok=True)
     if rc.exists():
-        fd, backup = tempfile.mkstemp(prefix=rc.name + '.ybox-backup-', dir=rc.parent)
+        fd, backup = tempfile.mkstemp(prefix=rc.name + '.yolobox-backup-', dir=rc.parent)
         os.close(fd)
         shutil.copy2(rc, backup)
         print(f'Backup: {backup}')
@@ -104,7 +106,7 @@ for prerequisite in zsh docker devcontainer code; do
         printf 'Found: %s\n' "$prerequisite"
     else
         case "$prerequisite" in
-            zsh) echo 'Missing zsh: install zsh to use ybox.' ;;
+            zsh) echo 'Missing zsh: install zsh to use yolobox.' ;;
             docker) echo 'Missing docker: install and start Docker Desktop.' ;;
             devcontainer) echo 'Missing devcontainer: install Node.js/npm, then run npm install -g @devcontainers/cli.' ;;
             code) echo "Missing code (needed for --code): in VS Code, run Shell Command: Install 'code' command in PATH." ;;
@@ -112,4 +114,4 @@ for prerequisite in zsh docker devcontainer code; do
     fi
 done
 printf '\n%s\n' 'Open a new host zsh terminal (or run exec zsh).' \
-    'From the checkout root, run ybox --code. Docker Desktop must be running.'
+    'From the checkout root, run yolobox --code. Docker Desktop must be running.'

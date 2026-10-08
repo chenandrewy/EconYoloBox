@@ -2,7 +2,7 @@
 # Install the lean base: the Python, R and TeX stacks and the AI CLIs.
 #
 # Run, inside the devcontainer as ubuntu, from anywhere in this checkout:
-#   In normie mode (on the host, `ybcode --normie` or `ybe --normie`):
+#   In normie mode (on the host, `nbcode` or `nbe`):
 #     bash .devcontainer/setup/install-base.sh                # python r tex cli (all)
 #     bash .devcontainer/setup/install-base.sh tex            # TeX Live only
 #     bash .devcontainer/setup/install-base.sh r --force      # reinstall present R packages
@@ -163,7 +163,7 @@ trap cleanup EXIT
 WORK_DIR=$(mktemp -d)
 
 # The same check as install-optional.sh: normie mode is the user's switch, the
-# mounts writable, which only ybox --normie can arrange, at creation. Checked
+# mounts writable, which only yolobox --normie can arrange, at creation. Checked
 # on the container itself. All of it before anything installs, so a refusal
 # writes nothing.
 require_install_mode() {
@@ -189,9 +189,9 @@ require_install_mode() {
     if [ ${#problems[@]} -gt 0 ]; then
         echo "install-base.sh: not in normie mode:" >&2
         printf '  - %s\n' "${problems[@]}" >&2
-        echo 'Switch to normie mode: on the host, ybcode --normie (or ybe --normie),' >&2
+        echo 'Switch to normie mode: on the host, nbcode (or nbe),' >&2
         echo "then in the container: bash .devcontainer/setup/install-base.sh $STACK_TARGETS" >&2
-        echo 'Back to YOLO mode afterwards: ybcode or ybe; ybox --stop --normie.' >&2
+        echo 'Back to YOLO mode afterwards: ybcode or ybe; yolobox --stop --normie.' >&2
         echo 'The AI CLIs update in any mode: bash .devcontainer/setup/install-base.sh cli' >&2
         exit 1
     fi
@@ -202,7 +202,7 @@ require_install_mode() {
 require_cli_mount() {
     if ! mountpoint -q "$CLI_TARGET"; then
         echo "install-base.sh: $CLI_TARGET is not a mounted volume; refusing to install into the image layer." >&2
-        echo "Run ybox --rebuild on the host, then bash .devcontainer/setup/install-base.sh cli" >&2
+        echo "Run yolobox --rebuild on the host, then bash .devcontainer/setup/install-base.sh cli" >&2
         exit 1
     fi
 }
@@ -746,7 +746,7 @@ elif [ "$VERIFY" -eq 0 ] && [ -n "$STACK_TARGETS" ]; then
     fi
     echo "Restart R/Python sessions in every container that mounts these volumes;"
     echo "after a TeX change run tex-refresh there too and reopen LyX."
-    echo 'Done. Back to YOLO mode: on the host, ybcode or ybe; ybox --stop --normie.'
+    echo 'Done. Back to YOLO mode: on the host, ybcode or ybe; yolobox --stop --normie.'
 else
     echo "Done."
 fi

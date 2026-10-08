@@ -84,7 +84,7 @@ Rscript -e 'quit(status = !requireNamespace("fixest", quietly = TRUE))' >/dev/nu
 if [ ${#missing[@]} -gt 0 ]; then
     echo "post-start.sh: package volume not built or not loadable: ${missing[*]}" >&2
     echo "  in normie mode, in the container: bash .devcontainer/setup/install-base.sh ${missing[*]}" >&2
-    echo "  or remove the volume on the host and ybox --rebuild to seed it (.devcontainer/setup/README.md)" >&2
+    echo "  or remove the volume on the host and yolobox --rebuild to seed it (.devcontainer/setup/README.md)" >&2
 fi
 
 # The VS Code extensions are installed only from normie, into the shared
@@ -108,11 +108,11 @@ case "${posture%% *}" in
         echo "Normie mode: ${posture#* }"
         echo "  supervised: install with install.packages(), pip install or tlmgr install,"
         echo "  or bash .devcontainer/setup/install-optional.sh. Back to YOLO mode: on the host,"
-        echo "  ybcode or ybe; ybox --stop --normie stops this container."
+        echo "  ybcode or ybe; yolobox --stop --normie stops this container."
         ;;
     *)
         echo "Custom posture, neither YOLO nor normie mode: ${posture#* }" >&2
-        echo "  made before the per-mode configs? on the host: ybox --rebuild" >&2
+        echo "  made before the per-mode configs? on the host: yolobox --rebuild" >&2
         ;;
 esac
 

@@ -24,7 +24,7 @@
 #              seccomp= words, e.g. "yolo internet=firewalled package_access=readonly
 #              seccomp=builtin". Anything not verified reads as custom.
 #
-# Called by _dc_resolve/ybox in devcontainer.zsh; not meant to be run by hand.
+# Called by _dc_resolve/yolobox in devcontainer.zsh; not meant to be run by hand.
 
 import json
 import pathlib
@@ -114,7 +114,7 @@ def up_container_id(src):
     raise SystemExit("devcontainer up did not return a containerId")
 
 
-# The two presets ybox creates (--yolo, the default, and --normie).
+# The two presets yolobox creates (--yolo, the default, and --normie).
 PRESETS = {
     "yolo": ("firewalled", "readonly", "builtin"),
     "normie": ("open", "writable", "unconfined"),

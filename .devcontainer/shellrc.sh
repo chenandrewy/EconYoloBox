@@ -60,7 +60,7 @@ if ! bash /yolobox/.devcontainer/setup/install-vscode-extensions.sh --verify >/d
 fi
 
 # Posture warning banner and prompt tag. Each mode has its own container,
-# built from its own config file (ybcode or ybcode --normie on the host), so
+# built from its own config file (ybcode or nbcode on the host), so
 # outside YOLO mode every shell warns what is loosened, and zsh's prompt
 # carries a tag, so the mode stays in view. posture.sh checks the declared
 # container mode against the firewall marker and PID 1's seccomp mode. It also
@@ -82,7 +82,7 @@ if [ "$_ybx_mode" != yolo ]; then
     else
         printf '%s\n' \
             "${_ybx_hi}Warning: Custom Posture${_ybx_off}" \
-            "${_ybx_posture#* }; to fix, on the host: ybox --rebuild"
+            "${_ybx_posture#* }; to fix, on the host: yolobox --rebuild"
     fi
     unset _ybx_hi _ybx_off
 fi

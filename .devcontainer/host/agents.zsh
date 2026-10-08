@@ -1,81 +1,109 @@
-# Run: source devcontainer.zsh; then ybcc/ ybgpt/ nbcc/ nbcodex [DIR] [-- ARGS...].
-# Inputs: optional host project directory and literal agent arguments after --.
-# Outputs: an agent session in the verified container, returning its exit status.
-# Requires ybox from devcontainer.zsh; this file is sourced automatically there.
+# Run: source devcontainer.zsh; use yolobox --help for commands and shortcuts.
+# Inputs: container mode, action, optional directory and literal agent arguments.
+# Outputs: fixed-mode shortcuts and a quoted agent command for yolobox.
 
-unalias ybagent nbagent ybcc ybgpt nbcc nbcodex 2>/dev/null || true
+unalias ybcc ybgpt nbcc nbgpt 2>/dev/null || true
 
-# One path through ybox keeps container selection, verification and cwd mapping
-# identical to ybe. Quote every argument before passing it to the container zsh.
-_yb_agent() {
-  local mode="$1" agent="${2:-}" project_dir='.' arg shell_command
+_yb_help() {
+  cat <<'HELP'
+Usage: yolobox [--yolo|--normie] [ACTION] [DIRECTORY] [-- AGENT_ARGS...]
+
+Without an action, bring up and verify the selected container (default: YOLO).
+
+Action          Purpose                         YOLO shortcut   Normie shortcut
+--shell         Open a shell                    ybe             nbe
+--code          Open VS Code                    ybcode          nbcode
+--claude        Launch Claude                   ybcc            nbcc
+--codex         Launch Codex                    ybgpt           nbgpt
+--status        Report both containers
+--stop          Stop the selected container
+
+--rebuild                  Recreate both containers using the build cache
+--rebuild-without-cache    Recreate both containers without the build cache
+--command STRING          With --shell, run a command in the container shell
+--help                    Show this help
+
+Shortcuts select their action and mode; conflicting flags are rejected.
+Agent arguments follow --; put DIRECTORY before --. Examples:
+  yolobox --normie --codex My-Project -- resume --last
+  nbgpt My-Project -- resume --last
+  yolobox --status
+HELP
+}
+
+_yb_shortcut() {
+  local mode="$1" action="$2" arg after_separator=0 command_value=0
+  local -a args
+  shift 2
+  for arg in "$@"; do
+    if (( command_value )); then
+      args+=("$arg")
+      command_value=0
+      continue
+    fi
+    if (( ! after_separator )); then
+      case "$arg" in
+        --) after_separator=1 ;;
+        --command) command_value=1 ;;
+        --yolo|--normie)
+          [[ "$arg" == "--$mode" ]] || {
+            print -u2 -- "launcher: this shortcut selects $mode; use the matching shortcut or yolobox"
+            return 2
+          }
+          continue
+          ;;
+        --shell|--code|--claude|--codex|--status|--stop)
+          print -u2 -- 'launcher: shortcuts select their action; use yolobox to choose another action'
+          return 2
+          ;;
+      esac
+    fi
+    args+=("$arg")
+  done
+  yolobox "--$mode" "--$action" "${args[@]}"
+}
+
+_yb_agent_command() {
+  local mode="$1" agent="$2" arg
   local -a launch
-  shift
-  if [[ "$agent" == --help || "$agent" == -h || -z "$agent" ]]; then
-    print -- 'Usage: ybagent|nbagent {cc|codex} [DIRECTORY] [-- AGENT_ARGS...]'
-    [[ -n "$agent" ]] && return 0
-    return 2
-  fi
-  shift
-  case "$agent" in
-    cc|claude) agent=cc ;;
-    codex) ;;
-    *) print -u2 -- "agent launcher: unknown agent: $agent (use cc or codex)"; return 2 ;;
-  esac
-  if [[ "${1:-}" == --help || "${1:-}" == -h ]]; then
-    print -- 'Usage: ybcc|ybgpt|nbcc|nbcodex [DIRECTORY] [-- AGENT_ARGS...]'
-    return 0
-  fi
-  if (( $# )) && [[ "$1" != -- ]]; then
-    [[ "$1" != -* ]] || { print -u2 -- 'agent launcher: put agent options after --'; return 2; }
-    project_dir="$1"
-    shift
-  fi
-  if (( $# )); then
-    [[ "$1" == -- ]] || { print -u2 -- 'agent launcher: expected one directory, then -- before agent arguments'; return 2; }
-    shift
-  fi
-
+  shift 2
   # These convenience commands own permission selection. Profiles/config files
-  # can change it indirectly, so use ybe for bespoke permission configurations.
+  # can change it indirectly, so use yolobox --shell --command for bespoke configurations.
   for arg in "$@"; do
     case "$agent:$arg" in
-      codex:--sandbox|codex:--sandbox=*|codex:-s*|codex:--ask-for-approval|codex:--ask-for-approval=*|codex:-a*|codex:--yolo|codex:--yolo=*|codex:--dangerously-bypass-approvals-and-sandbox*|codex:--full-auto|codex:--approve-for-me|codex:--config|codex:--config=*|codex:-c*|codex:--profile|codex:--profile=*|codex:-p*|cc:--permission-mode|cc:--permission-mode=*|cc:--dangerously-skip-permissions*|cc:--allow-dangerously-skip-permissions*|cc:--settings|cc:--settings=*)
-        print -u2 -- "agent launcher: $arg can override the selected permission mode; use ybe for a custom launch"
+      codex:--sandbox|codex:--sandbox=*|codex:-s*|codex:--ask-for-approval|codex:--ask-for-approval=*|codex:-a*|codex:--yolo|codex:--yolo=*|codex:--dangerously-bypass-approvals-and-sandbox*|codex:--full-auto|codex:--approve-for-me|codex:--config|codex:--config=*|codex:-c*|codex:--profile|codex:--profile=*|codex:-p*|claude:--permission-mode|claude:--permission-mode=*|claude:--dangerously-skip-permissions*|claude:--allow-dangerously-skip-permissions*|claude:--settings|claude:--settings=*)
+        print -u2 -- "agent launcher: $arg can override the selected permission mode; use yolobox --shell --command for a custom launch"
         return 2
         ;;
     esac
   done
 
   case "$mode:$agent" in
-    yolo:cc) launch=(cchat-yolo) ;;
+    yolo:claude) launch=(cchat-yolo) ;;
     yolo:codex) launch=(gptchat-yolo) ;;
-    normie:cc) launch=(command claude --permission-mode auto) ;;
+    normie:claude) launch=(command claude --permission-mode auto) ;;
     normie:codex) launch=(command codex --sandbox workspace-write --ask-for-approval on-request -c approvals_reviewer=auto_review) ;;
     *) print -u2 -- 'agent launcher: invalid container mode'; return 2 ;;
   esac
   launch+=("$@")
-  shell_command="${(j: :)${(@q)launch}}"
-  ybox "--$mode" --shell --command "$shell_command" -- "$project_dir"
+  REPLY="${(j: :)${(@q)launch}}"
 }
 
-ybagent() { _yb_agent yolo "$@"; }
-nbagent() { _yb_agent normie "$@"; }
-ybcc() { ybagent cc "$@"; }
-ybgpt() { ybagent codex "$@"; }
-nbcc() { nbagent cc "$@"; }
-nbcodex() { nbagent codex "$@"; }
+ybcc() { _yb_shortcut yolo claude "$@"; }
+ybgpt() { _yb_shortcut yolo codex "$@"; }
+nbcc() { _yb_shortcut normie claude "$@"; }
+nbgpt() { _yb_shortcut normie codex "$@"; }
 
-# Directory completion before --; leave agent-specific options to the agent.
 _yb_agent_completion() {
   if (( ${words[(I)--]} )); then
     _files
-  elif [[ "$words[1]" == (ybagent|nbagent) ]] && (( CURRENT == 2 )); then
-    compadd cc codex
   else
-    _files -/
+    _arguments \
+      '(--rebuild-without-cache)--rebuild[recreate both containers using the build cache]' \
+      '(--rebuild)--rebuild-without-cache[recreate both containers without the build cache]' \
+      '--help[show launcher help]' ':directory:_directories'
   fi
 }
 if (( $+functions[compdef] )); then
-  compdef _yb_agent_completion ybagent nbagent ybcc ybgpt nbcc nbcodex
+  compdef _yb_agent_completion ybcc ybgpt nbcc nbgpt
 fi

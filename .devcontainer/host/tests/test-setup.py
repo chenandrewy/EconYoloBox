@@ -53,11 +53,11 @@ class SetupTests(unittest.TestCase):
             registered = rc.read_text()
             self.assertTrue(registered.startswith(original))
             self.assertEqual(registered.count('source '), 1)
-            self.assertIn('# >>> ybox host launcher >>>', registered)
-            self.assertEqual(len(list(root.glob('custom.zshrc.ybox-backup-*'))), 1)
+            self.assertIn('# >>> yolobox host launcher >>>', registered)
+            self.assertEqual(len(list(root.glob('custom.zshrc.yolobox-backup-*'))), 1)
             setup()
             self.assertEqual(rc.read_text(), registered)
-            self.assertEqual(len(list(root.glob('custom.zshrc.ybox-backup-*'))), 1)
+            self.assertEqual(len(list(root.glob('custom.zshrc.yolobox-backup-*'))), 1)
             result = subprocess.run(['zsh', '-f', '-c',
                                      'source "$1"; print -r -- "$YBOX_TEST_LOADED"',
                                      'test', str(rc)], check=True, capture_output=True, text=True)
@@ -71,8 +71,12 @@ class SetupTests(unittest.TestCase):
             migrated = rc.read_text()
             self.assertTrue(migrated.startswith(original))
             self.assertEqual(migrated.count('source '), 1)
-            self.assertIn('# >>> ybox host launcher >>>', migrated)
+            self.assertIn('# >>> yolobox host launcher >>>', migrated)
             self.assertNotIn('# >>> bbox host launcher >>>', migrated)
+            setup()
+            self.assertEqual(rc.read_text(), migrated)
+
+            rc.write_text(migrated.replace('yolobox host launcher', 'ybox host launcher'))
             setup()
             self.assertEqual(rc.read_text(), migrated)
 
@@ -92,8 +96,8 @@ class SetupTests(unittest.TestCase):
                 self.assertIn(str(toolkit / 'devcontainer.zsh'), rc.read_text())
 
             for malformed in ('# >>> bbox host launcher >>>\n',
-                              '# >>> ybox host launcher >>>\n',
-                              '# >>> bbox host launcher >>>\n# <<< ybox host launcher <<<\n'):
+                              '# >>> yolobox host launcher >>>\n',
+                              '# >>> bbox host launcher >>>\n# <<< yolobox host launcher <<<\n'):
                 rc.write_text(malformed)
                 with self.assertRaises(subprocess.CalledProcessError):
                     setup()

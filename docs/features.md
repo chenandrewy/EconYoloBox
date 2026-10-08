@@ -9,12 +9,12 @@ The container provides the outer execution boundary. The default is the YOLO
 posture: the deny-by-default egress firewall is up, the package volumes are
 read-only, and Docker's outer syscall filter (`builtin` seccomp) is on. Each
 mode is its own container, whose config file fixes its posture at creation:
-`ybcode` opens the YOLO one, `ybcode --normie` the normie one.
+`ybcode` opens the YOLO one, `nbcode` the normie one.
 Explicit YOLO launchers skip permissions and refuse to start unless the
 firewall is enabled and PID 1 has filtered seccomp. Egress blocking is a hard
 boundary; an LLM reviewer is a soft one.
 
-For internet access, switch to normie mode (`ybcode --normie`: open internet,
+For internet access, switch to normie mode (`nbcode`: open internet,
 writable package volumes, `unconfined` seccomp) and use Claude's
 `claude --permission-mode auto`. Its two-stage classifier skips in-project
 edits and is cheap per call. Codex's automatic review is a full model call per
@@ -148,16 +148,16 @@ commands built on top of them are in [§3](#3-ergonomic-research-tooling).
 
 - **Two working modes, two containers.** YOLO mode, the default (`ybcode`,
   `ybe`), is firewalled, read-only and builtin: agents run unsupervised.
-  Normie mode (`ybcode --normie`, `ybe --normie`) is open, writable and
+  Normie mode (`nbcode`, `nbe`) is open, writable and
   unconfined: supervised work that feels like the Mac, with agents in
   approval modes. There the user installs with the ordinary
   `install.packages()`, `pip install` and `tlmgr install`, then goes back to
   the YOLO container. Each mode is its own container from its own config
-  file, so both can run, switching ends nothing, and a rebuild by `ybox` or
+  file, so both can run, switching ends nothing, and a rebuild by `yolobox` or
   VS Code keeps the mode. They share logins, the AI CLIs and the package
   volumes. Normie installs VS Code extensions into a shared volume that YOLO
   mounts read-only. A normie
-  container runs until stopped (`ybox --stop --normie`),
+  container runs until stopped (`yolobox --stop --normie`),
   and every YOLO bring-up mentions it. The mode stays in view: a red VS Code
   window, a `normie` tag in the prompt and Claude's status line, and a
   banner in every shell. The rest of
@@ -193,7 +193,7 @@ workable should each be one step.
 
 | Location | Commands |
 | --- | --- |
-| `.devcontainer/host/devcontainer.zsh` (host shell) | `ybox` (`ybe` and `ybcode` are short wrappers) |
+| `.devcontainer/host/devcontainer.zsh` (host shell) | `yolobox` (`ybe` and `ybcode` are short wrappers) |
 | `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
 | `tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork` |
 | `tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
@@ -221,15 +221,15 @@ commands.
 
 - **One-command project opening (`.devcontainer/host/`).** Source `devcontainer.zsh` in your
   `~/.zshrc` and use `ybcode [dir]` to bring up the enclosing YOLO container
-  (or `ybcode --normie [dir]` for the normie one), verify its posture, and
+  (or `nbcode [dir]` for the normie one), verify its posture, and
   open that exact subfolder in VS Code. `ybe [dir]` follows the same bring-up
-  path and enters zsh; `ybox --status` reports both containers. VS Code's own
+  path and enters zsh; `yolobox --status` reports both containers. VS Code's own
   Reopen in Container remains the minimal everyday path; it offers both
   configs.
 
 - **Self-naming Claude sessions (`cchat-yolo`).** Starts Claude with the session
   name derived from the working directory and numbered
-  (`My-Project#1`), so `ybox --shell <dir>` then `cchat-yolo` is the whole
+  (`My-Project#1`), so `yolobox --shell <dir>` then `cchat-yolo` is the whole
   workflow and every session is identifiable without being named by hand.
 
 - **Fleet control.** Every session starts under `--remote-control`, so host-side
@@ -272,7 +272,7 @@ commands.
   YOLO agent can commit locally but cannot push or write issues. Normie holds
   the user's `gh` login, stored on its own container filesystem rather than a
   shared volume. Agents run from a host VS Code window through `ybcc`/`ybgpt`
-  and `nbcc`/`nbcodex`; attaching VS Code to YOLO would bring back its
+  and `nbcc`/`nbgpt`; attaching VS Code to YOLO would bring back its
   credential relay. A listening relay does not itself prove that credentials
   are available: the [2026-10-06 check](journal/1006c,vscode-relay-after-oauth-reset.md)
   obtained no GitHub HTTPS credential after the user's OAuth reset and VS Code

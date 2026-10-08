@@ -1,6 +1,6 @@
 #!/usr/bin/env zsh
-# Run:     zsh .devcontainer/host/tests/test-ybox.zsh
-# Inputs:  host ybox implementation; mocks Docker, Dev Containers, and VS Code.
+# Run:     zsh .devcontainer/host/tests/test-yolobox.zsh
+# Inputs:  host yolobox implementation; mocks Docker, Dev Containers, and VS Code.
 # Outputs: TAP-like pass/fail lines and a nonzero status on failure.
 setopt errexit nounset pipefail
 
@@ -10,7 +10,7 @@ trap 'rm -rf "$tmp"' EXIT
 log=$tmp/calls
 yolo_config=$root/.devcontainer/devcontainer.json
 normie_config=$root/.devcontainer/normie/devcontainer.json
-# The mock daemon keeps one file per container, because ybox calls docker and
+# The mock daemon keeps one file per container, because yolobox calls docker and
 # devcontainer inside command substitutions, where variables do not survive:
 #   $tmp/containers/<id>: "<config> <internet> <packages-rw> <seccomp> <state>"
 store=$tmp/containers
@@ -29,6 +29,10 @@ add_container() {
 reset_store() { rm -f $store/*(N); }
 field() { local -a f; f=(${=$(<$store/$1)}); print -r -- ${f[$2]}; }
 
+ybox() { :; }
+ybagent() { :; }
+nbagent() { :; }
+nbcodex() { :; }
 alias dcu='devcontainer up --workspace-folder .'
 dccode() { :; }
 bbox() { :; }
@@ -41,10 +45,10 @@ autoload -Uz compinit
 compinit -D -i
 compdef _bbox bbox
 compdef _bbcode bbcode
-compdef _bbox bbu bbe
+compdef _bbox bbu bbe ybox ybagent nbagent nbcodex
 alias bbox='false'
 alias bbcode='false'
-alias ybox='false'
+alias yolobox='false'
 alias ybcode='false'
 alias ybe='false'
 source "$root/.devcontainer/host/devcontainer.zsh"
@@ -125,18 +129,18 @@ code() { print -r -- "code|$*" >>$log; }
 fail() { print -r -- "not ok - $1"; exit 1; }
 typeset -gi tests=0
 pass() { (( ++tests )); print -r -- "ok $tests - $1"; }
-run() { : >$log; ybox "$@" </dev/null; }
+run() { : >$log; yolobox "$@" </dev/null; }
 count() { ls $store | grep -c -- "$1" || true; }
 
 (( ! $+aliases[dcu] )) || fail 'legacy dcu alias survived reload'
 (( ! $+functions[dccode] )) || fail 'legacy dccode function survived reload'
 (( $+functions[ybe] && $+functions[ybcode] )) || fail 'short wrappers missing after reload'
-(( $+functions[ybox] )) || fail 'ybox missing after reload'
-for name in bbox bbcode bbu bbe _bbox _bbcode; do
+(( $+functions[yolobox] )) || fail 'yolobox missing after reload'
+for name in ybox ybagent nbagent nbcodex bbox bbcode bbu bbe _bbox _bbcode; do
   (( ! $+functions[$name] && ! $+aliases[$name] )) || fail "legacy $name survived reload"
 done
-(( ! $+_comps[bbox] && ! $+_comps[bbcode] && ! $+_comps[bbu] && ! $+_comps[bbe] )) || fail 'legacy completion bindings survived reload'
-[[ $_comps[ybox] == _ybox && $_comps[ybcode] == _ybcode && $_comps[ybe] == _ybcode ]] || fail 'renamed completion bindings missing'
+(( ! $+_comps[ybox] && ! $+_comps[ybagent] && ! $+_comps[nbagent] && ! $+_comps[nbcodex] && ! $+_comps[bbox] && ! $+_comps[bbcode] && ! $+_comps[bbu] && ! $+_comps[bbe] )) || fail 'legacy completion bindings survived reload'
+[[ $_comps[yolobox] == _yolobox && $_comps[ybcode] == _ybcode && $_comps[ybe] == _ybcode ]] || fail 'renamed completion bindings missing'
 pass 'reload removes legacy names and binds the renamed functions and completions'
 
 # Each mode brings up its own config's container.
@@ -147,7 +151,7 @@ expected_uri=$(python3 "$root/.devcontainer/host/dc-resolve.py" folder-uri "$roo
 grep -qF "code|--new-window --folder-uri $expected_uri" $log || fail 'VS Code must open the YOLO config'
 pass 'no flag brings up the YOLO config and opens it in VS Code'
 : >$log
-out=$(ybcode --normie "$root" </dev/null) || fail 'ybcode --normie'
+out=$(nbcode "$root" </dev/null) || fail 'nbcode'
 grep -qF "devcontainer|up --workspace-folder $root --config $normie_config" $log || fail '--normie must use the normie config'
 grep -q -- '--remove-existing-container' $log && fail 'a second mode must not recreate anything'
 grep -q 'docker|rm' $log && fail 'a second mode must not remove anything'
@@ -164,17 +168,17 @@ pass '--status reports both modes and changes nothing'
 
 out=$(run "$root") || fail 'YOLO reuse'
 grep -q -- '--remove-existing-container' $log && fail 'reuse must not recreate'
-[[ "$out" == *'note: normie container normie-new-2 is also running, firewall open; ybox --stop --normie'* ]] || fail 'normie note'
+[[ "$out" == *'note: normie container normie-new-2 is also running, firewall open; yolobox --stop --normie'* ]] || fail 'normie note'
 pass 'a YOLO bring-up reuses its container and notes the running normie one'
 out=$(run --normie "$root") || fail 'normie reuse'
 [[ "$out" == *note:* ]] && fail 'a normie bring-up has no note'
 pass 'a normie bring-up reuses its container'
 
-run --shell --normie "$root/tools" >/dev/null || fail 'ybox --shell --normie'
+run --shell --normie "$root/tools" >/dev/null || fail 'yolobox --shell --normie'
 grep -qF "devcontainer|exec --workspace-folder $root --config $normie_config zsh -c cd /yolobox/tools && exec zsh" $log || fail 'shell must exec into the normie container'
-run --shell --yolo "$root" >/dev/null || fail 'ybox --shell --yolo'
+run --shell --yolo "$root" >/dev/null || fail 'yolobox --shell --yolo'
 grep -qF "devcontainer|exec --workspace-folder $root --config $yolo_config" $log || fail 'shell must exec into the YOLO container'
-: >$log; ybe --normie "$root/tools" </dev/null >/dev/null || fail 'ybe --normie wrapper'
+: >$log; nbe "$root/tools" </dev/null >/dev/null || fail 'nbe wrapper'
 grep -qF "devcontainer|exec --workspace-folder $root --config $normie_config zsh -c cd /yolobox/tools && exec zsh" $log || fail 'ybe passes --normie and directory through'
 : >$log; ybe "$root" </dev/null >/dev/null || fail 'ybe default wrapper'
 grep -qF "devcontainer|exec --workspace-folder $root --config $yolo_config" $log || fail 'ybe defaults to YOLO'
@@ -189,19 +193,19 @@ ybe "$root" --command gptchat-yolo </dev/null >/dev/null && fail 'command failur
 MOCK_EXEC_STATUS=0
 for args in '--command' '--command gptchat-yolo' '--shell --command'; do
   : >$log
-  ybox ${=args} >/dev/null 2>&1 && fail "accepted invalid command options: $args"
+  yolobox ${=args} >/dev/null 2>&1 && fail "accepted invalid command options: $args"
   [[ ! -s $log ]] || fail 'invalid command options reached Docker'
 done
 pass 'startup commands use the container shell and preserve failures; invalid options stop before Docker'
 
-for launcher mode in ybcc yolo ybgpt yolo nbcc normie nbcodex normie; do
+for launcher mode in ybcc yolo ybgpt yolo nbcc normie nbgpt normie; do
   : >$log
   "$launcher" "$root/tools" </dev/null >/dev/null || fail "$launcher"
   config=$(_ybox_config "$root" "$mode")
   grep -qF "devcontainer|exec --workspace-folder $root --config $config zsh -ic cd /yolobox/tools && " $log || fail "$launcher must use selected container and directory"
   [[ $_comps[$launcher] == _yb_agent_completion ]] || fail "$launcher completion"
 done
-pass 'all four agent launchers use ybox verification and the selected container directory'
+pass 'all four agent launchers use yolobox verification and the selected container directory'
 
 out=$(run --stop --normie "$root") || fail 'stop'
 [[ "$out" == *'stopped the normie mode container normie-new-2'* ]] || fail 'stop message'
@@ -281,7 +285,7 @@ pass 'a stray appearing during a rebuild is removed'
 reset_store
 add_container legacy "$yolo_config" normie
 if err=$(run "$root" 2>&1); then fail 'a mismatched container should be refused'; fi
-[[ "$err" == *'expected YOLO mode'* && "$err" == *"ybox --rebuild $root"* ]] || fail 'mismatch message'
+[[ "$err" == *'expected YOLO mode'* && "$err" == *"yolobox --rebuild $root"* ]] || fail 'mismatch message'
 for launcher in ybcc ybgpt; do
   : >$log
   "$launcher" "$root" >/dev/null 2>&1 && fail "$launcher accepted wrong container posture"
@@ -292,11 +296,11 @@ out=$(run --status "$root")
 reset_store
 MOCK_UP_POSTURE=yolo
 if err=$(run --normie "$root" 2>&1); then fail 'a wrong posture after up should fail'; fi
-[[ "$err" == *'expected normie mode'* && "$err" == *"ybox --rebuild --normie $root"* ]] || fail 'normie mismatch hint'
+[[ "$err" == *'expected normie mode'* && "$err" == *"yolobox --rebuild --normie $root"* ]] || fail 'normie mismatch hint'
 MOCK_UP_POSTURE=''
 pass 'a container not in its config'"'"'s posture is refused with the right rebuild'
 
-# Containers with another config label are not ybox's.
+# Containers with another config label are not yolobox's.
 reset_store
 add_container other /elsewhere/devcontainer.json yolo
 run --rebuild "$root" >/dev/null || fail 'rebuild beside a foreign container'
@@ -322,8 +326,7 @@ for args in '--rebuild --rebuild-without-cache' '--shell --code' '--yolo --normi
 done
 pass 'conflicting options and a second directory are rejected'
 
-grep -q "'(\-\-rebuild-without-cache --status --stop)--rebuild" "$root/.devcontainer/host/_ybox" || fail 'completion rebuild exclusion'
-grep -q "'(\-\-normie --status)--yolo" "$root/.devcontainer/host/_ybox" || fail 'completion mode exclusion'
-grep -q "'(\-\-shell --code --status --rebuild --rebuild-without-cache)--stop" "$root/.devcontainer/host/_ybox" || fail 'completion stop exclusion'
+grep -q "'(\-\-rebuild-without-cache --status --stop)--rebuild" "$root/.devcontainer/host/_yolobox" || fail 'completion rebuild exclusion'
+grep -q "'(\-\-normie --status)--yolo" "$root/.devcontainer/host/_yolobox" || fail 'completion mode exclusion'
 pass 'completion encodes the mutual exclusions'
 print -r -- "1..$tests"

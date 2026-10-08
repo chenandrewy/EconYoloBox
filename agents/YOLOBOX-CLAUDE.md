@@ -88,7 +88,7 @@ startup prints which:
 1. **YOLO mode** (`ybcode` or `ybe` on the host; the default): firewall on,
    R, Python and TeX volumes read-only, Docker's seccomp filter on. Everyday
    work, with agents free to run unsupervised.
-2. **Normie mode** (`ybcode --normie` or `ybe --normie`): firewall off,
+2. **Normie mode** (`nbcode` or `nbe`): firewall off,
    volumes writable, seccomp unconfined. Like ordinary work on the Mac, with
    the user watching and agents in approval modes. This is where the web is
    open and packages get installed.
@@ -148,7 +148,7 @@ Do not edit either config file's posture settings.
 - **GitHub credentials depend on the mode.** YOLO has none: local commits
   work, but pushes, private fetches and `gh` commands fail for lack of
   authentication. Do not try to authenticate there or look for a credential;
-  tell the user the step belongs in normie (`nbcc`, `nbcodex`) or on the host.
+  tell the user the step belongs in normie (`nbcc`, `nbgpt`) or on the host.
   Normie has the user's `gh` login once they have set it up. Pushing from
   normie still needs permission — see `USER PERMISSION REQUIRED`.
 - If the firewall blocks a resource you need: **ASK THE USER TO ADD IT**

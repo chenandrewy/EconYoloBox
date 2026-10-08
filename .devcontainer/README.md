@@ -45,7 +45,7 @@ Edit `credentials-map.json`:
 Keys are credential store entry names; values are the env var names scripts will use. `setup.py` automatically groups prompts by the first segment of the key (e.g. `wrds-username` and `wrds-password` are grouped under "WRDS").
 
 After changing credentials on the host, recreate the containers
-(`ybox --rebuild`, which recreates both modes' containers):
+(`yolobox --rebuild`, which recreates both modes' containers):
 `initializeCommand` rewrites the env file from the host store, and Docker
 reads it only when it creates a container. Revoking access likewise means
 recreating them; emptying the file no longer does it.
@@ -53,14 +53,14 @@ recreating them; emptying the file no longer does it.
 ## Dev Container (`.devcontainer/`)
 
 `.devcontainer/` is the container itself: its definition, its startup, and the
-tools baked into it. `.devcontainer/host/` is the launcher (`ybox`), and
+tools baked into it. `.devcontainer/host/` is the launcher (`yolobox`), and
 [`.devcontainer/setup/`](setup/README.md) is provisioning you run by hand, in the
 container: the package volumes and the AI CLIs.
 
 The checkout mounts at `/yolobox` inside both containers. The host checkout
 folder can keep its existing name. When changing an existing installation from
 the former `/sandbox` mount, close attached VS Code windows and run
-`ybox --rebuild` on the host. The launcher recreates both modes if both exist;
+`yolobox --rebuild` on the host. The launcher recreates both modes if both exist;
 an old container cannot be reused with the new working directory. Open a fresh
 shell afterward so `sesh-init` can update the home-directory session links.
 Stored session transcripts may still mention the old path as historical data.
@@ -72,7 +72,7 @@ inside `.devcontainer/`; credential management moved to root `credentials/`.
 From the checkout root on the host, rerun `bash .devcontainer/host/setup.sh`,
 then open a new shell (or run `exec zsh`) to load the new launcher registration.
 Setup migrates earlier registrations while preserving unrelated shell settings.
-Run `ybox --rebuild` to recreate the containers with the updated initialization
+Run `yolobox --rebuild` to recreate the containers with the updated initialization
 commands and image scripts. Existing package and authentication volumes are kept.
 
 ### TeX Live and LyX
@@ -142,7 +142,7 @@ Because the name appears in every session, a short one is worth setting.
 
 Docker's outer seccomp policy is part of each mode's config: `builtin` in the
 YOLO container (the default), `unconfined` in the normie container
-(`ybcode --normie`). Codex's sandboxed modes need `unconfined`,
+(`nbcode`). Codex's sandboxed modes need `unconfined`,
 because builtin seccomp blocks Bubblewrap setup here and
 automatic review did not provide reliable recovery for all native tools.
 Validation after container recreation is still required; the mode alone is
@@ -157,7 +157,7 @@ runtime mode check, not proof of Docker's exact builtin profile.
 See [Docker's seccomp documentation](https://docs.docker.com/engine/security/seccomp/).
 
 Changing mode means using the other container, not changing this one; each
-keeps its seccomp policy for life. `ybox` inspects the exact container
+keeps its seccomp policy for life. `yolobox` inspects the exact container
 returned by `devcontainer up` and stops before attachment if its posture is
 not its config's. VS Code's **Rebuild Container** rebuilds from the window's
 config, so it keeps the mode.
@@ -274,7 +274,7 @@ and transferred again; only the extension directory persists.
 GitHub access is split by mode (plan: `docs/journal/1006a`). YOLO holds no
 GitHub credentials; normie holds the user's `gh` login.
 
-- **Normie.** Log in once from an `nb*` or `ybe --normie` session with
+- **Normie.** Log in once from an `nb*` or `nbe` session with
   `gh auth login --with-token` (preferably a fine-grained token scoped to the
   needed repositories), then run `gh auth setup-git` so Git uses the same
   login. Both write to the container's own `~/.config/gh` and `~/.gitconfig`,
@@ -353,7 +353,7 @@ hard-codes the security posture:
 | Mode | Config | Launch | Internet | Package volumes | Seccomp | Use |
 |---|---|---|---|---|---|---|
 | YOLO mode (default) | `devcontainer.json` | `ybcode`, `ybe` | firewalled | read-only | `builtin` | everyday work; YOLO launchers allowed; agents ask when a package is missing |
-| Normie mode | `normie/devcontainer.json` | `ybcode --normie`, `ybe --normie` | open | writable | `unconfined` | supervised work, like the Mac: open web, package installs, agents in approval modes |
+| Normie mode | `normie/devcontainer.json` | `nbcode`, `nbe` | open | writable | `unconfined` | supervised work, like the Mac: open web, package installs, agents in approval modes |
 
 Normie mode needs `unconfined` because Codex's approval modes run commands in
 Bubblewrap, which builtin seccomp blocks (see
@@ -370,11 +370,11 @@ configured mode. `posture.sh` checks that mode against live internet and
 seccomp state while reporting package access separately. All settings are fixed
 at creation; existing containers need recreation to receive `YOLOBOX_MODE`.
 The Dev Containers tooling keys a container on its folder and config
-file, so the two containers coexist, and whatever recreates one, `ybox` or VS
+file, so the two containers coexist, and whatever recreates one, `yolobox` or VS
 Code's own Rebuild or Reopen, recreates it from the same config, in the same
 mode. Neither container ever replaces the other: switching modes is attaching
 to the other one. A normie container runs, firewall open, until it is stopped
-(`ybox --stop --normie`); `ybox --status` lists both, and every YOLO
+(`yolobox --stop --normie`); `yolobox --status` lists both, and every YOLO
 bring-up mentions a running normie one. Why two files and not one with a
 switch: docs/journal/0927a.
 
