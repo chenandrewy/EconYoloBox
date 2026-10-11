@@ -56,7 +56,7 @@ bash .devcontainer/check-checkout.sh
 
 bash agents/seed-agent-guidelines.sh
 
-# The AI CLIs live in the per-checkout npm-global volume, which starts empty
+# The AI CLIs live in this mode's per-checkout npm-global volume, which starts empty
 # and is writable in every mode; npm is on the firewall allowlist. So a first
 # start installs them here rather than asking the user (docs/journal/0926f).
 # Only when one is missing: updates stay a deliberate `install-base.sh cli`.

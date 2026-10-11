@@ -83,7 +83,8 @@ recreate existing modes; see the [rebuild behavior](../../docs/commands.md#conta
 Before rebuilding, the launcher checks for active connections to the
 in-container VS Code server, which can keep running after a window closes.
 
-Both modes share per-checkout volumes. A checkout's folder name must therefore
+Per-checkout volumes are named for the folder's basename (the agent homes and
+CLIs also carry the mode). A checkout's folder name must therefore
 be unique on the Docker daemon; see [working modes](../README.md#working-modes).
 The host time zone is detected automatically; see
 [timezone configuration](../README.md#timezone) to override it.

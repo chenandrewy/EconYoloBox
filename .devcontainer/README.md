@@ -251,7 +251,9 @@ The template mounts persistent volumes for:
 - `/home/ubuntu/.codex` — Codex auth and config
 
 This keeps interactive login state across container rebuilds and restarts.
-Both modes' containers mount the same volumes, so one login serves both.
+Each mode has its own pair of volumes (`<folder>-yolo-claude-config`,
+`<folder>-normie-codex-config`, ...), so log in once in each mode. Transcripts
+are still shared through `tools/ai-sesh`; guidance and settings through `agents/`.
 
 VS Code extensions live in one per-checkout volume mounted at
 `/home/ubuntu/.vscode-server/extensions`. Normie mounts it writable; YOLO
@@ -378,16 +380,18 @@ to the other one. A normie container runs, firewall open, until it is stopped
 bring-up mentions a running normie one. Why two files and not one with a
 switch: docs/journal/0927a.
 
-The two containers share the package, auth, AI CLI and VS Code extension volumes. Normie writes
+The two containers share the package and VS Code extension volumes. Normie writes
 packages that YOLO then runs read-only (a running R or Python session sees new
 packages after a restart). The per-checkout volumes hold `~/.claude`,
 `~/.codex`, the AI CLIs, shell history and VS Code extensions. They are named
-for the checkout's folder name alone, not
-`${devcontainerId}` (which depends on the config file and would give each mode
-its own). So one login and one CLI install serve both modes, and **each
-checkout's folder name must be unique on
-the Docker daemon**: a second checkout with the same name would share the
-Claude and Codex tokens and the CLIs themselves. `check-checkout.sh` enforces
+for the checkout's folder name, not `${devcontainerId}`. The agent homes and
+the CLIs also carry the mode (`<folder>-yolo-…`, `<folder>-normie-…`), so each
+mode has its own login, CLI install and agent daemon state: the containers
+cannot see each other's processes, and a shared home let one mode's daemon
+bookkeeping break the other's restarts and updates (docs/journal/1008a).
+Transcripts stay shared through `tools/ai-sesh`. **Each checkout's folder name
+must be unique on the Docker daemon**: a second checkout with the same name
+would share the Claude and Codex tokens and the CLIs themselves. `check-checkout.sh` enforces
 this at every start: it records the host folder in `~/.claude` the first
 time and refuses a different one, with the command to accept a deliberate
 move.
@@ -446,7 +450,7 @@ System dependencies that need root (`gfortran`, `libcurl4-openssl-dev`,
 the volume a new name, rebuild the container in normie mode, then fill it.
 
 The Claude Code and Codex CLIs are part of the base, installed into a writable
-per-container volume by the same script, `bash .devcontainer/setup/install-base.sh cli`,
+per-checkout, per-mode volume by the same script, `bash .devcontainer/setup/install-base.sh cli`,
 which works in any mode. `post-start.sh` runs it at startup while either CLI
 is missing, so a fresh volume fills itself. They were a Dockerfile layer pinned to
 `@latest`, which turned out to mean "whatever was current the day the layer
@@ -458,7 +462,7 @@ Because the install at startup can fail, `test-agent-policy.sh` reports `SKIP`
 (not `PASS`) for a CLI that is not installed, and interactive shells nudge
 while either CLI is missing. The npm-managed CLIs should not be assumed to
 self-update; re-run `install-base.sh cli` to update both to their current
-releases.
+releases. Each mode has its own install, so update each mode separately.
 
 `setup/tests/test-packages.sh`, run as `ubuntu` in a rebuilt container, is the
 acceptance check for the base. It covers mounts that match `packages`, the

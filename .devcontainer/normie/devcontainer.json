@@ -114,23 +114,26 @@
     "source=venv-noble-py3.12-base,target=/opt/venv,type=volume,readonly=false",
     // Minimal pdfLaTeX-only TeX Live; the year must match TEXLIVE_YEAR.
     "source=texlive-2026-base-noble,target=/usr/local/texlive,type=volume,readonly=false",
-    // Per-checkout volumes, shared by the YOLO and normie containers, so one
-    // login and one CLI install serve both modes. They are named for the
-    // checkout's folder name alone, not ${devcontainerId}: that id depends on
-    // the config file, so it would give each mode its own set.
+    // Per-checkout volumes, named for the checkout's folder name, not
+    // ${devcontainerId}. The agent homes and the CLIs that run them carry a
+    // mode token (yolo/normie), so each mode has its own login, CLI install
+    // and daemon state: the two containers cannot see each other's processes,
+    // and a shared home let one mode's daemon bookkeeping clobber the other's
+    // (docs/journal/1008a). Transcripts stay shared through ai-sesh; guidance
+    // and settings through agents/. Shell history stays shared.
     //
-    // The price is the bug anthropics/claude-code fixed in July 2025 ("Fix
+    // The price of basename naming is the bug anthropics/claude-code fixed in July 2025 ("Fix
     // devcontainer volume security vulnerability"): two checkouts that share
     // a basename would mount the SAME volumes, silently sharing the
     // Claude/Codex auth tokens and - via npm-global - the very executables
-    // both containers run. Rule: one checkout per basename per Docker daemon.
+    // a container runs. Rule: one checkout per basename per Docker daemon.
     // post-start.sh enforces it: it records the host folder in ~/.claude on
     // first start and refuses a different one. Renaming the folder orphans
     // these volumes (re-login; startup reinstalls the CLIs); find orphans with
     // `docker volume ls -f dangling=true`.
     "source=claude-code-bashhistory-${localWorkspaceFolderBasename},target=/commandhistory,type=volume",
-    "source=${localWorkspaceFolderBasename}-claude-config,target=/home/ubuntu/.claude,type=volume",
-    "source=${localWorkspaceFolderBasename}-codex-config,target=/home/ubuntu/.codex,type=volume",
+    "source=${localWorkspaceFolderBasename}-normie-claude-config,target=/home/ubuntu/.claude,type=volume",
+    "source=${localWorkspaceFolderBasename}-normie-codex-config,target=/home/ubuntu/.codex,type=volume",
     // The VS Code CLI installs here; YOLO mounts this volume read-only.
     "source=${localWorkspaceFolderBasename}-vscode-extensions-managed,target=/home/ubuntu/.vscode-server/extensions,type=volume,readonly=false",
     // The AI CLIs live here rather than in an image layer, so that updating
@@ -139,7 +142,7 @@
     // ships native per-platform binaries, so the name carries the distro AND
     // the node major - bump the token with NODE_MAJOR to start a clean volume
     // rather than serving binaries built against the wrong runtime.
-    "source=${localWorkspaceFolderBasename}-npm-global-noble-node24,target=/usr/local/share/npm-global,type=volume"
+    "source=${localWorkspaceFolderBasename}-normie-npm-global-noble-node24,target=/usr/local/share/npm-global,type=volume"
   ],
   "containerEnv": {
     // TZ is intentionally absent: write-local-env.sh writes the detected host

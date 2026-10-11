@@ -3,6 +3,12 @@
 2026-10-08. Discussion snapshot. Implementation deferred; this entry records the
 decision and questions to resolve when we return to it.
 
+**Update 2026-10-11:** config change made (mode-specific source names as in the
+table below, enforced by `test_config_twins.py`). Decision: cross-mode resume
+listings are not a requirement; losing them is accepted, so step 5's index
+work is dropped. No version pinning: new CLI volumes install `@latest`. Old
+shared volumes are left in place for rollback.
+
 ## Decision / why
 
 Give YOLO and normie independent persistent Codex and Claude Code homes and
@@ -202,3 +208,73 @@ Pitfalls to check explicitly:
    awareness that doing so also restores the original shared-state problem.
 
 No container, installation, or agent-state changes were made for this plan.
+
+## Cutover instructions (2026-10-11)
+
+The config change is committed; the rebuild reads the config from the
+checkout. `<folder>` below is the checkout's folder name.
+
+1. **Before the rebuild (host).** Note the old shared volumes; they are the
+   rollback.
+
+   ```zsh
+   yolobox --status
+   docker volume ls | grep -E 'claude-config|codex-config|npm-global'
+   ```
+
+   Exit all Claude and Codex sessions in both modes and close VS Code windows
+   attached to either container (the launcher refuses to rebuild while one
+   is connected).
+
+2. **Rebuild (host).** `yolobox --rebuild` recreates both containers if both
+   exist. On first start each container records its checkout marker in the
+   new `~/.claude`, seeds guidance and settings from `agents/`, and installs
+   `@latest` Claude Code and Codex into its new CLI volume. The first
+   interactive shell runs `sesh-init`, linking `projects/`, `todos/` and
+   `sessions/` into the shared transcript store. A mode that does not exist
+   yet is created on first launch (e.g. `yolobox --normie`).
+
+3. **Log in once per mode.** In YOLO (`yolobox --shell`) and normie
+   (`yolobox --normie --shell`): run `claude` and complete login (or
+   `/login`), then `codex login`. If browser login fails in YOLO, try
+   `codex login --device-auth`; untested through the firewall, so report the
+   blocked host if one fails.
+
+4. **Verify.** On the host:
+
+   ```zsh
+   docker volume ls | grep -E 'yolo-|normie-'
+   docker inspect $(docker ps -q) --format '{{.Name}}{{range .Mounts}} {{.Name}}->{{.Destination}}{{end}}' | tr ' ' '\n' | grep -E 'config|npm-global|^/'
+   ```
+
+   Expect six new volumes, each container mounting only its own mode's three.
+   Inside each container:
+
+   ```zsh
+   ls -l ~/.claude/projects ~/.claude/todos ~/.codex/sessions
+   claude --version; codex --version
+   ```
+
+   Then run `ybgpt` and confirm the daemon version warning is gone. Update or
+   restart the Codex daemon in one mode (`/daemon`) and confirm the other mode
+   is unaffected.
+
+5. **Optional: carry over Codex preferences.** New homes start without a
+   personal `config.toml`. Copy only that file (host):
+
+   ```zsh
+   docker run --rm -v <folder>-codex-config:/old:ro -v <folder>-yolo-codex-config:/new alpine cp /old/config.toml /new/
+   ```
+
+   Repeat for `<folder>-normie-codex-config`. Do not copy the rest of the old
+   home: it holds the daemon state this change separates.
+
+6. **Rollback / cleanup.** Rollback: `git revert` the commit, then
+   `yolobox --rebuild`; the old volumes are untouched. Cleanup, once
+   satisfied and only as a deliberate step: `docker volume rm` the three old
+   volumes. This is irreversible.
+
+Not carried over to the new homes: Claude plugins and `.claude.json` state
+(onboarding, folder trust), the personal Codex `config.toml` (unless step 5),
+and Codex's local session index, so old Codex sessions will not appear in
+`codex resume` listings; their transcripts remain in `tools/ai-sesh/data/`.

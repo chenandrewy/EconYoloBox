@@ -133,8 +133,9 @@ and [agent sandbox limits](../.devcontainer/README.md#codex-sandbox-modes-and-la
 | `yolobox --rebuild-without-cache [DIRECTORY]` | Recreate containers without Docker's build cache. |
 
 YOLO and normie are separate containers for the same checkout. Both may run at
-once and share project files, package volumes, AI CLI installations, and shell
-history. Selecting one leaves the other running. A YOLO launch reports when
+once and share project files, package volumes, and shell history. Each mode
+has its own AI CLI installation and Claude/Codex home, so log in and update
+the CLIs in each mode separately; transcripts stay shared through ai-sesh. Selecting one leaves the other running. A YOLO launch reports when
 normie is also running; stop normie when finished with its open internet and
 writable package volumes.
 

@@ -71,11 +71,11 @@ the first build (so the image carries another copy of the lean base, about
 optional set is added in normie mode by `.devcontainer/setup/install-optional.sh`, and they
 are mounted read-only in YOLO mode:
 
-| Volume | Mount | Lean base | With optional set |
-|---|---|---|---|
-| `texlive-2026-base-noble` | `/usr/local/texlive` | 482MB | 3.0GB |
-| `venv-noble-py3.12-base` | `/opt/venv` | 767MB | 1.2GB |
-| `r-site-library-noble-4.5.3-2026-07-15-base` | `/opt/R/4.5.3/lib/R/site-library` | 201MB | 536MB |
+| Volume                                       | Mount                             | Lean base | With optional set |
+| -------------------------------------------- | --------------------------------- | --------- | ----------------- |
+| `texlive-2026-base-noble`                    | `/usr/local/texlive`              | 482MB     | 3.0GB             |
+| `venv-noble-py3.12-base`                     | `/opt/venv`                       | 767MB     | 1.2GB             |
+| `r-site-library-noble-4.5.3-2026-07-15-base` | `/opt/R/4.5.3/lib/R/site-library` | 201MB     | 536MB             |
 
 About **1.5GB** in total for the lean base and **4.7GB** with the optional
 set, both measured with `du -sh` inside the YOLO container on 2026-09-26: the
@@ -91,14 +91,16 @@ superseded volume stays on disk until you remove it with `docker volume rm`.
 
 **Devcontainer-specific volumes** account for about **1.3GB** of the
 one-checkout total. About 1.2GB of that is CLI binaries; configuration and
-state are about 115MB:
+state are about 115MB. The three agent volumes below exist once per mode
+(YOLO and normie each have their own; docs/journal/1008a), so with both
+modes in use they take about twice the per-mode sizes shown:
 
-| Volume | Mount | Size | Binaries | Config and state |
-|---|---|---|---|---|
-| `<folder>-npm-global-noble-node24` | `/usr/local/share/npm-global` | 559MB | 559MB | — |
-| `<folder>-codex-config` | `/home/ubuntu/.codex` | 746MB | 658MB | 88MB |
-| `<folder>-claude-config` | `/home/ubuntu/.claude` | 25MB | — | 25MB |
-| `claude-code-bashhistory-<folder>` | `/commandhistory` | 48KB | — | 48KB |
+| Volume                                    | Mount                         | Size  | Binaries | Config and state |
+| ----------------------------------------- | ----------------------------- | ----- | -------- | ---------------- |
+| `<folder>-<mode>-npm-global-noble-node24` | `/usr/local/share/npm-global` | 559MB | 559MB    | —                |
+| `<folder>-<mode>-codex-config`            | `/home/ubuntu/.codex`         | 746MB | 658MB    | 88MB             |
+| `<folder>-<mode>-claude-config`           | `/home/ubuntu/.claude`        | 25MB  | —        | 25MB             |
+| `claude-code-bashhistory-<folder>`        | `/commandhistory`             | 48KB  | —        | 48KB             |
 
 The npm-global volume holds the CLIs themselves: Codex (329MB) and Claude
 Code (230MB), both bundling native binaries. The codex-config volume is

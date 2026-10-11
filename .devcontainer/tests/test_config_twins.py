@@ -5,8 +5,10 @@
 #          .devcontainer/host/dc-resolve.py's comment stripper.
 # Outputs: unittest results. Fails unless each file carries its mode's posture
 #          and the two differ only in declared mode-specific behavior: name,
-#          extension installation, mount access, window title and relative
-#          build paths. Comments are not compared.
+#          extension installation, mount access, window title, relative
+#          build paths and the mode token in the agent volume names (each mode
+#          has its own agent homes and CLIs; docs/journal/1008a). Comments are
+#          not compared.
 
 import copy
 import importlib.machinery
@@ -20,6 +22,11 @@ YOLO = ROOT / ".devcontainer" / "devcontainer.json"
 NORMIE = ROOT / ".devcontainer" / "normie" / "devcontainer.json"
 PACKAGE_TARGETS = ("/opt/R/", "/opt/venv", "/usr/local/texlive")
 EXTENSION_TARGET = "/home/ubuntu/.vscode-server/extensions"
+AGENT_VOLUMES = {
+    "/home/ubuntu/.claude": "claude-config",
+    "/home/ubuntu/.codex": "codex-config",
+    "/usr/local/share/npm-global": "npm-global-noble-node24",
+}
 POSTURE = {
     "yolo": {"mode": "yolo", "seccomp": "builtin", "readonly": "true", "internet": "firewalled"},
     "normie": {"mode": "normie", "seccomp": "unconfined", "readonly": "false", "internet": "open"},
@@ -71,6 +78,11 @@ def neutralize(config):
         mount.rsplit("readonly=", 1)[0] if any(f"target={t}" in mount for t in (*PACKAGE_TARGETS, EXTENSION_TARGET)) else mount
         for mount in config["mounts"]
     ]
+    mode = config["containerEnv"]["YOLOBOX_MODE"]
+    config["mounts"] = [
+        mount.replace("${localWorkspaceFolderBasename}-" + mode + "-", "${localWorkspaceFolderBasename}-<mode>-", 1)
+        for mount in config["mounts"]
+    ]
     config["containerEnv"]["YOLOBOX_INTERNET"] = None
     config["containerEnv"]["YOLOBOX_MODE"] = None
     return config
@@ -110,6 +122,24 @@ class ConfigTwinTests(unittest.TestCase):
     def test_shared_volumes_are_not_keyed_by_config(self):
         for mount in self.yolo["mounts"]:
             self.assertNotIn("devcontainerId", mount)
+
+    def test_agent_homes_and_clis_are_per_mode(self):
+        for config, mode in ((self.yolo, "yolo"), (self.normie, "normie")):
+            for target, name in AGENT_VOLUMES.items():
+                matches = [mount for mount in config["mounts"] if f",target={target}," in mount]
+                self.assertEqual(
+                    matches, [f"source=${{localWorkspaceFolderBasename}}-{mode}-{name},target={target},type=volume"]
+                )
+
+    def test_no_volume_source_is_reused_for_another_target(self):
+        def sources(config):
+            return {m.split(",", 1)[0]: m.split("target=", 1)[1].split(",", 1)[0] for m in config["mounts"]}
+
+        yolo, normie = sources(self.yolo), sources(self.normie)
+        for source in yolo.keys() & normie.keys():
+            self.assertEqual(yolo[source], normie[source], source)
+        agent_sources = {s for s, target in {**yolo, **normie}.items() if target in AGENT_VOLUMES}
+        self.assertEqual(len(agent_sources), 2 * len(AGENT_VOLUMES))
 
     def test_vscode_extensions_use_one_managed_volume(self):
         target = f"target={EXTENSION_TARGET},type=volume"
