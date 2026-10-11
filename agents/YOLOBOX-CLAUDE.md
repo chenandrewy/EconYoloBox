@@ -19,7 +19,9 @@ and ask. The default fix is for the user to update the environment.
 
 Codex specific instructions: When working with git and sandbox protections, request elevated sandbox permissions upfront.
 
-## Key Paths
+## User Preferences
+
+### Key Paths
 
 - Research library (cellar): `/yolobox/cellar/`
 - Finished and retired projects (hangar): `/yolobox/hangar/`
@@ -33,33 +35,28 @@ Custom tools live in `/yolobox/tools/`, organized by topic. Check these folders 
 - `tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
 - `tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork`); see its README
 - `tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README
+- `tools/markdown/`: `format-pipe-tables.py` aligns Markdown pipe-table columns.
+  After creating or editing pipe tables, run `format-pipe-tables.py --in-place FILE.md`.
 
-## Git Worktrees
-
-- Put worktrees at `.wt/<branch-name>` in the repository root, e.g.
-  `git worktree add -b fix/foo .wt/fix/foo main`. A branch name with a slash
-  gives nested folders, which is fine. `.wt/` is gitignored.
-- Remove a worktree when its branch is merged: `git worktree remove .wt/<branch-name>`.
-
-## Coding and Writing Guidelines
+### Coding and Writing Guidelines
 
 - Python: Use bare `python3`/`pip`. They resolve to the venv at `/opt/venv`,
   which is already active via `PATH`; an unset `VIRTUAL_ENV` is expected.
 - Latex: Build using pdflatex and biber
-- Note taking: Use LyX if math is involved. We often do math and the human finds this much easier to work with.
 - Dropbox: Online-only files cannot be read inside the container. They may
   stat and open normally, but reads fail with `EDEADLK` (errno 35), or `mmap`
   fails with `SIGBUS` (exit code 135). This can also break git when an index or
   object is online-only. Ask the user to run `dbhydrate -f <path>` on the host,
   then retry. `dbhydrate <path>` alone checks without downloading. Do not
   regenerate or re-download the data as a workaround without permission.
-- R: When running R scripts non-interactively (`Rscript`), add `pdf(NULL)` near the top to suppress the stray `Rplots.pdf` that R creates whenever a transient graphics device is opened (e.g. by `ggsave()` on a `gridExtra::arrangeGrob` output).
+- Documentation: At the top of every script, document how to run it, its inputs, and its outputs.
+- Put worktrees at `.wt/<branch-name>` in the repository root, replacing 
+  `/` in the branch name with `-` e.g. `git worktree add -b fix/foo .wt/fix-foo main`. 
 
-## Documentation
+### In Chat Communication  
 
-### Script headers
-
-- At the top of every script, document how to run it, its inputs, and its outputs.
+- Show file paths relative to the session's initial working folder.
+- Use LaTeX formatting for math.
 
 ## The Environment
 
