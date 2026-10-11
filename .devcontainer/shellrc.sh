@@ -10,8 +10,9 @@
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
 #   lit:     citation lookup (cited_by.py, via OpenAlex)
+#   markdown: format-pipe-tables.py
 #   ai-sesh: sesh-init, sesh-push, sesh-wipe, gpt-fork
-export PATH="/yolobox/tools/pdf:/yolobox/tools/latex:/yolobox/tools/lit:/yolobox/tools/ai-sesh:$PATH"
+export PATH="/yolobox/tools/pdf:/yolobox/tools/latex:/yolobox/tools/lit:/yolobox/tools/markdown:/yolobox/tools/ai-sesh:$PATH"
 
 # ai-sesh: keep the home session stores symlinked into the Dropbox-synced
 # tree (idempotent; silent once the links exist — see tools/ai-sesh/README.md)
