@@ -1,20 +1,21 @@
 #!/bin/bash
 # ABOUTME: The container's postStartCommand. Arms the firewall unless this is
 # ABOUTME: the normie container, checks the checkout marker, seeds agent
-# ABOUTME: guidance, installs missing AI CLIs, checks policy, the package
-# ABOUTME: volumes and the VS Code extensions, prints the posture (YOLO or
-# ABOUTME: normie), clears leftover VS Code relay files outside normie,
-# ABOUTME: refreshes TeX.
+# ABOUTME: guidance and the Git identity, installs missing AI CLIs, checks
+# ABOUTME: policy, the package volumes and the VS Code extensions, prints the
+# ABOUTME: posture (YOLO or normie), clears leftover VS Code relay files
+# ABOUTME: outside normie, refreshes TeX.
 #
 # Run by devcontainer.json on every container start (not on a bare
 # `docker restart`, which skips postStartCommand entirely).
 # Inputs:  YOLOBOX_INTERNET (from the config file, fixed at creation);
-#          LOCAL_CONTAINER_FOLDER (check-checkout.sh); the
-#          package mounts; PID 1's seccomp mode; the workspace setup scripts.
+#          LOCAL_CONTAINER_FOLDER (check-checkout.sh); HOST_GIT_USER_NAME and
+#          HOST_GIT_USER_EMAIL (git-identity.sh); the package mounts; PID 1's
+#          seccomp mode; the workspace setup scripts.
 # Outputs: firewall state, the firewall-open marker, the checkout marker (or a
-#          refusal), agent setup, the AI CLIs in npm-global when either is
-#          missing, a warning for each unbuilt package volume and each missing
-#          VS Code extension, the posture line
+#          refusal), agent setup, the global Git identity, the AI CLIs in
+#          npm-global when either is missing, a warning for each unbuilt
+#          package volume and each missing VS Code extension, the posture line
 #          (YOLO mode, normie mode, or custom), removal of leftover VS Code
 #          credential-relay files in /tmp unless normie, TeX refresh.
 #
@@ -55,6 +56,9 @@ esac
 bash .devcontainer/check-checkout.sh
 
 bash agents/seed-agent-guidelines.sh
+
+# Identity only: the host's user.name and user.email, never its helpers.
+bash .devcontainer/git-identity.sh || echo "post-start.sh: git-identity.sh failed" >&2
 
 # The AI CLIs live in this mode's per-checkout npm-global volume, which starts empty
 # and is writable in every mode; npm is on the firewall allowlist. So a first

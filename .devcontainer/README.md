@@ -138,6 +138,18 @@ MacBook25:My-Project#1
 
 Because the name appears in every session, a short one is worth setting.
 
+### Git identity
+
+Commits need `user.name` and `user.email`. `host/write-local-env.sh` reads
+the host's global values into `/tmp/devcontainer-local.env` as
+`HOST_GIT_USER_NAME` and `HOST_GIT_USER_EMAIL`, and `git-identity.sh`
+(`postStartCommand`) sets each in the container's `~/.gitconfig` when it is
+unset there. Nothing else in the host gitconfig is copied: VS Code's attach
+used to copy the whole file, credential helper included, and agents no longer
+attach (`docs/journal/1002a`). A value set in the container wins, and setting
+or changing the host's takes a `yolobox --rebuild`, as for credentials.
+`tests/test-git-identity.sh` covers both scripts.
+
 ### Codex sandbox modes and launchers
 
 Docker's outer seccomp policy is part of each mode's config: `builtin` in the
@@ -282,7 +294,8 @@ GitHub credentials; normie holds the user's `gh` login.
   needed repositories), then run `gh auth setup-git` so Git uses the same
   login. Both write to the container's own `~/.config/gh` and `~/.gitconfig`,
   which are not on a shared volume, so YOLO never sees them. The login
-  survives a restart but not a rebuild.
+  survives a restart but not a rebuild. Commit identity is separate and set in
+  both modes (see Git identity).
 - **YOLO.** Run agents with `ybcc`/`ybgpt` (or a shell with `ybe`) from a
   local VS Code window on the host. These use `devcontainer exec`, which
   forwards no credentials. Local commits work; pushes go through normie or a
