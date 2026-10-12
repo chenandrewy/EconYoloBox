@@ -88,6 +88,12 @@ _yb_agent_command() {
   esac
   launch+=("$@")
   REPLY="${(j: :)${(@q)launch}}"
+  if [[ "$agent" == codex ]]; then
+    # A shared daemon outlives temporary worktrees. Start it from the stable
+    # mount root, then launch the session in the directory selected by yolobox.
+    # `start` preserves an existing daemon; a failure must prevent the launch.
+    REPLY="(cd /yolobox && command codex app-server daemon start) >/dev/null && $REPLY"
+  fi
 }
 
 ybcc() { _yb_shortcut yolo claude "$@"; }

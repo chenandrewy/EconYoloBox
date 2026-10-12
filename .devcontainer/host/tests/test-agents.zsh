@@ -6,10 +6,15 @@ setopt errexit nounset pipefail
 test_root=${0:A:h:h:h:h}
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
-mkdir "$tmp/bin"
+mkdir "$tmp/bin" "$tmp/daemon-root" "$tmp/session"
+export MOCK_DAEMON_ROOT="$tmp/daemon-root" MOCK_AGENT_LOG="$tmp/agent-log" MOCK_DAEMON_STATUS=0
 cat >"$tmp/bin/agent" <<'MOCK'
 #!/usr/bin/env zsh
 # Run: by test-agents.zsh. Inputs: literal argv. Outputs: name and argv per line.
+print -r -- "${0:t}|$PWD|${(j: :)@}" >>"$MOCK_AGENT_LOG"
+if [[ "${0:t}" == codex && "$*" == 'app-server daemon start' ]]; then
+  exit "$MOCK_DAEMON_STATUS"
+fi
 print -rl -- "${0:t}" "$@"
 MOCK
 chmod +x "$tmp/bin/agent"
@@ -29,13 +34,20 @@ _ybox_up() { (( ++calls )); REPLY=mock; }
 _ybox_note_normie() { :; }
 devcontainer() { captured=("$@"); return $mock_status; }
 fail() { print -u2 -- "FAIL: $*"; exit 1; }
+run_agent_command() {
+  # Map the container mount root to a temporary directory for host-only tests.
+  zsh -fc 'cd() {
+    if [[ "$1" == /yolobox ]]; then builtin cd "$MOCK_DAEMON_ROOT"
+    else builtin cd "$@"; fi
+  }; eval "$1"' -- "$1"
+}
 
 for name mode action executable in ybcc yolo claude cchat-yolo ybgpt yolo codex gptchat-yolo nbcc normie claude claude nbgpt normie codex codex; do
   "$name" 'project with spaces; $(false)' -- --model 'a model' || fail "$name"
   [[ "$(cat "$tmp/project")" == 'project with spaces; $(false)' ]] || fail 'directory forwarding'
   [[ "$captured[5]" == "$(_ybox_config "$test_root" "$mode")" ]] || fail "$name mode"
   short_command="$captured[-1]"
-  actual=$(zsh -fc "$short_command")
+  actual=$(run_agent_command "$short_command")
   case "$name" in
     ybcc|ybgpt) expected=$(print -rl -- "$executable" --model 'a model') ;;
     nbcc) expected=$(print -rl -- claude --permission-mode auto --model 'a model') ;;
@@ -47,10 +59,28 @@ for name mode action executable in ybcc yolo claude cchat-yolo ybgpt yolo codex 
 done
 print 'ok - all agent shortcuts and long forms preserve modes, directories and permission arguments'
 
+for mode executable in yolo gptchat-yolo normie codex; do
+  _yb_agent_command "$mode" codex --model 'a model'
+  : >"$MOCK_AGENT_LOG"
+  (cd "$tmp/session" && run_agent_command "$REPLY") >/dev/null || fail "$mode daemon startup"
+  records=("${(@f)$(cat "$MOCK_AGENT_LOG")}")
+  [[ "$records[1]" == "codex|$tmp/daemon-root|app-server daemon start" ]] || fail "$mode daemon cwd"
+  [[ "$records[2]" == "$executable|$tmp/session|"* && ${#records} == 2 ]] || fail "$mode session cwd/order"
+
+  export MOCK_DAEMON_STATUS=37
+  : >"$MOCK_AGENT_LOG"
+  if (cd "$tmp/session" && run_agent_command "$REPLY") >/dev/null; then fail "$mode ignored startup failure"
+  else [[ $? == 37 ]] || fail "$mode lost startup failure status"; fi
+  records=("${(@f)$(cat "$MOCK_AGENT_LOG")}")
+  (( ${#records} == 1 )) || fail "$mode launched after startup failure"
+  export MOCK_DAEMON_STATUS=0
+done
+print 'ok - Codex daemon starts from a stable directory; sessions preserve cwd and stop on startup failure'
+
 prompt='quotes " and '\''; $(touch SHOULD_NOT_EXIST) `false` *'
 ybcc -- "$prompt" '' $'two\nlines'
 [[ "$(cat "$tmp/project")" == . ]] || fail 'default directory'
-actual=$(zsh -fc "$captured[-1]")
+actual=$(run_agent_command "$captured[-1]")
 expected=$(print -rl -- cchat-yolo "$prompt" '' $'two\nlines')
 [[ "$actual" == "$expected" ]] || fail 'literal argument forwarding'
 yolobox --normie --codex -- resume --last

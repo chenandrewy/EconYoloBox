@@ -101,7 +101,13 @@ All shortcuts pass through these checks.
 | YOLO Claude (`ybcc`) | Guarded `cchat-yolo`; bypass permissions and enable remote control |
 | YOLO Codex (`ybgpt`) | Guarded `gptchat-yolo`; bypass approvals and the Codex command sandbox |
 | Normie Claude (`nbcc`) | `claude --permission-mode auto` |
-| Normie Codex (`nbgpt`) | `codex --sandbox workspace-write --ask-for-approval on-request -c approvals_reviewer=auto_review` |
+| Normie Codex (`nbgpt`) | `codex --approve-for-me` |
+
+Both Codex launchers first run `(cd /yolobox && codex app-server daemon start)`.
+This starts a missing shared daemon from the stable mount root so deleting a
+temporary worktree cannot remove its working directory. An existing daemon is
+left running. The session opens in the selected directory, and a daemon startup
+failure prevents the session from launching.
 
 The YOLO wrappers refuse to start unless the container firewall is enabled and
 PID 1 has filtered seccomp. The normie launchers explicitly select agent
