@@ -191,17 +191,17 @@ workable should each be one step.
 
 ### User-facing commands, by location
 
-| Location | Commands |
-| --- | --- |
-| `.devcontainer/host/devcontainer.zsh` (host shell) | `yolobox` (`ybe` and `ybcode` are short wrappers) |
-| `.devcontainer/shellrc.sh` (container shell) | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
-| `tools/ai-sesh/` | `sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork` |
-| `tools/pdf/` | `pdf2md.py`, `rebookmark.py` |
-| `tools/latex/` | `sync-lyx.sh` |
-| `tools/lit/` | `cited_by.py` |
-| `agents/` | `seed-agent-guidelines.sh` (runs at container start) |
-| `.devcontainer/tests/` | `test-firewall.sh`, `test-agent-policy.sh` (also installed on PATH) |
-| `.devcontainer/setup/` (container; normie mode except `cli`, `--verify`) | `install-base.sh`, `install-optional.sh` |
+| Location                                                                 | Commands                                                                                                      |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `.devcontainer/host/devcontainer.zsh` (host shell)                       | `yolobox` (`ybe` and `ybcode` are short wrappers)                                                             |
+| `.devcontainer/shellrc.sh` (container shell)                             | `cchat-yolo`, `gptchat-yolo`, `gptmini-yolo`, `loccode`, `hostname-local`, `container-folder-local`, `gitlog` |
+| `tools/ai-sesh/`                                                         | `ai-sesh-init`                                                                                                |
+| `tools/pdf/`                                                             | `pdf2md.py`, `rebookmark.py`                                                                                  |
+| `tools/latex/`                                                           | `sync-lyx.sh`                                                                                                 |
+| `tools/lit/`                                                             | `cited_by.py`                                                                                                 |
+| `agents/`                                                                | `seed-agent-guidelines.sh` (runs at container start)                                                          |
+| `.devcontainer/tests/`                                                   | `test-firewall.sh`, `test-agent-policy.sh` (also installed on PATH)                                           |
+| `.devcontainer/setup/` (container; normie mode except `cli`, `--verify`) | `install-base.sh`, `install-optional.sh`                                                                      |
 
 Everything in `tools/` is on `PATH` via `shellrc.sh`, so the filenames are the
 commands.
@@ -240,10 +240,10 @@ commands.
   What this repo provides is the half that makes them possible: every session
   remote-controlled and deterministically named.
 
-- **Cross-machine AI session sync (`ai-sesh`).** Claude/Codex session stores are
-  symlinked into the Dropbox-synced workspace per machine, so sessions follow
-  you between desks; `sesh-push` installs another machine's sessions when you
-  switch, with fork and wipe helpers.
+- **Cross-machine AI session sync (`ai-sesh`).** Every Claude/Codex install,
+  on every Mac and in both container modes, links its session store to one
+  folder in the Dropbox-synced workspace, so sessions follow you between desks
+  and modes.
 
 - **AIChatRender VS Code extension.** The transcript panel formerly bundled
   here is now maintained separately in the

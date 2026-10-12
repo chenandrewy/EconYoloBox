@@ -128,7 +128,7 @@ checkout's `<folder>-venv-noble-py3.12-<id>` (1.2GB) and
 `<folder>-r-site-library-noble-4.5.3-<id>` (about 800MB).
 
 Session data is not here. `ai-sesh` symlinks `~/.claude/projects` and
-`~/.claude/todos` into `/yolobox`, so Claude and Codex history consumes
+`~/.codex/sessions` into `/yolobox`, so Claude and Codex history consumes
 Dropbox-synced host disk rather than volume space.
 
 ## What is in the image

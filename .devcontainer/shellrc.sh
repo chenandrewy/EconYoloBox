@@ -11,12 +11,12 @@
 #   latex:   sync-lyx.sh
 #   lit:     citation lookup (cited_by.py, via OpenAlex)
 #   markdown: format-pipe-tables.py
-#   ai-sesh: sesh-init, sesh-push, sesh-wipe, gpt-fork
+#   ai-sesh: ai-sesh-init
 export PATH="/yolobox/tools/pdf:/yolobox/tools/latex:/yolobox/tools/lit:/yolobox/tools/markdown:/yolobox/tools/ai-sesh:$PATH"
 
 # ai-sesh: keep the home session stores symlinked into the Dropbox-synced
 # tree (idempotent; silent once the links exist — see tools/ai-sesh/README.md)
-sesh-init || true
+ai-sesh-init || true
 
 # The Python, R and TeX stacks live in shared volumes, read-only outside normie
 # mode, so an unbuilt volume means no stack. Say so once per shell instead of

@@ -33,7 +33,7 @@ Custom tools live in `/yolobox/tools/`, organized by topic. Check these folders 
 
 - `tools/pdf/`: `pdf2md.py` (PDF to markdown), `rebookmark.py` (bookmarks PDFs)
 - `tools/latex/`: `sync-lyx.sh`; other LaTeX tools go here
-- `tools/ai-sesh/`: sync Claude and Codex sessions across machines via Dropbox-synced per-machine stores (`sesh-init`, `sesh-push`, `sesh-wipe`, `gpt-fork`); see its README
+- `tools/ai-sesh/`: `ai-sesh-init` links every machine's and mode's Claude/Codex session store to one Dropbox-synced folder; see its README
 - `tools/lit/`: citation lookup — `cited_by.py` (OpenAlex); see its README
 - `tools/markdown/`: `format-pipe-tables.py` aligns Markdown pipe-table columns.
   After creating or editing pipe tables, run `format-pipe-tables.py --in-place FILE.md`.

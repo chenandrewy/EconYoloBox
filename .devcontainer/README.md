@@ -62,7 +62,7 @@ folder can keep its existing name. When changing an existing installation from
 the former `/sandbox` mount, close attached VS Code windows and run
 `yolobox --rebuild` on the host. The launcher recreates both modes if both exist;
 an old container cannot be reused with the new working directory. Open a fresh
-shell afterward so `sesh-init` can update the home-directory session links.
+shell afterward so `ai-sesh-init` can update the home-directory session links.
 Stored session transcripts may still mention the old path as historical data.
 
 ### Updating an existing checkout after the directory reorganization

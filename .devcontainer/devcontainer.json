@@ -157,7 +157,6 @@
     "YOLOBOX_MODE": "yolo",
     "NODE_OPTIONS": "--max-old-space-size=4096",
     "CLAUDE_CONFIG_DIR": "/home/ubuntu/.claude",
-    "AI_SESH_MACHINE": "${localEnv:AI_SESH_MACHINE}",
     "CODEX_HOME": "/home/ubuntu/.codex",
     "POWERLEVEL9K_DISABLE_GITSTATUS": "true",
     "LC_ALL": "C.UTF-8",
