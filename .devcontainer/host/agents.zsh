@@ -82,7 +82,8 @@ _yb_agent_command() {
     yolo:claude) launch=(cchat-yolo) ;;
     yolo:codex) launch=(gptchat-yolo) ;;
     normie:claude) launch=(command claude --permission-mode auto) ;;
-    normie:codex) launch=(command codex --sandbox workspace-write --ask-for-approval on-request -c approvals_reviewer=auto_review) ;;
+    # Use the dedicated permission flag: -c forces Codex into embedded mode.
+    normie:codex) launch=(command codex --approve-for-me) ;;
     *) print -u2 -- 'agent launcher: invalid container mode'; return 2 ;;
   esac
   launch+=("$@")
