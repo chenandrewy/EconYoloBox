@@ -67,8 +67,8 @@ _yb_agent_command() {
   local mode="$1" agent="$2" arg
   local -a launch
   shift 2
-  # These convenience commands own permission selection. Profiles/config files
-  # can change it indirectly, so use yolobox --shell --command for bespoke configurations.
+  # These convenience commands restrict permission overrides. Normie Codex
+  # uses saved configuration; use yolobox --shell --command for a custom launch.
   for arg in "$@"; do
     case "$agent:$arg" in
       codex:--sandbox|codex:--sandbox=*|codex:-s*|codex:--ask-for-approval|codex:--ask-for-approval=*|codex:-a*|codex:--yolo|codex:--yolo=*|codex:--dangerously-bypass-approvals-and-sandbox*|codex:--full-auto|codex:--approve-for-me|codex:--config|codex:--config=*|codex:-c*|codex:--profile|codex:--profile=*|codex:-p*|claude:--permission-mode|claude:--permission-mode=*|claude:--dangerously-skip-permissions*|claude:--allow-dangerously-skip-permissions*|claude:--settings|claude:--settings=*)
@@ -82,8 +82,8 @@ _yb_agent_command() {
     yolo:claude) launch=(cchat-yolo) ;;
     yolo:codex) launch=(gptchat-yolo) ;;
     normie:claude) launch=(command claude --permission-mode auto) ;;
-    # Use the dedicated permission flag: -c forces Codex into embedded mode.
-    normie:codex) launch=(command codex --approve-for-me) ;;
+    # Use saved permissions: --approve-for-me forces embedded mode in CLI 0.162.1.
+    normie:codex) launch=(command codex) ;;
     *) print -u2 -- 'agent launcher: invalid container mode'; return 2 ;;
   esac
   launch+=("$@")

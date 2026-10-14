@@ -51,7 +51,7 @@ for name mode action executable in ybcc yolo claude cchat-yolo ybgpt yolo codex 
   case "$name" in
     ybcc|ybgpt) expected=$(print -rl -- "$executable" --model 'a model') ;;
     nbcc) expected=$(print -rl -- claude --permission-mode auto --model 'a model') ;;
-    nbgpt) expected=$(print -rl -- codex --approve-for-me --model 'a model') ;;
+    nbgpt) expected=$(print -rl -- codex --model 'a model') ;;
   esac
   [[ "$actual" == "$expected" ]] || fail "$name argv: $actual"
   yolobox "--$mode" "--$action" 'project with spaces; $(false)' -- --model 'a model'

@@ -200,9 +200,10 @@ A bare `codex` requests "Approve for me": `/etc/codex/config.toml` (from
 `agents/managed/YOLOBOX-codex-config.toml`) sets `approval_policy = "on-request"`,
 `sandbox_mode = "workspace-write"`, and `approvals_reviewer = "auto_review"`.
 User configuration can override these defaults. The container does not rewrite
-your user config. For a single session, use `codex --approve-for-me` (available
-in the inspected CLI 0.154.0). The `nbgpt` launcher uses this dedicated flag
-instead of `-c` overrides so Codex can use its shared background server.
+your user config. The `nbgpt` launcher runs bare `codex`, respecting your saved
+permissions and allowing the shared background server. For a single session,
+`codex --approve-for-me` selects automatic review explicitly, but in CLI 0.162.1
+it triggers the embedded-mode warning.
 
 The explicit `gptchat-yolo` / `gptmini-yolo` wrappers remain in `shellrc.sh`.
 They use `--dangerously-bypass-approvals-and-sandbox`. Along with `cchat-yolo`,

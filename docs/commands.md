@@ -101,7 +101,7 @@ All shortcuts pass through these checks.
 | YOLO Claude (`ybcc`) | Guarded `cchat-yolo`; bypass permissions and enable remote control |
 | YOLO Codex (`ybgpt`) | Guarded `gptchat-yolo`; bypass approvals and the Codex command sandbox |
 | Normie Claude (`nbcc`) | `claude --permission-mode auto` |
-| Normie Codex (`nbgpt`) | `codex --approve-for-me` |
+| Normie Codex (`nbgpt`) | `codex`; use saved permission settings |
 
 Both Codex launchers first run `(cd /yolobox && codex app-server daemon start)`.
 This starts a missing shared daemon from the stable mount root so deleting a
@@ -110,8 +110,9 @@ left running. The session opens in the selected directory, and a daemon startup
 failure prevents the session from launching.
 
 The YOLO wrappers refuse to start unless the container firewall is enabled and
-PID 1 has filtered seccomp. The normie launchers explicitly select agent
-permission settings; opening the normie container alone does not set them.
+PID 1 has filtered seccomp. Normie Claude explicitly selects automatic
+permissions. Normie Codex uses saved configuration: the system defaults request
+"Approve for me", and user configuration can override them.
 The agent CLIs must already be installed and support the requested modes.
 
 Agent actions own their permission options. They reject permission overrides,
@@ -179,7 +180,8 @@ and the functions from `.devcontainer/shellrc.sh`:
 - `gptchat-yolo` starts Codex in YOLO mode; `gptmini-yolo` selects the smaller
   model configured in that wrapper.
 - In normie, use `claude` or `codex` with the desired permission settings. The
-  host commands `nbcc` and `nbgpt` supply the settings shown above for you.
+  host command `nbcc` selects automatic permissions; `nbgpt` uses saved Codex
+  configuration.
 
 The former public names `ybox`, `ybagent`, `nbagent`, and `nbcodex` are removed
 when the host launcher loads. Open a new host terminal, or source
