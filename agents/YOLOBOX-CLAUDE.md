@@ -53,9 +53,12 @@ Custom tools live in `/yolobox/tools/`, organized by topic. Check these folders 
 - Put worktrees at `.wt/<branch-name>` in the repository root, replacing 
   `/` in the branch name with `-` e.g. `git worktree add -b fix/foo .wt/fix-foo main`. 
 
-### In Chat Communication  
+### In-Chat Communication
 
-- Show file paths relative to the session's initial working folder.
+- Show relative file paths (relative to the session's initial working folder)
+  - If you show an absolute path, also show the relative path so the user can
+    click it in the host VS Code.
+- Show show file line references using `path:line`. Do not use `#L`.     
 - Use LaTeX formatting for math.
 
 ## The Environment
