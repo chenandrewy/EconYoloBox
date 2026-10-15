@@ -95,9 +95,21 @@ Switching modes is the user's decision (see `USER PERMISSION REQUIRED`), made on
 the host by opening the other container; nothing in this container can switch it.
 Do not edit either config file's posture settings.
 
-### Guidance that depends on the mode
+### Command and tool guidance
 
-- **Network access depends on the mode.** In YOLO mode, `init-firewall.sh`
+#### `gh` and `git`
+
+- Normie has the user's `gh` login once they have set it up, so `gh` is
+  available there. Pushing from normie still needs permission — see
+  `USER PERMISSION REQUIRED`.
+- YOLO has no GitHub credentials: local commits work, but pushes, private
+  fetches and `gh` commands fail for lack of authentication. Do not try to
+  authenticate there or look for a credential; tell the user the step belongs
+  in normie (`nbcc`, `nbgpt`) or on the host.
+
+#### `curl`, `wget`, and network access from project code
+
+- In YOLO mode, `init-firewall.sh`
   builds a deny-by-default IP allowlist at container start. Blocked hosts are
   REJECTed, so they fail fast rather than hanging — suspect the firewall before
   the code. In normie mode, the container starts without these network
@@ -105,11 +117,6 @@ Do not edit either config file's posture settings.
   - **Packages**: npm. PyPI, P3M, CRAN, Bioconductor and CTAN are deliberately
     **not** allowed: packages are installed in normie mode, so a missing
     package goes to the user.
-  - **VS Code extensions**: install or update them in normie mode with
-    `bash .devcontainer/setup/install-vscode-extensions.sh` from a VS Code
-    terminal. YOLO mounts the shared volume read-only. Neither mode auto-installs
-    on attach; marketplace and extension CDN hosts are absent from the YOLO
-    allowlist.
   - **Code hosting**: GitHub's published IP ranges, plus Copilot endpoints.
   - **LLM APIs**: Anthropic, OpenAI/ChatGPT, OpenRouter, Mistral.
   - **Research**: arXiv, SSRN, OpenAlex. Google's ranges are deliberately
@@ -120,12 +127,7 @@ Do not edit either config file's posture settings.
   - With the firewall on, there is no general web access — assume a fetch of
     an arbitrary URL will fail. A download that dies on an unlisted
     **redirect** host is the common surprise; report the host so it can be added.
-- For general web information, Claude should use `WebSearch`, and Codex should
-  use the `web` tool. These tools access the web through the model providers'
-  servers and are not subject to the devcontainer firewall. When the firewall
-  is on, this does not make arbitrary URLs available to terminal commands or
-  project code.
-- **Downloads in YOLO mode.** When the user asks you to download a file
+- When the user asks you to download a file
   (a manual, paper, dataset or similar) to disk, run
   `bash /yolobox/.devcontainer/posture.sh` first. If the firewall is on and the
   source host is not on the allowlist above, **STOP and ask the user to switch
@@ -133,7 +135,19 @@ Do not edit either config file's posture settings.
   mirrors, retry with other clients, or try to save the file through
   `WebFetch`/`web`. You may use web search to pin down the right file and URL
   before asking, so the request is concrete.
-- **Package installs depend on the mode.** In YOLO mode, the
+- If the firewall blocks a resource you need: **ASK THE USER TO ADD IT**
+
+#### `WebSearch` / `web` — general web information
+
+- For general web information, Claude should use `WebSearch`, and Codex should
+  use the `web` tool. These tools access the web through the model providers'
+  servers and are not subject to the devcontainer firewall. When the firewall
+  is on, this does not make arbitrary URLs available to terminal commands or
+  project code.
+
+#### `pip install`, `install.packages()`, `tlmgr install`, and `apt-get`
+
+- In YOLO mode, the
   R, Python and TeX stacks are **read-only**. If a package is missing, **ASK THE
   USER TO ADD IT** (name the package) rather than installing it some other way.
   They add it in normie mode, or to a list in `.devcontainer/setup/install-base.sh`
@@ -142,12 +156,16 @@ Do not edit either config file's posture settings.
   commands (`install.packages()`, `pip install`, `tlmgr install`), and say when
   pip replaced a dependency. New **system** libraries (`apt-get`, `-dev`
   packages) always need permission — see `USER PERMISSION REQUIRED`.
-- **GitHub credentials depend on the mode.** YOLO has none: local commits
-  work, but pushes, private fetches and `gh` commands fail for lack of
-  authentication. Do not try to authenticate there or look for a credential;
-  tell the user the step belongs in normie (`nbcc`, `nbgpt`) or on the host.
-  Normie has the user's `gh` login once they have set it up. Pushing from
-  normie still needs permission — see `USER PERMISSION REQUIRED`.
-- If the firewall blocks a resource you need: **ASK THE USER TO ADD IT**
+
+#### `install-vscode-extensions.sh` — VS Code extensions
+
+- Install or update them in normie mode with
+  `bash .devcontainer/setup/install-vscode-extensions.sh` from a VS Code
+  terminal. YOLO mounts the shared volume read-only. Neither mode auto-installs
+  on attach; marketplace and extension CDN hosts are absent from the YOLO
+  allowlist.
+
+#### Screenshot lookup
+
 - For "this screenshot," "the image," or "latest screenshot," look up
   the screenshots path under Key Paths.
