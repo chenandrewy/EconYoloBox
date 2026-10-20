@@ -1,17 +1,19 @@
-#compdef ybcode ybe
-# Run:     source .devcontainer/host/_ybcode after zsh completion initialization.
-# Inputs:  the current ybcode or ybe command line only.
-# Outputs: the _ybcode completion function and, when available, its compdef bindings.
+#compdef ybcode nbcode ybe nbe
+# Run: source .devcontainer/host/_ybcode after zsh completion initialization.
+# Inputs: current shell or editor shortcut command line.
+# Outputs: completion for shortcuts whose container mode is fixed.
 
 _ybcode() {
+  local -a options
+  [[ "$words[1]" == (ybe|nbe) ]] && options+=('--command[run a shell command]:command:')
   _arguments -s \
-    '(--normie)--yolo[use the YOLO container (the default)]' \
-    '(--yolo)--normie[use the normie container]' \
-    '(--rebuild-without-cache)--rebuild[recreate both modes'"'"' containers using the Docker build cache]' \
-    '(--rebuild)--rebuild-without-cache[recreate both modes'"'"' containers without the Docker build cache]' \
+    '(--rebuild-without-cache)--rebuild[recreate both containers using the build cache]' \
+    '(--rebuild)--rebuild-without-cache[recreate both containers without the build cache]' \
+    '--help[show launcher help]' \
+    "${options[@]}" \
     ':directory:_directories'
 }
 
 if (( $+functions[compdef] )); then
-  compdef _ybcode ybcode ybe
+  compdef _ybcode ybcode nbcode ybe nbe
 fi

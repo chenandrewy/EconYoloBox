@@ -3,8 +3,10 @@
 # ABOUTME: Container via runArgs --env-file.
 #
 # Run:     bash .devcontainer/host/write-local-env.sh   (host, at initializeCommand)
-# Inputs:  host name and zone; optional host TZ environment variable.
-# Outputs: /tmp/devcontainer-local.env with LOCAL_HOSTNAME, LOCAL_CONTAINER_FOLDER, TZ.
+# Inputs:  host name and zone; optional host TZ environment variable; the
+#          host's global Git user.name and user.email, when set.
+# Outputs: /tmp/devcontainer-local.env with LOCAL_HOSTNAME, LOCAL_CONTAINER_FOLDER,
+#          TZ, HOST_GIT_USER_NAME, HOST_GIT_USER_EMAIL.
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -59,4 +61,11 @@ umask 077
     printf 'LOCAL_CONTAINER_FOLDER=%s\n' "$LOCAL_CONTAINER_FOLDER"
     HOST_TZ=$(detect_tz)
     [ -n "$HOST_TZ" ] && printf 'TZ=%s\n' "$HOST_TZ"
+    # Git identity only, never the rest of the host gitconfig (helpers,
+    # signing); git-identity.sh applies it in the container.
+    for key in name email; do
+        value=$(git config --global "user.$key" 2>/dev/null | tr -d '\r\n' || true)
+        [ -n "$value" ] && printf 'HOST_GIT_USER_%s=%s\n' "$(printf '%s' "$key" | tr '[:lower:]' '[:upper:]')" "$value"
+    done
+    true
 } > "$ENV_FILE"

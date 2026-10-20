@@ -28,5 +28,5 @@ else
 fi
 printf '%s\n' \
     "$launcher: $detail; refusing YOLO mode." \
-    'This is not the YOLO container; on the host: ybcode or ybe (ybox --rebuild if it persists)' >&2
+    'This is not the YOLO container; on the host: ybcode or ybe (yolobox --rebuild if it persists)' >&2
 exit 1

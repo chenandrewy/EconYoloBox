@@ -1,76 +1,70 @@
 # ai-sesh
 
-Machine-to-machine session sync for Claude Code and Codex, built on the
-Dropbox-synced `/yolobox` mount. Each machine's live home stores are symlinks
-into a per-machine folder here, so this machine's sessions sync passively;
-`sesh-push` installs the *other* machines' sessions when you switch desks.
-Design notes: `docs/journal/0708T08-ai-sesh-redesign.md`.
+Session sharing for Claude Code and Codex, built on the Dropbox-synced
+`/yolobox` mount. Every install, on every Mac and in both container modes
+(YOLO and normie), links its session store to the same folder here, so a
+session exited in one place can be resumed anywhere once Dropbox has synced.
+Design notes: `docs/journal/1008b,BUMP-plan-ai-sesh-skill.md`.
 
 ## Mechanism
 
-`sesh-init` (auto-run by `.devcontainer/shellrc.sh` on every shell) keeps
-these links in place:
+`ai-sesh-init` (auto-run by `.devcontainer/shellrc.sh` on every interactive
+shell) keeps two links in place:
 
-- `~/.claude/projects` -> `data/<machine>/claude`
-- `~/.codex/sessions` -> `data/<machine>/codex`
-- `~/.claude/todos` -> `data/<machine>/todos`
+- `~/.claude/projects` -> `data/claude`
+- `~/.codex/sessions` -> `data/codex`
 
-Claude and Codex therefore write real bytes into the synced tree; the data
-survives container rebuilds because it lives in the `/yolobox` mount. The
-machine id derives from the host name the devcontainer injects
-(`write-local-env.sh` -> `LOCAL_HOSTNAME`, e.g. `Mac-Studio.local` ->
-`mac-studio`); set `AI_SESH_MACHINE` to override. Credentials, caches, and
-`history.jsonl` stay machine-local. History beyond ~30 days is not a goal:
-the agents' own purges self-trim each store.
+Each home (`~/.claude`, `~/.codex`) is a private Docker volume for one mode
+on one Mac; only these two folders point out into the shared tree. Claude
+and Codex therefore write real bytes into `data/`, which Dropbox syncs.
+Logins, settings, caches, Codex's session index and database, daemon state
+and `history.jsonl` stay private to each install.
 
-## Layout
+`data/` is git-ignored — Dropbox is the transport, not git. Folders named
+after a machine (`data/macstudio25/`, ...) are the old per-machine stores
+from before 2026-10-11, left as they were; delete them when no longer
+wanted.
 
-```
-data/
-└── <machine>/
-    ├── claude/<project-key>/<uuid>.jsonl   # <- ~/.claude/projects
-    ├── codex/YYYY/MM/DD/rollout-*.jsonl    # <- ~/.codex/sessions
-    └── todos/                              # <- ~/.claude/todos
-```
+## Resuming elsewhere
 
-`data/` is git-ignored — Dropbox is the transport, not git.
-
-## Commands
-
-This directory is on `PATH` (via `/yolobox/.devcontainer/shellrc.sh`), so
-the filenames are the commands:
-
-- `sesh-init`: idempotent symlink setup/migration; auto-run per shell. It
-  defers migrating a store that a live session has open — exit sessions and
-  rerun if it says so.
-- `sesh-push`: install every other machine's sessions into the home stores.
-- `gpt-fork`: list other machines' Codex seeds (global, newest first) and
-  fork one.
-- `sesh-wipe`: manual reset — list stores, delete quarantined `*.divergent-*`
-  copies, or delete a whole machine's store (typed confirmation; the
-  deletion propagates to that machine via Dropbox).
-
-Own-machine sessions never need installing: resume with `claude --resume` /
-`codex resume`, fork with `claude --resume ID --fork-session` /
-`codex fork ID`.
-
-## Install ladder
-
-Every cross-machine install (`sesh-push` and `gpt-fork`) decides per file,
-never as a blind copy and never from mtime:
-
-1. Same id + same size -> skip.
-2. One file a byte-prefix of the other -> take the longer (fast-forward;
-   this is what normal sequential resume produces).
-3. Neither a prefix -> true divergence: keep both — the incoming copy is
-   quarantined as `<name>.jsonl.divergent-<machine>` (ignored by the agents'
-   session scans) — and warn. Never silently discard.
+- Claude: `claude --resume` from the same project folder (paths are
+  `/yolobox/...` in every install, so the project matches).
+- Codex: `codex resume <id>` or `codex resume --all`. The default picker
+  lists from a per-install index and may omit sessions written elsewhere
+  until indexed.
 
 ## Operating rule
 
-Switching desks: **exit sessions on the machine you're leaving -> let
-Dropbox settle -> `sesh-push` and resume on the other.** Never run the same
-session live on both machines at once. Claude appends to the jsonl live,
-not just on exit, so exiting first stops the file moving under Dropbox.
-Divergence only arises from breaking this rule (concurrent use, or resuming
-before Dropbox pulled the latest); the prefix check is the safety net.
+**Exit the session where you are -> let Dropbox settle -> resume in the
+other place.** Never run one session live in two places at once. Claude
+appends to the jsonl live, so exiting first stops the file moving under
+Dropbox. Breaking the rule makes Dropbox keep both versions, the second as
+`<name> (<Mac>'s conflicted copy <date>).jsonl`; compare and delete by hand.
+
+The first shell after an install's link changes repoints it immediately.
+Exit that install's agent sessions first, or a running session continues in
+the new folder and its transcript is split.
+
+## Reading sessions in a host VS Code window
+
+Because `data/` is a bind-mounted, Dropbox-synced folder, the transcripts are
+ordinary files on the Mac, and AIChatRender in a local (host) VS Code window
+can read them. Add the shared stores as extra roots and map the container's
+`/yolobox` to the host checkout, in VS Code **user** settings (the settings
+are machine-scoped and ignored in workspace settings):
+
+```jsonc
+"aichatrender.claudeTranscriptRoots": [
+  "/ABS/CHECKOUT/tools/ai-sesh/data/claude"
+],
+"aichatrender.codexTranscriptRoots": [
+  "/ABS/CHECKOUT/tools/ai-sesh/data/codex"
+],
+"aichatrender.pathMappings": [
+  { "from": "/yolobox/", "to": "/ABS/CHECKOUT" }
+]
+```
+
+Paths must be literal and absolute: no `~`, globs or `${...}`. The same
+settings work on every Mac as long as the checkout path is the same. Full
+walkthrough: [extended setup](../../docs/extended-setup.md#using-more-than-one-mac).

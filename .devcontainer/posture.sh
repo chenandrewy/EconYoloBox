@@ -26,7 +26,7 @@
 # unexpected leftover marker errs toward a false "open" alarm, never a false
 # "firewalled". /tmp is not tmpfs here, so the marker survives restarts, and a
 # bare `docker restart` skips post-start.sh: after one, the marker describes
-# the previous start and the firewall rules may be gone. Restart through ybox
+# the previous start and the firewall rules may be gone. Restart through yolobox
 # or VS Code so post-start.sh runs.
 
 open_marker=${1:-/tmp/FIREWALL-WINDOW-OPEN}

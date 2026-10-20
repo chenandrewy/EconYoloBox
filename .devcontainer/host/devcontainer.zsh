@@ -4,8 +4,9 @@
 #   source /path/to/EconYoloBox/.devcontainer/host/devcontainer.zsh
 #
 # Inputs:  --yolo (the default) or --normie, and an optional project directory.
-# Outputs: ybox plus the ybe/ybcode wrappers, which take the same flags
-#   (ybcode --normie, ybe --yolo). Requires docker, devcontainer, python3, and
+#   With --shell, --command STRING runs a shell command inside the container.
+# Outputs: yolobox and eight shortcuts with fixed container modes.
+#   Requires docker, devcontainer, python3, and
 #   (for --code) code.
 #
 # Each mode is its own container, built from its own config file:
@@ -21,10 +22,10 @@ _DC_HOST_DIR="${0:A:h}"
 _DC_RESOLVE_PY="$_DC_HOST_DIR/dc-resolve.py"
 
 # Remove old names and aliases before defining functions, including on reload.
-unalias dcu dce dccode bbox bbcode bbu bbe ybox ybe ybcode 2>/dev/null || true
-unfunction dcu dce dccode bbox bbcode _bbox _bbcode bbu bbe 2>/dev/null || true
+unalias ybox ybagent nbagent nbcodex yolobox nbe nbcode dcu dce dccode bbox bbcode bbu bbe ybe ybcode 2>/dev/null || true
+unfunction ybox ybagent nbagent nbcodex dcu dce dccode bbox bbcode _bbox _bbcode bbu bbe 2>/dev/null || true
 if (( $+functions[compdef] )); then
-  compdef -d bbox bbcode bbu bbe
+  compdef -d ybox ybagent nbagent nbcodex bbox bbcode bbu bbe
 fi
 
 # _dc_resolve [project_dir]
@@ -40,7 +41,7 @@ _dc_resolve() {
     devcontainer_dir="${devcontainer_dir:h}"
   done
   if [[ ! -f "$devcontainer_dir/.devcontainer/devcontainer.json" ]]; then
-    echo "ybox: no enclosing .devcontainer/devcontainer.json found for $project_dir" >&2
+    echo "yolobox: no enclosing .devcontainer/devcontainer.json found for $project_dir" >&2
     return 1
   fi
 
@@ -63,7 +64,7 @@ _ybox_config() {
 
 # _ybox_containers <root> <config>
 # Prints the ids of the folder's containers built from that config. Docker
-# ANDs label filters. Containers with any other config label are not ybox's.
+# ANDs label filters. Containers with any other config label are not yolobox's.
 _ybox_containers() {
   docker ps -aq --no-trunc --filter "label=devcontainer.local_folder=$1" --filter "label=devcontainer.config_file=$2"
 }
@@ -94,9 +95,9 @@ _ybox_mode_name() {
 # Prints the command that recreates that mode's container.
 _ybox_rebuild_hint() {
   if [[ "$1" == normie ]]; then
-    print -r -- "ybox --rebuild --normie ${(q)2}"
+    print -r -- "yolobox --rebuild --normie ${(q)2}"
   else
-    print -r -- "ybox --rebuild ${(q)2}"
+    print -r -- "yolobox --rebuild ${(q)2}"
   fi
 }
 
@@ -115,8 +116,8 @@ _ybox_verify_layout() {
     [[ -n "$container" ]] || continue
     actual=$(docker inspect --format '{{.Config.WorkingDir}}' "$container" 2>/dev/null) || continue
     [[ "$actual" == "$expected" ]] && continue
-    print -u2 -- "ybox: ERROR: existing container $container mounts the yolobox at $actual, but its config now expects $expected."
-    print -u2 -- "ybox: it predates a layout change and cannot start; on the host run: ybox --rebuild ${(q)root}"
+    print -u2 -- "yolobox: ERROR: existing container $container mounts the yolobox at $actual, but its config now expects $expected."
+    print -u2 -- "yolobox: it predates a layout change and cannot start; on the host run: yolobox --rebuild ${(q)root}"
     return 1
   done
   return 0
@@ -146,8 +147,8 @@ _ybox_refuse_attached() {
     for container in ${(f)listed}; do
       [[ -n "$container" ]] || continue
       if _ybox_vscode_attached "$container"; then
-        print -u2 -- "ybox: ERROR: VS Code is attached to container ${container:0:12} for $root."
-        print -u2 -- 'ybox: close that VS Code window (or Dev Containers: Close Remote Connection), then rerun the rebuild.'
+        print -u2 -- "yolobox: ERROR: VS Code is attached to container ${container:0:12} for $root."
+        print -u2 -- 'yolobox: close that VS Code window (or Dev Containers: Close Remote Connection), then rerun the rebuild.'
         return 1
       fi
     done
@@ -185,13 +186,13 @@ _ybox_check_duplicates() {
   (( ${#others} )) || return 0
   if (( rebuild )); then
     for container in "${others[@]}"; do
-      print -u2 -- "ybox: removing stray container ${container:0:12} for $root (started during the rebuild)"
+      print -u2 -- "yolobox: removing stray container ${container:0:12} for $root (started during the rebuild)"
       docker rm -f "$container" >/dev/null || return 1
     done
     return 0
   fi
-  print -u2 -- "ybox: ERROR: more than one container for $root from ${config#$root/}; ybox is using ${keep:0:12}."
-  print -u2 -- 'ybox: remove the others with docker rm -f <id>, or rebuild this mode with ybox --rebuild:'
+  print -u2 -- "yolobox: ERROR: more than one container for $root from ${config#$root/}; yolobox is using ${keep:0:12}."
+  print -u2 -- 'yolobox: remove the others with docker rm -f <id>, or rebuild this mode with yolobox --rebuild:'
   for container in "${others[@]}"; do
     print -u2 -- "  ${container:0:12}"
   done
@@ -207,7 +208,7 @@ _ybox_note_normie() {
   for container in ${(f)listed}; do
     [[ -n "$container" ]] || continue
     [[ "$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null)" == running ]] || continue
-    print -- "ybox: note: normie container ${container:0:12} is also running, firewall open; ybox --stop --normie"
+    print -- "yolobox: note: normie container ${container:0:12} is also running, firewall open; yolobox --stop --normie"
   done
 }
 
@@ -225,11 +226,11 @@ _ybox_up() {
   # the two configs (docs/journal/0927a) or a hand-edited config.
   actual=$(_ybox_posture "$container_id")
   if [[ "${actual%% *}" != "$mode" ]]; then
-    print -u2 -- "ybox: ERROR: expected $(_ybox_mode_name "$mode"), but container ${container_id:0:12} has ${actual#* }."
-    print -u2 -- "ybox: refusing attachment; on the host run: $(_ybox_rebuild_hint "$mode" "$root")"
+    print -u2 -- "yolobox: ERROR: expected $(_ybox_mode_name "$mode"), but container ${container_id:0:12} has ${actual#* }."
+    print -u2 -- "yolobox: refusing attachment; on the host run: $(_ybox_rebuild_hint "$mode" "$root")"
     return 1
   fi
-  print -- "ybox: $(_ybox_mode_name "$mode") container ${container_id:0:12} (${actual#* })"
+  print -- "yolobox: $(_ybox_mode_name "$mode") container ${container_id:0:12} (${actual#* })"
   REPLY=$container_id
 }
 
@@ -249,17 +250,18 @@ _ybox_rebuild_other() {
     [[ "$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null)" == running ]] && running=1
   done
   _ybox_clear_containers "$root" "$config" || return 1
-  print -- "ybox: recreating the $(_ybox_mode_name "$other") container for $root"
+  print -- "yolobox: recreating the $(_ybox_mode_name "$other") container for $root"
   _ybox_up "$root" "$other" 1 "$@" || return 1
   if (( ! running )); then
     docker stop "$REPLY" >/dev/null || return 1
-    print -- "ybox: stopped the $(_ybox_mode_name "$other") container ${REPLY:0:12} again, as it was not running"
+    print -- "yolobox: stopped the $(_ybox_mode_name "$other") container ${REPLY:0:12} again, as it was not running"
   fi
 }
 
-# ybox [--yolo|--normie] [--rebuild|--rebuild-without-cache] [--shell|--code] [DIRECTORY]
-# ybox [--yolo|--normie] --stop [DIRECTORY]
-# ybox --status [DIRECTORY]
+# yolobox [--yolo|--normie] [--rebuild|--rebuild-without-cache] [--shell|--code] [DIRECTORY]
+# yolobox [--yolo|--normie] --claude|--codex [DIRECTORY] [-- AGENT_ARGS...]
+# yolobox [--yolo|--normie] --stop [DIRECTORY]
+# yolobox --status [DIRECTORY]
 #
 # The flag picks the mode's container; no flag means YOLO:
 #   --yolo (the default)  internet=firewalled package_access=readonly seccomp=builtin
@@ -267,59 +269,86 @@ _ybox_rebuild_other() {
 # Both containers can exist and run at once. --rebuild recreates both modes'
 # containers (the other only if it exists) and then attaches to the chosen
 # one; --stop acts on the chosen mode's container only; --status reports both.
-ybox() {
+yolobox() {
   local action='' mode='' project_dir='.' rebuild=0 positional_seen=0 arg resolved root relative_dir
+  local shell_command='' command_seen=0
   local config remote_path existing listed container actual state container_id docker_context folder_uri m REPLY
-  local -a up_args
+  local -a up_args agent_args
 
   while (( $# )); do
     arg="$1"
     shift
     case "$arg" in
+      --help|-h)
+        _yb_help
+        return 0
+        ;;
+      --command)
+        (( $# && ! command_seen )) && [[ -n "$1" ]] || { print -u2 -- 'yolobox: --command requires one nonempty command string, supplied once'; return 2; }
+        shell_command="$1"
+        command_seen=1
+        shift
+        ;;
       --yolo|--normie)
-        [[ -n "$mode" ]] && { print -u2 -- 'ybox: --yolo and --normie are mutually exclusive'; return 2; }
+        [[ -n "$mode" ]] && { print -u2 -- 'yolobox: --yolo and --normie are mutually exclusive'; return 2; }
         mode="${arg#--}"
         ;;
       --rebuild)
-        (( rebuild )) && { print -u2 -- 'ybox: rebuild flags are mutually exclusive'; return 2; }
+        (( rebuild )) && { print -u2 -- 'yolobox: rebuild flags are mutually exclusive'; return 2; }
         rebuild=1
         up_args+=(--remove-existing-container)
         ;;
       --rebuild-without-cache)
-        (( rebuild )) && { print -u2 -- 'ybox: rebuild flags are mutually exclusive'; return 2; }
+        (( rebuild )) && { print -u2 -- 'yolobox: rebuild flags are mutually exclusive'; return 2; }
         rebuild=1
         up_args+=(--remove-existing-container --build-no-cache)
         ;;
-      --shell|--code|--status|--stop)
-        [[ -n "$action" ]] && { print -u2 -- 'ybox: --shell, --code, --status and --stop are mutually exclusive'; return 2; }
+      --shell|--code|--claude|--codex|--status|--stop)
+        [[ -n "$action" ]] && { print -u2 -- 'yolobox: choose one action: --shell, --code, --claude, --codex, --status or --stop'; return 2; }
         action="${arg#--}"
         ;;
       --)
-        (( $# > 1 )) && { print -u2 -- 'ybox: expected at most one directory'; return 2; }
+        if [[ "$action" == claude || "$action" == codex ]]; then
+          agent_args=("$@")
+          break
+        fi
+        (( $# > 1 )) && { print -u2 -- 'yolobox: expected at most one directory'; return 2; }
         if (( $# == 1 )); then
-          (( positional_seen )) && { print -u2 -- 'ybox: expected at most one directory'; return 2; }
+          (( positional_seen )) && { print -u2 -- 'yolobox: expected at most one directory'; return 2; }
           project_dir="$1"
         fi
         break
         ;;
       -*)
-        print -u2 -- "ybox: unknown option: $arg"
+        print -u2 -- "yolobox: unknown option: $arg"
         return 2
         ;;
       *)
-        (( positional_seen )) && { print -u2 -- 'ybox: expected at most one directory'; return 2; }
+        (( positional_seen )) && { print -u2 -- 'yolobox: expected at most one directory'; return 2; }
         project_dir="$arg"
         positional_seen=1
         ;;
     esac
   done
+  if (( command_seen )) && [[ "$action" != shell ]]; then
+    print -u2 -- 'yolobox: --command requires --shell (or ybe/nbe)'
+    return 2
+  fi
   if [[ "$action" == status ]] && { (( rebuild )) || [[ -n "$mode" ]]; }; then
-    print -u2 -- 'ybox: --status reports both modes; it takes no other option'
+    print -u2 -- 'yolobox: --status reports both modes; it takes no other option'
     return 2
   fi
   if [[ "$action" == stop ]] && (( rebuild )); then
-    print -u2 -- 'ybox: --stop takes only a mode flag'
+    print -u2 -- 'yolobox: --stop takes only a mode flag'
     return 2
+  fi
+
+  [[ -n "$mode" ]] || mode=yolo
+  if [[ "$action" == claude || "$action" == codex ]]; then
+    _yb_agent_command "$mode" "$action" "${agent_args[@]}" || return $?
+    shell_command=$REPLY
+    command_seen=1
+    action=shell
   fi
 
   resolved=$(_dc_resolve "$project_dir") || return 1
@@ -332,36 +361,35 @@ ybox() {
       config=$(_ybox_config "$root" "$m")
       listed=$(_ybox_containers "$root" "$config") || return 1
       if [[ -z "$listed" ]]; then
-        print -- "ybox: $m: no container"
+        print -- "yolobox: $m: no container"
         continue
       fi
       for container in ${(f)listed}; do
         state=$(docker inspect --format '{{.State.Status}}' "$container" 2>/dev/null || print unknown)
         actual=$(_ybox_posture "$container")
-        print -- "ybox: $m: ${container:0:12} ($state) ${actual#* }"
+        print -- "yolobox: $m: ${container:0:12} ($state) ${actual#* }"
         [[ "${actual%% *}" == "$m" ]] ||
-          print -- "ybox:   WARNING: that is $(_ybox_mode_name "${actual%% *}"), not $(_ybox_mode_name "$m"); fix: $(_ybox_rebuild_hint "$m" "$root")"
+          print -- "yolobox:   WARNING: that is $(_ybox_mode_name "${actual%% *}"), not $(_ybox_mode_name "$m"); fix: $(_ybox_rebuild_hint "$m" "$root")"
       done
     done
     return 0
   fi
 
-  [[ -n "$mode" ]] || mode=yolo
   config=$(_ybox_config "$root" "$mode")
   if [[ ! -f "$config" ]]; then
-    print -u2 -- "ybox: no config for $(_ybox_mode_name "$mode") at $config"
+    print -u2 -- "yolobox: no config for $(_ybox_mode_name "$mode") at $config"
     return 1
   fi
 
   if [[ "$action" == stop ]]; then
     listed=$(_ybox_containers "$root" "$config") || return 1
     if [[ -z "$listed" ]]; then
-      print -- "ybox: $root has no $(_ybox_mode_name "$mode") container"
+      print -- "yolobox: $root has no $(_ybox_mode_name "$mode") container"
       return 0
     fi
     for container in ${(f)listed}; do
       docker stop "$container" >/dev/null || return 1
-      print -- "ybox: stopped the $(_ybox_mode_name "$mode") container ${container:0:12}"
+      print -- "yolobox: stopped the $(_ybox_mode_name "$mode") container ${container:0:12}"
     done
     return 0
   fi
@@ -372,7 +400,7 @@ ybox() {
     _ybox_refuse_attached "$root" "$(_ybox_config "$root" yolo)" "$(_ybox_config "$root" normie)" || return 1
     _ybox_rebuild_other "$root" "$mode" "${up_args[@]}" || return 1
     _ybox_clear_containers "$root" "$config" || return 1
-    print -- "ybox: recreating the $(_ybox_mode_name "$mode") container for $root"
+    print -- "yolobox: recreating the $(_ybox_mode_name "$mode") container for $root"
   elif [[ -n "$existing" ]]; then
     _ybox_verify_layout "$root" "$(python3 "$_DC_RESOLVE_PY" remote-path "$config" "")" ${(f)existing} || return 1
   fi
@@ -383,7 +411,11 @@ ybox() {
 
   case "$action" in
     shell)
-      devcontainer exec --workspace-folder "$root" --config "$config" zsh -c "cd ${(q)remote_path} && exec zsh"
+      if (( command_seen )); then
+        devcontainer exec --workspace-folder "$root" --config "$config" zsh -ic "cd ${(q)remote_path} && $shell_command"
+      else
+        devcontainer exec --workspace-folder "$root" --config "$config" zsh -c "cd ${(q)remote_path} && exec zsh"
+      fi
       ;;
     code)
       docker_context=$(docker context show) || return 1
@@ -393,10 +425,14 @@ ybox() {
   esac
 }
 
-# Short names. All creation and resolution stays in ybox.
-ybe() { ybox --shell "$@"; }
-ybcode() { ybox --code "$@"; }
+# Short names. All creation and resolution stays in yolobox.
+ybe() { _yb_shortcut yolo shell "$@"; }
+nbe() { _yb_shortcut normie shell "$@"; }
+ybcode() { _yb_shortcut yolo code "$@"; }
+nbcode() { _yb_shortcut normie code "$@"; }
+
+source "$_DC_HOST_DIR/agents.zsh"
 
 # Completion initialization belongs to the user's zsh setup.
-source "$_DC_HOST_DIR/_ybox"
+source "$_DC_HOST_DIR/_yolobox"
 source "$_DC_HOST_DIR/_ybcode"

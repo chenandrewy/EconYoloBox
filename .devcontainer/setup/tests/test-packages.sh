@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Run as ubuntu in a rebuilt devcontainer: bash .devcontainer/setup/tests/test-packages.sh
 # Inputs: the shared R, Python and TeX volumes, mounted read-only (YOLO mode,
-#   the default) or writable (ybox --normie); .devcontainer/setup/install-base.sh (its --verify
+#   the default) or writable (yolobox --normie); .devcontainer/setup/install-base.sh (its --verify
 #   mode holds the declared base lists). In read-only mode pip reaches PyPI
 #   only to prove an install is refused. Passes on the base alone; the
 #   optional set has its own check, tests/test-optional.sh.
@@ -29,7 +29,7 @@ mode=$(bash "$here/../../package-mode.sh")
 echo "--- package mounts agree: $mode"
 case "$mode" in
 readonly | writable) ;;
-*) fail "package mounts are $mode; on the host run ybox --rebuild (add --normie for writable)" ;;
+*) fail "package mounts are $mode; on the host run yolobox --rebuild (add --normie for writable)" ;;
 esac
 for mount in /opt/venv "$site_library" /usr/local/texlive; do
     mountpoint -q "$mount" || fail "$mount is not a mounted volume"

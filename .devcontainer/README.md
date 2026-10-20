@@ -45,7 +45,7 @@ Edit `credentials-map.json`:
 Keys are credential store entry names; values are the env var names scripts will use. `setup.py` automatically groups prompts by the first segment of the key (e.g. `wrds-username` and `wrds-password` are grouped under "WRDS").
 
 After changing credentials on the host, recreate the containers
-(`ybox --rebuild`, which recreates both modes' containers):
+(`yolobox --rebuild`, which recreates both modes' containers):
 `initializeCommand` rewrites the env file from the host store, and Docker
 reads it only when it creates a container. Revoking access likewise means
 recreating them; emptying the file no longer does it.
@@ -53,16 +53,16 @@ recreating them; emptying the file no longer does it.
 ## Dev Container (`.devcontainer/`)
 
 `.devcontainer/` is the container itself: its definition, its startup, and the
-tools baked into it. `.devcontainer/host/` is the launcher (`ybox`), and
+tools baked into it. `.devcontainer/host/` is the launcher (`yolobox`), and
 [`.devcontainer/setup/`](setup/README.md) is provisioning you run by hand, in the
 container: the package volumes and the AI CLIs.
 
 The checkout mounts at `/yolobox` inside both containers. The host checkout
 folder can keep its existing name. When changing an existing installation from
 the former `/sandbox` mount, close attached VS Code windows and run
-`ybox --rebuild` on the host. The launcher recreates both modes if both exist;
+`yolobox --rebuild` on the host. The launcher recreates both modes if both exist;
 an old container cannot be reused with the new working directory. Open a fresh
-shell afterward so `sesh-init` can update the home-directory session links.
+shell afterward so `ai-sesh-init` can update the home-directory session links.
 Stored session transcripts may still mention the old path as historical data.
 
 ### Updating an existing checkout after the directory reorganization
@@ -72,7 +72,7 @@ inside `.devcontainer/`; credential management moved to root `credentials/`.
 From the checkout root on the host, rerun `bash .devcontainer/host/setup.sh`,
 then open a new shell (or run `exec zsh`) to load the new launcher registration.
 Setup migrates earlier registrations while preserving unrelated shell settings.
-Run `ybox --rebuild` to recreate the containers with the updated initialization
+Run `yolobox --rebuild` to recreate the containers with the updated initialization
 commands and image scripts. Existing package and authentication volumes are kept.
 
 ### TeX Live and LyX
@@ -138,11 +138,23 @@ MacBook25:My-Project#1
 
 Because the name appears in every session, a short one is worth setting.
 
+### Git identity
+
+Commits need `user.name` and `user.email`. `host/write-local-env.sh` reads
+the host's global values into `/tmp/devcontainer-local.env` as
+`HOST_GIT_USER_NAME` and `HOST_GIT_USER_EMAIL`, and `git-identity.sh`
+(`postStartCommand`) sets each in the container's `~/.gitconfig` when it is
+unset there. Nothing else in the host gitconfig is copied: VS Code's attach
+used to copy the whole file, credential helper included, and agents no longer
+attach (`docs/journal/1002a`). A value set in the container wins, and setting
+or changing the host's takes a `yolobox --rebuild`, as for credentials.
+`tests/test-git-identity.sh` covers both scripts.
+
 ### Codex sandbox modes and launchers
 
 Docker's outer seccomp policy is part of each mode's config: `builtin` in the
 YOLO container (the default), `unconfined` in the normie container
-(`ybcode --normie`). Codex's sandboxed modes need `unconfined`,
+(`nbcode`). Codex's sandboxed modes need `unconfined`,
 because builtin seccomp blocks Bubblewrap setup here and
 automatic review did not provide reliable recovery for all native tools.
 Validation after container recreation is still required; the mode alone is
@@ -157,7 +169,7 @@ runtime mode check, not proof of Docker's exact builtin profile.
 See [Docker's seccomp documentation](https://docs.docker.com/engine/security/seccomp/).
 
 Changing mode means using the other container, not changing this one; each
-keeps its seccomp policy for life. `ybox` inspects the exact container
+keeps its seccomp policy for life. `yolobox` inspects the exact container
 returned by `devcontainer up` and stops before attachment if its posture is
 not its config's. VS Code's **Rebuild Container** rebuilds from the window's
 config, so it keeps the mode.
@@ -188,8 +200,10 @@ A bare `codex` requests "Approve for me": `/etc/codex/config.toml` (from
 `agents/managed/YOLOBOX-codex-config.toml`) sets `approval_policy = "on-request"`,
 `sandbox_mode = "workspace-write"`, and `approvals_reviewer = "auto_review"`.
 User configuration can override these defaults. The container does not rewrite
-your user config. For a single session, use `codex --approve-for-me` (available
-in the inspected CLI 0.154.0).
+your user config. The `nbgpt` launcher runs bare `codex`, respecting your saved
+permissions and allowing the shared background server. For a single session,
+`codex --approve-for-me` selects automatic review explicitly, but in CLI 0.162.1
+it triggers the embedded-mode warning.
 
 The explicit `gptchat-yolo` / `gptmini-yolo` wrappers remain in `shellrc.sh`.
 They use `--dangerously-bypass-approvals-and-sandbox`. Along with `cchat-yolo`,
@@ -251,7 +265,9 @@ The template mounts persistent volumes for:
 - `/home/ubuntu/.codex` — Codex auth and config
 
 This keeps interactive login state across container rebuilds and restarts.
-Both modes' containers mount the same volumes, so one login serves both.
+Each mode has its own pair of volumes (`<folder>-yolo-claude-config`,
+`<folder>-normie-codex-config`, ...), so log in once in each mode. Transcripts
+are still shared through `tools/ai-sesh`; guidance and settings through `agents/`.
 
 VS Code extensions live in one per-checkout volume mounted at
 `/home/ubuntu/.vscode-server/extensions`. Normie mounts it writable; YOLO
@@ -269,19 +285,43 @@ an unrelated allowed host that shares an IP can still make one reachable.
 After a VS Code update, its versioned server binary is downloaded on the host
 and transferred again; only the extension directory persists.
 
-GitHub auth is different: nothing is persisted in a volume, but VS Code's Dev
-Containers extension forwards the host's Git credentials on demand (its default,
-written into the root-owned system gitconfig). That forwarding is left on
-deliberately — it is what lets work in here push branches and open PRs. Note the
-capability is not a licence: pushing still gets asked about first.
+### GitHub auth
 
-To turn it off, the only effective switch is on the host, not in this repo — the
-helper is injected per session by the VS Code client, so no rebuild can remove
-it:
+GitHub access is split by mode (plan: `docs/journal/1006a`). YOLO holds no
+GitHub credentials; normie holds the user's `gh` login.
 
-```json
-"dev.containers.gitCredentialHelperConfigLocation": "none"
-```
+- **Normie.** Log in once from an `nb*` or `nbe` session with
+  `gh auth login --with-token` (preferably a fine-grained token scoped to the
+  needed repositories), then run `gh auth setup-git` so Git uses the same
+  login. Both write to the container's own `~/.config/gh` and `~/.gitconfig`,
+  which are not on a shared volume, so YOLO never sees them. The login
+  survives a restart but not a rebuild. Commit identity is separate and set in
+  both modes (see Git identity).
+- **YOLO.** Run agents with `ybcc`/`ybgpt` (or a shell with `ybe`) from a
+  local VS Code window on the host. These use `devcontainer exec`, which
+  forwards no credentials. Local commits work; pushes go through normie or a
+  host terminal on the same checkout.
+
+**Do not attach VS Code to the YOLO container** (`ybcode` without `--normie`,
+or Reopen in Container with the YOLO config). An attached window starts VS
+Code's credential relay: sockets in `/tmp` (`vscode-remote-containers-ipc-*`,
+`vscode-git-*`, `vscode-ssh-auth-*`) that any process in the container can use
+to request credentials from the host, and a helper line in both
+`/usr/local/etc/gitconfig` and `~/.gitconfig`. The relay lasts while the
+window is attached. The host setting
+`"dev.containers.gitCredentialHelperConfigLocation": "none"` only stops the
+helper line being written; it is not known to stop the relay answering, and
+no setting stops SSH agent forwarding.
+
+A listening relay does not establish that the host will return a usable
+credential. In the [2026-10-06 attached-container check](../docs/journal/1006c,vscode-relay-after-oauth-reset.md),
+after the user revoked VS Code's GitHub OAuth authorization and signed back
+in for Copilot, `gh auth status` reported no login and `git credential fill`
+returned no GitHub HTTPS credential (exit 128), despite listening relay
+sockets. The failure reason, direct IPC requests, and SSH-agent capabilities
+were not tested; this result does not yet justify relaxing the attach guidance.
+
+Pushing from normie is not a licence: agents still ask first.
 
 ### Agent Config
 
@@ -330,7 +370,7 @@ hard-codes the security posture:
 | Mode | Config | Launch | Internet | Package volumes | Seccomp | Use |
 |---|---|---|---|---|---|---|
 | YOLO mode (default) | `devcontainer.json` | `ybcode`, `ybe` | firewalled | read-only | `builtin` | everyday work; YOLO launchers allowed; agents ask when a package is missing |
-| Normie mode | `normie/devcontainer.json` | `ybcode --normie`, `ybe --normie` | open | writable | `unconfined` | supervised work, like the Mac: open web, package installs, agents in approval modes |
+| Normie mode | `normie/devcontainer.json` | `nbcode`, `nbe` | open | writable | `unconfined` | supervised work, like the Mac: open web, package installs, agents in approval modes |
 
 Normie mode needs `unconfined` because Codex's approval modes run commands in
 Bubblewrap, which builtin seccomp blocks (see
@@ -347,24 +387,26 @@ configured mode. `posture.sh` checks that mode against live internet and
 seccomp state while reporting package access separately. All settings are fixed
 at creation; existing containers need recreation to receive `YOLOBOX_MODE`.
 The Dev Containers tooling keys a container on its folder and config
-file, so the two containers coexist, and whatever recreates one, `ybox` or VS
+file, so the two containers coexist, and whatever recreates one, `yolobox` or VS
 Code's own Rebuild or Reopen, recreates it from the same config, in the same
 mode. Neither container ever replaces the other: switching modes is attaching
 to the other one. A normie container runs, firewall open, until it is stopped
-(`ybox --stop --normie`); `ybox --status` lists both, and every YOLO
+(`yolobox --stop --normie`); `yolobox --status` lists both, and every YOLO
 bring-up mentions a running normie one. Why two files and not one with a
 switch: docs/journal/0927a.
 
-The two containers share the package, auth, AI CLI and VS Code extension volumes. Normie writes
+The two containers share the package and VS Code extension volumes. Normie writes
 packages that YOLO then runs read-only (a running R or Python session sees new
 packages after a restart). The per-checkout volumes hold `~/.claude`,
 `~/.codex`, the AI CLIs, shell history and VS Code extensions. They are named
-for the checkout's folder name alone, not
-`${devcontainerId}` (which depends on the config file and would give each mode
-its own). So one login and one CLI install serve both modes, and **each
-checkout's folder name must be unique on
-the Docker daemon**: a second checkout with the same name would share the
-Claude and Codex tokens and the CLIs themselves. `check-checkout.sh` enforces
+for the checkout's folder name, not `${devcontainerId}`. The agent homes and
+the CLIs also carry the mode (`<folder>-yolo-…`, `<folder>-normie-…`), so each
+mode has its own login, CLI install and agent daemon state: the containers
+cannot see each other's processes, and a shared home let one mode's daemon
+bookkeeping break the other's restarts and updates (docs/journal/1008a).
+Transcripts stay shared through `tools/ai-sesh`. **Each checkout's folder name
+must be unique on the Docker daemon**: a second checkout with the same name
+would share the Claude and Codex tokens and the CLIs themselves. `check-checkout.sh` enforces
 this at every start: it records the host folder in `~/.claude` the first
 time and refuses a different one, with the command to accept a deliberate
 move.
@@ -423,7 +465,7 @@ System dependencies that need root (`gfortran`, `libcurl4-openssl-dev`,
 the volume a new name, rebuild the container in normie mode, then fill it.
 
 The Claude Code and Codex CLIs are part of the base, installed into a writable
-per-container volume by the same script, `bash .devcontainer/setup/install-base.sh cli`,
+per-checkout, per-mode volume by the same script, `bash .devcontainer/setup/install-base.sh cli`,
 which works in any mode. `post-start.sh` runs it at startup while either CLI
 is missing, so a fresh volume fills itself. They were a Dockerfile layer pinned to
 `@latest`, which turned out to mean "whatever was current the day the layer
@@ -435,7 +477,7 @@ Because the install at startup can fail, `test-agent-policy.sh` reports `SKIP`
 (not `PASS`) for a CLI that is not installed, and interactive shells nudge
 while either CLI is missing. The npm-managed CLIs should not be assumed to
 self-update; re-run `install-base.sh cli` to update both to their current
-releases.
+releases. Each mode has its own install, so update each mode separately.
 
 `setup/tests/test-packages.sh`, run as `ubuntu` in a rebuilt container, is the
 acceptance check for the base. It covers mounts that match `packages`, the

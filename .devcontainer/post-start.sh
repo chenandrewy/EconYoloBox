@@ -1,20 +1,23 @@
 #!/bin/bash
 # ABOUTME: The container's postStartCommand. Arms the firewall unless this is
 # ABOUTME: the normie container, checks the checkout marker, seeds agent
-# ABOUTME: guidance, installs missing AI CLIs, checks policy, the package
-# ABOUTME: volumes and the VS Code extensions, prints the posture (YOLO or
-# ABOUTME: normie), refreshes TeX.
+# ABOUTME: guidance and the Git identity, installs missing AI CLIs, checks
+# ABOUTME: policy, the package volumes and the VS Code extensions, prints the
+# ABOUTME: posture (YOLO or normie), clears leftover VS Code relay files
+# ABOUTME: outside normie, refreshes TeX.
 #
 # Run by devcontainer.json on every container start (not on a bare
 # `docker restart`, which skips postStartCommand entirely).
 # Inputs:  YOLOBOX_INTERNET (from the config file, fixed at creation);
-#          LOCAL_CONTAINER_FOLDER (check-checkout.sh); the
-#          package mounts; PID 1's seccomp mode; the workspace setup scripts.
+#          LOCAL_CONTAINER_FOLDER (check-checkout.sh); HOST_GIT_USER_NAME and
+#          HOST_GIT_USER_EMAIL (git-identity.sh); the package mounts; PID 1's
+#          seccomp mode; the workspace setup scripts.
 # Outputs: firewall state, the firewall-open marker, the checkout marker (or a
-#          refusal), agent setup, the AI CLIs in npm-global when either is
-#          missing, a warning for each unbuilt package volume and each missing
-#          VS Code extension, the posture line
-#          (YOLO mode, normie mode, or custom), TeX refresh.
+#          refusal), agent setup, the global Git identity, the AI CLIs in
+#          npm-global when either is missing, a warning for each unbuilt
+#          package volume and each missing VS Code extension, the posture line
+#          (YOLO mode, normie mode, or custom), removal of leftover VS Code
+#          credential-relay files in /tmp unless normie, TeX refresh.
 #
 # The switch is YOLOBOX_INTERNET in the container's environment, which each
 # mode's config file hard-codes: "open" in normie/devcontainer.json,
@@ -54,7 +57,10 @@ bash .devcontainer/check-checkout.sh
 
 bash agents/seed-agent-guidelines.sh
 
-# The AI CLIs live in the per-checkout npm-global volume, which starts empty
+# Identity only: the host's user.name and user.email, never its helpers.
+bash .devcontainer/git-identity.sh || echo "post-start.sh: git-identity.sh failed" >&2
+
+# The AI CLIs live in this mode's per-checkout npm-global volume, which starts empty
 # and is writable in every mode; npm is on the firewall allowlist. So a first
 # start installs them here rather than asking the user (docs/journal/0926f).
 # Only when one is missing: updates stay a deliberate `install-base.sh cli`.
@@ -82,7 +88,7 @@ Rscript -e 'quit(status = !requireNamespace("fixest", quietly = TRUE))' >/dev/nu
 if [ ${#missing[@]} -gt 0 ]; then
     echo "post-start.sh: package volume not built or not loadable: ${missing[*]}" >&2
     echo "  in normie mode, in the container: bash .devcontainer/setup/install-base.sh ${missing[*]}" >&2
-    echo "  or remove the volume on the host and ybox --rebuild to seed it (.devcontainer/setup/README.md)" >&2
+    echo "  or remove the volume on the host and yolobox --rebuild to seed it (.devcontainer/setup/README.md)" >&2
 fi
 
 # The VS Code extensions are installed only from normie, into the shared
@@ -106,12 +112,21 @@ case "${posture%% *}" in
         echo "Normie mode: ${posture#* }"
         echo "  supervised: install with install.packages(), pip install or tlmgr install,"
         echo "  or bash .devcontainer/setup/install-optional.sh. Back to YOLO mode: on the host,"
-        echo "  ybcode or ybe; ybox --stop --normie stops this container."
+        echo "  ybcode or ybe; yolobox --stop --normie stops this container."
         ;;
     *)
         echo "Custom posture, neither YOLO nor normie mode: ${posture#* }" >&2
-        echo "  made before the per-mode configs? on the host: ybox --rebuild" >&2
+        echo "  made before the per-mode configs? on the host: yolobox --rebuild" >&2
         ;;
 esac
+
+# An attached VS Code window leaves credential-relay sockets and scripts in
+# /tmp, which is not tmpfs here, so they outlive the restart that ends their
+# relays. Clearing them outside normie means any relay file seen later in
+# YOLO comes from an attach since this start (docs/journal/1006a). Normie
+# keeps its files: GitHub access is allowed there.
+if [ "${posture%% *}" != normie ]; then
+    rm -f /tmp/vscode-remote-containers-* /tmp/vscode-ssh-auth-* /tmp/vscode-git-*
+fi
 
 tex-refresh || { echo "TeX/LyX refresh failed; see the message above" >&2; true; }

@@ -7,7 +7,12 @@
 input=$(cat)
 
 cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // ""')
-dir=$(basename "$cwd")
+# Full path, like Codex's current-dir item, with $HOME shown as ~.
+dir=$cwd
+case "$dir" in
+  "$HOME") dir="~" ;;
+  "$HOME"/*) dir="~${dir#"$HOME"}" ;;
+esac
 
 model=$(echo "$input" | jq -r '.model.display_name // ""')
 
@@ -33,7 +38,7 @@ if [ -d "${cwd}/.git" ] || git -C "$cwd" rev-parse --git-dir > /dev/null 2>&1; t
   branch=$(git -C "$cwd" --no-optional-locks symbolic-ref --short HEAD 2>/dev/null)
 fi
 
-# Outside YOLO mode, lead with the posture (ybox --normie, or custom), so an
+# Outside YOLO mode, lead with the posture (yolobox --normie, or custom), so an
 # agent session shows it the way the shell prompt does.
 posture=$(bash /yolobox/.devcontainer/posture.sh 2>/dev/null)
 case "${posture%% *}" in

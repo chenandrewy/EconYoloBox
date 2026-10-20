@@ -1,16 +1,9 @@
 # Host-side toolkit
 
-`.devcontainer/host/` is the supported host launcher for this yolobox,
-[`.devcontainer/setup/`](../setup/README.md) is provisioning you run by hand (package
-volumes and AI CLIs, in the container), and `.devcontainer/` is
-the container itself: its definition, its startup, and the tools baked into
-it.
-
-The functions run on your **Mac**, before Docker creates the container. `ybox`
-picks the mode's container (YOLO by default, normie with `--normie`), brings
-it up with the Dev Containers CLI, verifies it, and then optionally opens a
-shell or editor.
-Launching and managing Claude Code sessions remains a separate personal concern.
+This directory implements the host `yolobox` command and its eight shortcuts.
+For the command table, examples, agent permissions, and container management,
+see the [Yolobox command guide](../../docs/commands.md). The
+[root README](../../README.md#one-interface-two-modes) introduces the interface.
 
 ## Setup
 
@@ -19,7 +12,7 @@ From the checkout root on the host, run:
 ```zsh
 bash .devcontainer/host/setup.sh
 exec zsh
-ybox --code
+yolobox --code
 ```
 
 Setup locates its own checkout and registers the launcher in
@@ -38,108 +31,85 @@ rc file or testing, use `bash .devcontainer/host/setup.sh --rc-file PATH`.
 
 ## Layout
 
-| File               | Contents                                                    |
-|--------------------|-------------------------------------------------------------|
-| `setup.sh`         | host prerequisite checks and shell registration             |
-| `devcontainer.zsh` | `ybox`, short wrappers, bring-up, and verification        |
-| `_ybox`            | side-effect-free native zsh completion                     |
-| `_ybcode`          | zsh completion for the VS Code wrapper                     |
-| `dc-resolve.py`    | container-path, CLI-output, and folder-URI helpers          |
-| `find-python.sh`   | Python discovery for host initialization                  |
-| `write-local-env.sh` | host name, checkout path, and time zone for the container |
+| File | Responsibility |
+|---|---|
+| `setup.sh` | Check host prerequisites and register the launcher in zsh. |
+| `devcontainer.zsh` | Parse `yolobox` arguments, resolve directories, start and verify containers, and define shell/editor shortcuts. |
+| `agents.zsh` | Define agent shortcuts, enforce shortcut modes, construct agent commands, and provide help and agent completion. |
+| `_yolobox` | Complete the full command's actions, modes, and directories. |
+| `_ybcode` | Complete shell and editor shortcuts. |
+| `dc-resolve.py` | Handle container paths, CLI output, posture, and VS Code folder URIs. |
+| `find-python.sh` | Locate Python for host initialization. |
+| `write-local-env.sh` | Record host name, checkout path, and time zone for the container. |
+| `ybe-gptchatyolo` | Preserve the older standalone entry point by forwarding to `ybgpt`. |
 
-Keep these files flat in `.devcontainer/host/`: `devcontainer.zsh` resolves its siblings from
-its own path, so another checkout cannot redirect its helpers.
+Keep these files flat: `devcontainer.zsh` resolves its siblings from its own
+path, so another checkout cannot redirect its helpers. It sources `agents.zsh`
+and both completion files. Shell and editor shortcuts and agent shortcuts all
+call `_yb_shortcut`, which fixes their mode and action before invoking
+`yolobox`. Agent actions use `_yb_agent_command` to construct the command run
+in the container shell.
+
+Source `devcontainer.zsh` after zsh completion initialization. If `compdef` was
+unavailable when it loaded, source `devcontainer.zsh` again after `compinit`.
+Completion reads no configuration and never invokes Docker.
 
 ## Functions
 
-| Command | What it does |
-|---|---|
-| `ybox [dir]` | Bring up the enclosing yolobox's YOLO container. |
-| `ybox --normie [dir]` | Bring up its normie container. `--yolo` names the default explicitly. |
-| `ybox --shell [dir]` | Bring it up, verify it, and open a shell at that path. |
-| `ybox --code [dir]` | Bring it up, verify it, and open that path in VS Code. |
-| `ybox --stop [dir]` | Stop the mode's container (`--normie` for the normie one). |
-| `ybox --status [dir]` | Report both containers and their modes; change nothing. |
-| `ybox --rebuild [dir]` | Recreate both modes' containers, keeping Docker's build cache, then bring up the chosen mode's. |
-| `ybox --rebuild-without-cache [dir]` | The same with `--build-no-cache`. |
+See [actions and shortcuts](../../docs/commands.md#actions-and-shortcuts) and
+[container management](../../docs/commands.md#container-management) for the
+public interface. `yolobox --help` exposes the same command families locally.
 
-`ybe` and `ybcode` are short wrappers around `ybox --shell` and `ybox --code`,
-and take the same flags: `ybcode --normie`, `ybe --yolo`. They contain no
-separate bring-up logic. The former `dcu`, `dce`, `dccode`, `bbox`, `bbcode`,
-`bbu`, and `bbe` names are removed on load.
+## Agent commands
 
-Each mode is its own container, built from its own config file, which
-hard-codes its posture:
+See [agent permissions](../../docs/commands.md#agent-permissions) and
+[directories and arguments](../../docs/commands.md#directories-and-agent-arguments).
+Use the host launchers from a host terminal or local VS Code window; the
+[GitHub auth documentation](../README.md#github-auth) explains VS Code's
+credential relay when attaching to a container.
 
-| Mode | Config | Internet | Package volumes | Seccomp |
-|---|---|---|---|---|
-| YOLO (default, `--yolo`) | `.devcontainer/devcontainer.json` | firewalled | read-only | `builtin` |
-| normie (`--normie`) | `.devcontainer/normie/devcontainer.json` | open | writable | `unconfined` |
+## Container identity and verification
 
-The Dev Containers tooling keys a container on its folder and config file
-(the `devcontainer.local_folder` and `devcontainer.config_file` labels), so
-the two coexist: the flag only picks which one `ybox` brings up and attaches
-to, and neither ever replaces the other. `ybox` passes `--config` to
-`devcontainer up` and `devcontainer exec`, and the same config goes into the VS
-Code folder URI. A VS Code **Rebuild Container** or **Reopen in Container**
-therefore rebuilds the same mode. Containers for the folder with any other
-config label are not `ybox`'s and are left alone. The two containers share
-one set of per-checkout volumes (logins, the AI CLIs, shell history), which
-is why a checkout's folder name must be unique on the Docker daemon (see the
-[container README](../README.md#working-modes)).
+Dev Containers identifies a container by its checkout folder and config file
+(the `devcontainer.local_folder` and `devcontainer.config_file` labels).
+`yolobox` passes the selected config to both `devcontainer up` and
+`devcontainer exec`, and includes it in the VS Code folder URI. Containers for
+other config files are left alone.
 
-All modes walk up from `dir` (default: the current directory) and resolve the
-yolobox once. `ybox` then calls `devcontainer up` for the mode's config and
-inspects the exact returned container. If another container of the same mode
-exists, it refuses (a rebuild removes the extra). If the container is not in
-its config's posture, as with containers made before the per-mode configs,
-it stops before attachment and names the rebuild that fixes it. Otherwise it
-prints the mode, and a YOLO bring-up also mentions a running normie
-container, whose firewall is open until something stops it.
+The launcher inspects the exact container ID returned by `devcontainer up`.
+It refuses duplicate containers for one mode, a stale mount layout, or a
+posture that does not match the selected mode. Rebuilds clear duplicates and
+recreate existing modes; see the [rebuild behavior](../../docs/commands.md#container-management).
+Before rebuilding, the launcher checks for active connections to the
+in-container VS Code server, which can keep running after a window closes.
 
-A rebuild recreates both modes' containers, since the configs are twins and
-a change that needs one rebuilt needs the other too; a container left on the
-old config fails later, and confusingly. The mode flag only picks the one
-brought up and attached to at the end. The other mode is recreated first, and
-only if it has a container: a rebuild never creates a mode you have not used.
-If that container was not running, it is stopped again afterwards, so a
-rebuild never leaves an idle normie container running with its firewall open.
-Before removing anything, the launcher refuses if a VS Code window is
-connected to a container of either mode. The check looks for a live
-connection to the in-container VS Code server, which itself lingers after the
-window closes. VS Code's own **Rebuild Container** still rebuilds only the
-window's mode.
-`--shell`, `--code`, `--stop` and `--status` are mutually exclusive, as are
-the rebuild flags and the mode flags; `--status` takes no other option, and
-`--stop` only a mode flag.
+Per-checkout volumes are named for the folder's basename (the agent homes and
+CLIs also carry the mode). A checkout's folder name must therefore
+be unique on the Docker daemon; see [working modes](../README.md#working-modes).
+The host time zone is detected automatically; see
+[timezone configuration](../README.md#timezone) to override it.
 
-In the normie container the mode stays visible: `normie:` at the front of the
-VS Code window title, a `normie` tag at the front of the zsh prompt and
-Claude's status line, and a warning banner in every new shell.
+## Tests
 
-`devcontainer.zsh` sources `_ybox` and `_ybcode`. Source it after your zsh
-completion setup; if `compdef` was unavailable at that point, source both
-completion files again after `compinit`. Completion reads no configuration and
-never invokes Docker.
+Run from the checkout root:
+
+```sh
+zsh .devcontainer/host/tests/test-yolobox.zsh
+zsh .devcontainer/host/tests/test-agents.zsh
+python3 .devcontainer/host/tests/test-setup.py
+```
+
+These tests use mocked container commands and temporary files. They check
+container selection and verification, shortcut and full-command equivalence,
+argument quoting, permission conflicts, exit status, completions, and shell
+registration migration without starting real containers or agents.
 
 ## Claude Code sessions
 
-To start Claude on a project folder in this repo:
+`ybcc` uses the container's `cchat-yolo` wrapper. See
+[host versus container commands](../../docs/commands.md#host-versus-container-commands)
+for remote-control naming and `CC_SESSION_NAME`.
 
-```zsh
-ybe My-Project             # shell in the container, in that folder
-cchat-yolo                 # Claude, remote-controlled, named for the folder
-```
-
-`cchat-yolo` is defined in `.devcontainer/shellrc.sh`, so it is available in
-every container shell. It always passes `--remote-control` and derives the
-session name from the working directory (`My-Project#1`), numbering
-each session so a second one in the same folder stays distinguishable. Override
-the base name with `CC_SESSION_NAME`. It refuses to start unless the firewall
-is enabled and PID 1 has filtered seccomp mode.
-
-Host-side launchers that open a container *and* a Claude session in one command
-(`cc-remote-sandbox`, `ccremotes`, plus `ccsessions` / `cckill` for listing and
-terminating sessions) are personal configuration and are not shipped here. On
-this system they live in `MacUser/Shell-rc/cc-remotes.zsh`.
+Additional session tools (`cc-remote-sandbox`, `ccremotes`, `ccsessions`, and
+`cckill`) are personal configuration and are not shipped here. On the author's
+system they live in `MacUser/Shell-rc/cc-remotes.zsh`.

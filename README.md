@@ -40,7 +40,7 @@ actual research work).
      can write to them, but YOLO mode has read-only access. Packages you
      install in normie mode are available in YOLO mode, but YOLO agents can't
      install packages (including malicious ones) to these volumes.
-   - See [switching modes](#switching-modes) and
+   - See [the command interface](#one-interface-two-modes) and
      [isolation and approval limits](docs/features.md#1-safe-yolo-agents).
 
 2. **Ergonomic container and AI access**
@@ -49,14 +49,10 @@ actual research work).
      container is the way to go for volatile economics research
      projects—especially if you sync via Dropbox like I do. This box does it
      all for me. I hope it does the same for you.
-   - Start working in the container with one command: `ybcode My-Project`.
-     This opens `My-Project` in the YOLO container in VS Code. If you prefer
-     the terminal, `ybe My-Project` does it.
-   - Switch to normie mode with `ybcode --normie My-Project` (or
-     `ybe --normie My-Project`). These commands require the
-     [host launcher](#optional-host-command-workflow) setup.
-   - Start unsupervised agents in YOLO mode with `cchat-yolo` (Claude Code) or
-     `gptchat-yolo` (Codex). The YOLO launchers refuse to start in normie mode.
+   - **One command interface, two modes.** `yolobox` opens shells, VS Code,
+     Claude, and Codex with a consistent set of flags. Shortcuts pair everyday
+     YOLO and normie commands: `ybcc` / `nbcc`, `ybgpt` / `nbgpt`, and more.
+     See the table below.
 
 3. **Economics-research AI tooling**
 
@@ -65,24 +61,46 @@ actual research work).
    - Convert PDFs to Markdown with high fidelity using a tool built on Mistral
      OCR (h/t Don Bowen).
 
-More concretely, the whole checkout is bind-mounted at `/yolobox` in the
-container. The yolobox itself is these tracked folders:
+## One interface, two modes
 
-- `.devcontainer/`: container definitions, runtime support, host launchers,
-  provisioning, and tests
-- `agents/`: agent guidance, settings and skills; `agents/managed/` is the
-  policy baked into the image
-- `credentials/`: user-maintained credential mapping and host credential
-  management
-- `docs/`: design notes and the feature tour
-- `tools/`: custom research tooling
+EconYoloBox gives you **two containers for the same workspace**: YOLO and
+normie. Both mount the same project files and share package volumes, so edits
+in either are immediately visible in the other. They can run at the same time.
 
-I put my active projects in `workshop/`, finished projects in `hangar/` (for
-reference) and literature in `cellar/`. These are ignored by Git (see
-`.gitignore`). Having nested Git repos inside `workshop/` and `hangar/` works
-for me.
+Run these commands from a **host terminal** after the
+[host command setup](#optional-host-command-workflow). Each command starts its
+container if needed, then opens the requested tool for your project:
 
-See [Yolobox Features](docs/features.md) for a detailed tour.
+| What to open | In the YOLO container | In the normie container |
+|---|---|---|
+| A terminal shell inside a container | `ybe` | `nbe` |
+| VS Code connected to a container | `ybcode` | `nbcode` |
+| A Claude Code session running inside a container | `ybcc` | `nbcc` |
+| A Codex session running inside a container | `ybgpt` | `nbgpt` |
+
+**YOLO** runs agents without permission prompts inside a container with a
+firewall, filtered system calls, and read-only package volumes. **Normie** has
+open internet and writable package volumes; its agent launchers select Claude
+auto mode or Codex Approve for me. Opening one container keeps sessions in the
+other running.
+
+Pass a project directory, or omit it to use your current directory. From the
+checkout root:
+
+```zsh
+ybcc workshop/My-Project                     # Claude in YOLO mode
+ybgpt workshop/My-Project                    # Codex in YOLO mode
+nbgpt workshop/My-Project -- resume --last    # resume Codex in normie mode
+nbe workshop/My-Project                      # open a normie shell
+```
+
+For YOLO agents, use a host terminal or a local VS Code terminal: attaching
+VS Code to YOLO can expose its host credential relay. See the
+[GitHub authentication details](.devcontainer/README.md#github-auth).
+
+For the full interface and container management, run `yolobox --help` or see
+the [command guide](docs/commands.md). For the broader sandbox
+design and its limits, see [Yolobox Features](docs/features.md).
 
 ## Minimal setup
 
@@ -127,8 +145,8 @@ Windows and Linux support is partially wired but has not been tested.
    expect it to take a while longer than later rebuilds. VS Code reloads with
    `Dev Container` shown in the lower-left corner when it is ready. In its
    integrated terminal, run `bash .devcontainer/setup/install-vscode-extensions.sh`
-   and check that every workspace extension passes. Then reopen the plain
-   configuration for everyday YOLO mode.
+   and check that every workspace extension passes. Stay in normie for the
+   first agent launch below; the host commands let you choose YOLO afterward.
 
    To add or drop extensions, edit the list at the top of that script and
    rerun it in normie; see
@@ -137,17 +155,10 @@ Windows and Linux support is partially wired but has not been tested.
    sees the result, but the script does not know about it: a fresh extension
    volume will not get it back.
 
-   The YOLO container starts with its firewall on, allowing only the network
-   allowlist, with read-only package volumes and builtin seccomp. For open
-   internet access and package installs, use normie mode: the `(normie)`
-   configuration, or `ybcode --normie` with the
-   [host launcher](#optional-host-command-workflow).
-   The default allowlist is one point on the risk/return tradeoff.
-   Adjust the internet access in `.devcontainer/init-firewall.sh` to match
-   your own preferences.
-   Normie mode also disables Docker's outer syscall filter for every
-   container process; see
-   [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers).
+   To adjust YOLO's internet allowlist, edit
+   `.devcontainer/init-firewall.sh`. See
+   [sandbox validation and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers)
+   for the interaction between container isolation and agent permissions.
 
 5. **Create or clone a project.** Select **Terminal → New Terminal** in VS Code.
    The yolobox repository is mounted at `/yolobox`; all user content goes
@@ -171,8 +182,9 @@ Windows and Linux support is partially wired but has not been tested.
    git clone https://github.com/your-name/your-project.git My-Project
    ```
 
-6. **Start an AI agent from the project directory.** The first launch may ask
-   you to authenticate. Start Claude with auto mode selected:
+6. **Start an AI agent in the normie container.** The first launch may ask
+   you to authenticate. From the project directory, start Claude with auto mode
+   selected:
 
    ```bash
    cd /yolobox/workshop/My-Project
@@ -187,59 +199,34 @@ Windows and Linux support is partially wired but has not been tested.
 
    ```bash
    cd /yolobox/workshop/My-Project
-   codex
+   codex --sandbox workspace-write --ask-for-approval on-request -c approvals_reviewer=auto_review
    ```
 
-   For Codex, we recommend `approvals_reviewer = "auto_review"` in your
-   `~/.codex/config.toml`, alongside on-request approval and workspace-write
-   sandboxing. See [Codex setup and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers)
-   for the configuration. To try it for one session, run `codex --approve-for-me`.
-   Use `/model` or `codex --model <model>` to choose a model.
+   This selects Codex Approve for me for the session. See
+   [Codex setup and limits](.devcontainer/README.md#codex-sandbox-modes-and-launchers)
+   for persistent configuration and sandbox details. Use `/model` or
+   `codex --model <model>` to choose a model.
 
-   Automatic review is a user choice; disabling the firewall does not enable
-   it. Codex also has its own command network policy, so an open container
-   firewall does not guarantee that every sandboxed command can reach the web.
+   For everyday YOLO work, set up the host commands below and launch `ybcc` or
+   `ybgpt` from your host project directory. These select the YOLO container and
+   its guarded agent launcher together. If you are already in a YOLO shell,
+   use `cchat-yolo` or `gptchat-yolo`; see
+   [host versus container commands](docs/commands.md#host-versus-container-commands).
 
 ### Switching modes
 
-Each mode is its own container, built from its own configuration:
-`.devcontainer/devcontainer.json` for YOLO mode (firewalled internet,
-read-only package volumes, `builtin` seccomp) and
-`.devcontainer/normie/devcontainer.json` for normie mode (open internet,
-writable package volumes, `unconfined` seccomp), which is for supervised work.
-The launcher's flag picks which one to open:
-
-```zsh
-ybcode             # the YOLO container, in VS Code (ybe: in a terminal)
-ybcode --normie    # the normie container
-ybox --status      # both containers and their modes, changing nothing
-ybox --stop --normie   # stop the normie container
-```
-
-Both can run at once, and neither replaces the other, so switching is instant
-and ends nothing. They share volumes for logins, the AI CLIs, shell history
-and the packages and VS Code extensions normie mode installs. YOLO mounts
-those extensions read-only. A normie container keeps
-running, firewall open, until it is stopped (or, possibly, until its last VS
-Code window closes), so every YOLO bring-up mentions a running one.
-
-The mode stays in view: in the normie container the VS Code window title
-starts with `normie:`, the shell prompt and Claude's status line carry a
-`normie` tag, and every new shell prints a warning banner spelling out the
-security posture.
-Startup prints `YOLO mode`, `Normie mode`, or `Custom posture` for a container
-made before the per-mode configurations.
-
-The `cchat-yolo`, `gptchat-yolo`, and `gptmini-yolo` launchers skip permission
-checks and refuse to start unless the firewall is enabled and PID 1 has a
-filtered seccomp mode, so they run only in YOLO mode. In normie mode, keep
-agents in ordinary approval modes; neither a firewall nor automatic review
-guarantees the safety of mounted files or accessible credentials.
+Choose the matching shortcut in the table above. Each mode is a separate
+container; switching does not stop existing sessions. Normie stays open until
+stopped, so use `yolobox --stop --normie` when finished. The shell prompt and
+VS Code title identify normie mode. See
+[container management](docs/commands.md#container-management) for status,
+stopping, and rebuilds.
 
 ## Recommended additions
 
 The minimal setup works without these steps. Add the pieces needed for your
-workflow after the container is running.
+workflow after the container is running. For more, such as using one checkout
+from several Macs, see [extended setup](docs/extended-setup.md).
 
 ### Give the Mac a short name
 
@@ -259,7 +246,7 @@ python3 credentials/setup.py
 
 Press Enter to skip any service you do not use. The container receives the
 credentials as environment variables when it is created, so a container that
-already exists needs recreating to see new ones: `ybox --rebuild`, which
+already exists needs recreating to see new ones: `yolobox --rebuild`, which
 recreates both modes' containers.
 
 ### Update the AI CLIs
@@ -277,45 +264,57 @@ bash /yolobox/.devcontainer/setup/install-base.sh cli
 R, Python and TeX Live live in shared volumes that every project mounts,
 read-only by default. The first build fills them with a lean base. For the rest
 of the usual stack, or any other package, switch to normie mode with
-`ybcode --normie` on the host. Then, in the container:
+`nbcode` on the host. Then, in the container:
 
 ```bash
 bash .devcontainer/setup/install-optional.sh      # the rest of the usual stack
 ```
 
 or `install.packages()`, `pip install` or `tlmgr install`. Switch back to YOLO
-mode (`ybcode`, then `ybox --stop --normie`) and run
+mode (`ybcode`, then `yolobox --stop --normie`) and run
 `bash .devcontainer/setup/tests/test-packages.sh`. See [setup](.devcontainer/setup/README.md) and
 the [devcontainer README](.devcontainer/README.md#working-modes) for the
 details.
 
 ## Optional host command workflow
 
-The general-purpose `ybox` launcher brings up the requested mode's container,
-verifies it, and can open a shell or VS Code at a project path. Ensure the
-VS Code `code` CLI is installed if using `--code`. To install the launcher, run the
-following from the checkout root in a host zsh terminal:
+The commands in the table run in **zsh on the host**. Alongside the host
+applications in Minimal setup, install Node.js/npm and the Dev Containers CLI.
+For VS Code actions, enable the `code` CLI through **Shell Command: Install
+'code' command in PATH** in VS Code's Command Palette. From the checkout root
+in a host terminal:
 
 ```zsh
 npm install -g @devcontainers/cli
 bash .devcontainer/host/setup.sh
 exec zsh
-type ybox
+yolobox --help
 ```
 
-Run `ybox` to bring the container up, `ybcode My-Project` (`ybox --code`) to
-open a project in VS Code, or `ybe My-Project` (`ybox --shell`) to enter it in
-a terminal. Each takes `--normie` (or an explicit `--yolo`), and
-`ybox --rebuild` recreates both modes' containers after a Dockerfile or
-config change, then opens the chosen one. VS Code's own **Rebuild Container**
-rebuilds only the window's mode, from its configuration.
+The setup script registers the commands in your zsh configuration and checks
+prerequisites. After setup, use any command in the table above. For example,
+`ybcc workshop/My-Project` launches Claude in YOLO mode directly from the host.
+See the [command guide](docs/commands.md) for the full interface and
+[host toolkit setup](.devcontainer/host/README.md#setup) for registration details.
 
-Optional: the container picks up the Mac's timezone automatically. To force a
-different one, export it on the host before the container starts.
+## Project layout
 
-```bash
-export TZ=America/Chicago
-```
+The whole checkout is bind-mounted at `/yolobox` in the
+container. The yolobox itself is these tracked folders:
+
+- `.devcontainer/`: container definitions, runtime support, host launchers,
+  provisioning, and tests
+- `agents/`: agent guidance, settings and skills; `agents/managed/` is the
+  policy baked into the image
+- `credentials/`: user-maintained credential mapping and host credential
+  management
+- `docs/`: design notes and the feature tour
+- `tools/`: custom research tooling
+
+I put my active projects in `workshop/`, finished projects in `hangar/` (for
+reference) and literature in `cellar/`. These are ignored by Git (see
+`.gitignore`). Having nested Git repos inside `workshop/` and `hangar/` works
+for me.
 
 ## Devcontainer storage
 

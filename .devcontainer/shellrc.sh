@@ -10,12 +10,13 @@
 #   pdf:     pdf2md.py, rebookmark.py
 #   latex:   sync-lyx.sh
 #   lit:     citation lookup (cited_by.py, via OpenAlex)
-#   ai-sesh: sesh-init, sesh-push, sesh-wipe, gpt-fork
-export PATH="/yolobox/tools/pdf:/yolobox/tools/latex:/yolobox/tools/lit:/yolobox/tools/ai-sesh:$PATH"
+#   markdown: format-pipe-tables.py
+#   ai-sesh: ai-sesh-init
+export PATH="/yolobox/tools/pdf:/yolobox/tools/latex:/yolobox/tools/lit:/yolobox/tools/markdown:/yolobox/tools/ai-sesh:$PATH"
 
 # ai-sesh: keep the home session stores symlinked into the Dropbox-synced
 # tree (idempotent; silent once the links exist — see tools/ai-sesh/README.md)
-sesh-init || true
+ai-sesh-init || true
 
 # The Python, R and TeX stacks live in shared volumes, read-only outside normie
 # mode, so an unbuilt volume means no stack. Say so once per shell instead of
@@ -60,7 +61,7 @@ if ! bash /yolobox/.devcontainer/setup/install-vscode-extensions.sh --verify >/d
 fi
 
 # Posture warning banner and prompt tag. Each mode has its own container,
-# built from its own config file (ybcode or ybcode --normie on the host), so
+# built from its own config file (ybcode or nbcode on the host), so
 # outside YOLO mode every shell warns what is loosened, and zsh's prompt
 # carries a tag, so the mode stays in view. posture.sh checks the declared
 # container mode against the firewall marker and PID 1's seccomp mode. It also
@@ -82,7 +83,7 @@ if [ "$_ybx_mode" != yolo ]; then
     else
         printf '%s\n' \
             "${_ybx_hi}Warning: Custom Posture${_ybx_off}" \
-            "${_ybx_posture#* }; to fix, on the host: ybox --rebuild"
+            "${_ybx_posture#* }; to fix, on the host: yolobox --rebuild"
     fi
     unset _ybx_hi _ybx_off
 fi
